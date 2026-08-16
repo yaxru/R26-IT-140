@@ -1,3 +1,7 @@
+"use client";
+
+import { HoverTooltip } from "./HoverTooltip";
+
 export interface RankedBarItem {
   id: string;
   label: string;
@@ -61,10 +65,30 @@ export function RankedBarList({ items, maxValue }: RankedBarListProps) {
               )}
             </div>
             <div className="flex-1 h-4 bg-zinc-100 dark:bg-zinc-900 relative overflow-hidden">
-              <div
-                className={`h-full ${ACCENT_BAR[accent]} transition-all duration-500`}
-                style={{ width: `${pct}%` }}
-              />
+              <HoverTooltip
+                className="w-full h-full"
+                content={
+                  <>
+                    <div className="font-semibold text-zinc-100 mb-1">
+                      #{idx + 1} {item.label}
+                    </div>
+                    {item.sublabel && (
+                      <div className="text-zinc-400 mb-1">{item.sublabel}</div>
+                    )}
+                    <div className="flex items-center justify-between gap-3 text-zinc-400">
+                      <span>{item.displayValue ?? item.value}</span>
+                      <span className="text-emerald-400 font-semibold">
+                        {pct.toFixed(0)}% of max
+                      </span>
+                    </div>
+                  </>
+                }
+              >
+                <div
+                  className={`h-full ${ACCENT_BAR[accent]} transition-all duration-500`}
+                  style={{ width: `${pct}%` }}
+                />
+              </HoverTooltip>
             </div>
             <span
               className={`w-16 shrink-0 text-right text-xs font-mono font-semibold tabular-nums ${ACCENT_TEXT[accent]}`}

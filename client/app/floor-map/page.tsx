@@ -171,6 +171,43 @@ export default function FloorMapPage() {
             selectedRow={stations.length > 0 ? selectedIndex : null}
             onCellClick={(rowIndex) => setSelectedIndex(rowIndex)}
             formatValue={(v) => `${Math.round(v)}`}
+            tooltipContent={(ri, ci) => {
+              const s = stations[ri];
+              if (!s) return null;
+              return (
+                <>
+                  <div className="flex items-center justify-between gap-3 font-semibold text-zinc-100 mb-1">
+                    <span>{s.station_id}</span>
+                    <span
+                      className={
+                        s.is_bottleneck ? "text-orange-400" : "text-emerald-400"
+                      }
+                    >
+                      {s.is_bottleneck ? "Bottleneck" : "On target"}
+                    </span>
+                  </div>
+                  <div className="text-zinc-400 mb-1">{s.required_skill}</div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-zinc-400">
+                    {METRIC_COLUMNS.map((col, i) => (
+                      <div
+                        key={col}
+                        className={`flex items-center justify-between gap-2 ${
+                          i === ci ? "text-emerald-400 font-semibold" : ""
+                        }`}
+                      >
+                        <span>{col}</span>
+                        <span>
+                          {heatmapValues[ri]?.[i] !== null &&
+                          heatmapValues[ri]?.[i] !== undefined
+                            ? `${Math.round(heatmapValues[ri][i]!)}`
+                            : "—"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            }}
           />
           <p className="mt-3 text-[9px] font-mono text-zinc-400 dark:text-zinc-600 normal-case tracking-normal">
             darker = higher &middot; click any cell to inspect that station

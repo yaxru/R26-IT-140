@@ -1,5 +1,7 @@
 "use client";
 
+import { HoverTooltip } from "./HoverTooltip";
+
 export interface SegmentedBarItem {
   id: string;
   label: string;
@@ -40,18 +42,39 @@ export function SegmentedBar({ items, height = 40 }: SegmentedBarProps) {
           if (pct <= 0) return null;
           const color = item.color ?? PALETTE[i % PALETTE.length];
           return (
-            <div
+            <HoverTooltip
               key={item.id}
-              title={`${item.label}: ${item.displayValue ?? item.value} (${pct.toFixed(1)}%)`}
-              className="h-full flex items-center justify-center overflow-hidden shrink-0 transition-all duration-300 first:border-l-0 border-l border-white/20 dark:border-black/30"
-              style={{ width: `${pct}%`, backgroundColor: color }}
+              className="h-full shrink-0 first:border-l-0 border-l border-white/20 dark:border-black/30"
+              style={{ width: `${pct}%` }}
+              content={
+                <>
+                  <div className="flex items-center gap-1.5 font-semibold text-zinc-100 mb-1">
+                    <span
+                      className="w-2 h-2 shrink-0"
+                      style={{ backgroundColor: color }}
+                    />
+                    {item.label}
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-zinc-400">
+                    <span>{item.displayValue ?? item.value}</span>
+                    <span className="text-emerald-400 font-semibold">
+                      {pct.toFixed(1)}%
+                    </span>
+                  </div>
+                </>
+              }
             >
-              {pct > 12 && (
-                <span className="text-[10px] font-mono font-semibold text-white truncate px-1">
-                  {pct.toFixed(0)}%
-                </span>
-              )}
-            </div>
+              <div
+                className="w-full h-full flex items-center justify-center overflow-hidden"
+                style={{ backgroundColor: color }}
+              >
+                {pct > 12 && (
+                  <span className="text-[10px] font-mono font-semibold text-white truncate px-1">
+                    {pct.toFixed(0)}%
+                  </span>
+                )}
+              </div>
+            </HoverTooltip>
           );
         })}
       </div>

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import type { Bottleneck, RecommendResponse } from "../types";
+import type { Bottleneck, RecommendResponse, SkillMatrixEntry } from "../types";
 import { BottleneckCard } from "../components/BottleneckCard";
 import { RecommendationCard } from "../components/RecommendationCard";
 import { ProfitabilityCard } from "../components/ProfitabilityCard";
 import { StationSelector } from "../components/StationSelector";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { StationWorkersGrid } from "../components/StationWorkersGrid";
 import { createClient } from "@/lib/supabase/client";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -36,6 +37,8 @@ export default function WorkerReallocationPage() {
   const [accepted, setAccepted] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [skillMatrix, setSkillMatrix] = useState<SkillMatrixEntry[]>([]);
+  const [skillMatrixError, setSkillMatrixError] = useState<string | null>(null);
 
   // ── Load stations once on mount ──────────────────────────────────────────
   useEffect(() => {
@@ -54,6 +57,26 @@ export default function WorkerReallocationPage() {
         .catch((e) =>
           setBottlenecksError(
             e instanceof Error ? e.message : "Could not load stations",
+          ),
+        );
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Load the full workforce skill matrix once on mount ────────────────
+  useEffect(() => {
+    (async () => {
+      const headers = await getAuthHeaders();
+      fetch(`${API_BASE}/skill-matrix`, { headers })
+        .then((res) => {
+          if (!res.ok)
+            throw new Error(`Failed to load skill matrix (${res.status})`);
+          return res.json();
+        })
+        .then((data: SkillMatrixEntry[]) => setSkillMatrix(data))
+        .catch((e) =>
+          setSkillMatrixError(
+            e instanceof Error ? e.message : "Could not load skill matrix",
           ),
         );
     })();
@@ -219,6 +242,24 @@ export default function WorkerReallocationPage() {
           onAccept={handleAcceptMove}
         />
         <ProfitabilityCard recommendation={recommendation} />
+      </div>
+
+      {/* Workforce efficiency — every station's line workers, shown separately */}
+      <div className="bg-white dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800/60 p-5">
+        <span className="text-[10px] font-mono tracking-widest text-zinc-400 dark:text-zinc-500 uppercase">
+          Per-station workforce
+        </span>
+        <h2 className="mt-1 mb-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          Workforce efficiency
+        </h2>
+        <p className="text-[10px] font-mono text-zinc-400 dark:text-zinc-600 mb-4">
+          Every line&apos;s qualified workers, individually — hover a block for
+          operator, grade and efficiency
+        </p>
+
+        {skillMatrixError && <ErrorBanner message={skillMatrixError} />}
+
+        <StationWorkersGrid stations={bottlenecks} skillMatrix={skillMatrix} />
       </div>
 
       <p className="text-center text-[10px] font-mono text-zinc-400 dark:text-zinc-700 pb-4">

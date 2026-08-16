@@ -177,6 +177,15 @@ class StationOut(BaseModel):
     actual_productivity: Optional[float] = None
 
 
+class SkillMatrixOut(BaseModel):
+    operator_id: str
+    machine_type: str
+    proficiency_grade: str
+    # Derived from GRADE_EFFICIENCY so the frontend never has to duplicate
+    # the grade → efficiency mapping.
+    efficiency_pct: float
+
+
 # ---------------------------------------------------------------------------
 # Profitability calculations
 # ---------------------------------------------------------------------------
@@ -245,6 +254,40 @@ async def get_stations(_: dict = Depends(require_auth)):
         result.append({**s, "is_bottleneck": is_bottleneck})
 
     return result
+
+
+@app.get("/skill-matrix", response_model=list[SkillMatrixOut])
+async def get_skill_matrix(_: dict = Depends(require_auth)):
+    """
+    Return every operator's skill/proficiency record so the frontend can
+    render a per-person efficiency heatmap (Operator × Machine Type).
+
+    efficiency_pct is derived from the same GRADE_EFFICIENCY table used by
+    the /recommend gain calculation, so the two views never drift apart.
+    """
+    try:
+        response = (
+            supabase.table("skill_matrix")
+            .select("operator_id, machine_type, proficiency_grade")
+            .order("operator_id")
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Database query failed: {exc}",
+        )
+
+    return [
+        {
+            **row,
+            "efficiency_pct": GRADE_EFFICIENCY.get(
+                str(row.get("proficiency_grade", "")).upper(), 0.0
+            )
+            * 100,
+        }
+        for row in response.data
+    ]
 
 
 @app.post("/recommend", response_model=MoveInstruction)

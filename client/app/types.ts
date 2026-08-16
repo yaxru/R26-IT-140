@@ -41,3 +41,10 @@ export interface Bottleneck {
   targeted_productivity: number | null;
   actual_productivity: number | null;
 }
+
+export interface SkillMatrixEntry {
+  operator_id: string;
+  machine_type: string;
+  proficiency_grade: string;
+  efficiency_pct: number;
+}

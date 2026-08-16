@@ -1,5 +1,7 @@
 "use client";
 
+import { HoverTooltip } from "./HoverTooltip";
+
 export interface HeatmapProps {
   rowLabels: string[];
   colLabels: string[];
@@ -7,6 +9,8 @@ export interface HeatmapProps {
   onCellClick?: (rowIndex: number, colIndex: number) => void;
   selectedRow?: number | null;
   formatValue?: (v: number) => string;
+  /** Optional rich tooltip content per cell — falls back to a simple default. */
+  tooltipContent?: (rowIndex: number, colIndex: number) => React.ReactNode;
 }
 
 function colorForValue(v: number | null): string {
@@ -25,6 +29,7 @@ export function Heatmap({
   onCellClick,
   selectedRow = null,
   formatValue,
+  tooltipContent,
 }: HeatmapProps) {
   if (rowLabels.length === 0) {
     return (
@@ -64,34 +69,53 @@ export function Heatmap({
               </td>
               {colLabels.map((c, ci) => {
                 const v = values[ri]?.[ci] ?? null;
+                const defaultTooltip =
+                  v !== null ? (
+                    <>
+                      <div className="font-semibold text-zinc-100 mb-1">
+                        {r}
+                      </div>
+                      <div className="flex items-center justify-between gap-3 text-zinc-400">
+                        <span>{c}</span>
+                        <span className="text-emerald-400 font-semibold">
+                          {formatValue ? formatValue(v) : v}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-zinc-400">
+                      {r} &middot; {c}: no data
+                    </div>
+                  );
                 return (
                   <td key={c} className="p-0">
-                    <button
-                      type="button"
-                      onClick={() => onCellClick?.(ri, ci)}
-                      disabled={!onCellClick}
-                      title={
-                        v !== null
-                          ? `${r} \u00b7 ${c}: ${formatValue ? formatValue(v) : v}`
-                          : "No data"
+                    <HoverTooltip
+                      content={
+                        tooltipContent ? tooltipContent(ri, ci) : defaultTooltip
                       }
-                      className={`w-12 h-8 flex items-center justify-center text-[9px] tabular-nums transition-all border border-zinc-100 dark:border-zinc-800/60 ${
-                        onCellClick
-                          ? "cursor-pointer hover:ring-1 hover:ring-emerald-400"
-                          : ""
-                      } ${selectedRow === ri ? "ring-1 ring-emerald-500" : ""}`}
-                      style={{ backgroundColor: colorForValue(v) }}
                     >
-                      {v !== null ? (
-                        <span className="text-zinc-700 dark:text-zinc-200">
-                          {formatValue ? formatValue(v) : Math.round(v)}
-                        </span>
-                      ) : (
-                        <span className="text-zinc-300 dark:text-zinc-700">
-                          &mdash;
-                        </span>
-                      )}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => onCellClick?.(ri, ci)}
+                        disabled={!onCellClick}
+                        className={`w-12 h-8 flex items-center justify-center text-[9px] tabular-nums transition-all border border-zinc-100 dark:border-zinc-800/60 ${
+                          onCellClick
+                            ? "cursor-pointer hover:ring-1 hover:ring-emerald-400"
+                            : ""
+                        } ${selectedRow === ri ? "ring-1 ring-emerald-500" : ""}`}
+                        style={{ backgroundColor: colorForValue(v) }}
+                      >
+                        {v !== null ? (
+                          <span className="text-zinc-700 dark:text-zinc-200">
+                            {formatValue ? formatValue(v) : Math.round(v)}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-300 dark:text-zinc-700">
+                            &mdash;
+                          </span>
+                        )}
+                      </button>
+                    </HoverTooltip>
                   </td>
                 );
               })}

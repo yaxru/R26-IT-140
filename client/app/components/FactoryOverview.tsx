@@ -1,4 +1,5 @@
 import type { Bottleneck } from "../types";
+import { HoverTooltip } from "./HoverTooltip";
 
 interface FactoryOverviewProps {
   stations: Bottleneck[];
@@ -95,13 +96,19 @@ export function FactoryOverview({ stations }: FactoryOverviewProps) {
         ))}
       </div>
 
-      {/* ── Production Lines Table ─────────────────────────────────────── */}
+      {/* ── Line Efficiency Funnel ──────────────────────────────────────── */}
       {stations.length > 0 && (
         <div className="bg-white dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800/60 overflow-hidden">
           <div className="px-5 py-3 border-b border-zinc-100 dark:border-zinc-800/60 flex items-center justify-between">
-            <span className="text-[10px] font-mono tracking-widest text-zinc-400 dark:text-zinc-500 uppercase">
-              Production Lines
-            </span>
+            <div>
+              <span className="text-[10px] font-mono tracking-widest text-zinc-400 dark:text-zinc-500 uppercase">
+                Line Efficiency Funnel
+              </span>
+              <p className="text-[9px] font-mono text-zinc-400 dark:text-zinc-600 mt-0.5">
+                Bar fill = % of target reached &middot; row flagged when a
+                bottleneck is detected
+              </p>
+            </div>
             <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-600">
               {stations.length} stations
             </span>
@@ -115,16 +122,13 @@ export function FactoryOverview({ stations }: FactoryOverviewProps) {
                     Station
                   </th>
                   <th className="text-left px-4 py-2.5 text-[10px] tracking-wider uppercase text-zinc-400 dark:text-zinc-600 font-normal">
-                    Skill
-                  </th>
-                  <th className="text-left px-4 py-2.5 text-[10px] tracking-wider uppercase text-zinc-400 dark:text-zinc-600 font-normal">
                     WIP
                   </th>
-                  <th className="text-left px-4 py-2.5 text-[10px] tracking-wider uppercase text-zinc-400 dark:text-zinc-600 font-normal">
-                    Actual / Target
+                  <th className="px-4 py-2.5 text-[10px] tracking-wider uppercase text-zinc-400 dark:text-zinc-600 font-normal w-32">
+                    Target
                   </th>
-                  <th className="px-4 py-2.5 text-[10px] tracking-wider uppercase text-zinc-400 dark:text-zinc-600 font-normal w-36">
-                    Progress
+                  <th className="px-4 py-2.5 text-[10px] tracking-wider uppercase text-zinc-400 dark:text-zinc-600 font-normal w-32">
+                    Actual
                   </th>
                   <th className="text-right px-5 py-2.5 text-[10px] tracking-wider uppercase text-zinc-400 dark:text-zinc-600 font-normal">
                     Status
@@ -137,29 +141,39 @@ export function FactoryOverview({ stations }: FactoryOverviewProps) {
                     b.targeted_productivity !== null &&
                     b.actual_productivity !== null &&
                     b.targeted_productivity > 0;
-                  const pct = hasData
-                    ? Math.min(
-                        100,
-                        Math.round(
-                          (b.actual_productivity! / b.targeted_productivity!) *
-                            100,
-                        ),
-                      )
+                  const targetPct = hasData
+                    ? b.targeted_productivity! * 100
                     : null;
+                  const actualPct = hasData
+                    ? b.actual_productivity! * 100
+                    : null;
+                  const actualOfTargetPct =
+                    hasData && targetPct
+                      ? Math.min(100, (actualPct! / targetPct) * 100)
+                      : null;
 
                   return (
                     <tr
                       key={b.station_id}
-                      className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
+                      className={`hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors ${
+                        b.is_bottleneck
+                          ? "bg-orange-50/40 dark:bg-orange-950/10"
+                          : ""
+                      }`}
                     >
                       {/* Station */}
-                      <td className="px-5 py-3 text-zinc-800 dark:text-zinc-200 font-semibold">
-                        {b.station_id}
-                      </td>
-
-                      {/* Skill */}
-                      <td className="px-4 py-3">
-                        <span className="inline-block bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-2 py-0.5 text-[10px] tracking-wide">
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-zinc-800 dark:text-zinc-200 font-semibold">
+                            {b.station_id}
+                          </span>
+                          {b.is_bottleneck && (
+                            <span className="text-[8px] font-mono text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-950/50 px-1.5 py-0.5">
+                              flag
+                            </span>
+                          )}
+                        </div>
+                        <span className="inline-block mt-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-2 py-0.5 text-[9px] tracking-wide">
                           {b.required_skill}
                         </span>
                       </td>
@@ -169,47 +183,83 @@ export function FactoryOverview({ stations }: FactoryOverviewProps) {
                         {b.wip}
                       </td>
 
-                      {/* Actual / Target */}
-                      <td className="px-4 py-3 tabular-nums text-zinc-500 dark:text-zinc-400">
+                      {/* Target stage — always 100%, the funnel's reference bar */}
+                      <td className="px-4 py-3 w-32">
                         {hasData ? (
-                          <>
-                            <span className="text-zinc-800 dark:text-zinc-200">
-                              {b.actual_productivity}
-                            </span>
-                            <span className="text-zinc-300 dark:text-zinc-700 mx-1">
-                              /
-                            </span>
-                            {b.targeted_productivity}
-                          </>
+                          <HoverTooltip
+                            content={
+                              <>
+                                <div className="font-semibold text-zinc-100 mb-1">
+                                  {b.station_id} &middot; Target
+                                </div>
+                                <div className="text-zinc-400">
+                                  Targeted productivity: {targetPct!.toFixed(0)}
+                                  %
+                                </div>
+                              </>
+                            }
+                          >
+                            <div className="w-full">
+                              <div className="w-full h-3.5 bg-zinc-200 dark:bg-zinc-800">
+                                <div className="h-full w-full bg-zinc-400 dark:bg-zinc-600" />
+                              </div>
+                              <span className="text-[9px] tabular-nums text-zinc-400 dark:text-zinc-600">
+                                {targetPct!.toFixed(0)}%
+                              </span>
+                            </div>
+                          </HoverTooltip>
                         ) : (
-                          <span className="text-zinc-300 dark:text-zinc-700">
-                            —
-                          </span>
+                          <div className="h-3.5 bg-zinc-100 dark:bg-zinc-800 opacity-40" />
                         )}
                       </td>
 
-                      {/* Progress bar */}
-                      <td className="px-4 py-3 w-36">
-                        {pct !== null ? (
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 bg-zinc-100 dark:bg-zinc-800">
-                              <div
-                                className={`h-full transition-all duration-500 ${
-                                  pct >= 85
-                                    ? "bg-emerald-500"
-                                    : pct >= 60
-                                      ? "bg-amber-400"
-                                      : "bg-orange-500"
-                                }`}
-                                style={{ width: `${pct}%` }}
-                              />
+                      {/* Actual stage — narrows relative to target, flags when low */}
+                      <td className="px-4 py-3 w-32">
+                        {hasData && actualOfTargetPct !== null ? (
+                          <HoverTooltip
+                            content={
+                              <>
+                                <div className="font-semibold text-zinc-100 mb-1">
+                                  {b.station_id} &middot; Actual
+                                </div>
+                                <div className="flex items-center justify-between gap-3 text-zinc-400">
+                                  <span>
+                                    {actualPct!.toFixed(0)}% of{" "}
+                                    {targetPct!.toFixed(0)}% target
+                                  </span>
+                                  <span
+                                    className={
+                                      b.is_bottleneck
+                                        ? "text-orange-400 font-semibold"
+                                        : "text-emerald-400 font-semibold"
+                                    }
+                                  >
+                                    {actualOfTargetPct.toFixed(0)}%
+                                  </span>
+                                </div>
+                              </>
+                            }
+                          >
+                            <div className="w-full">
+                              <div className="w-full h-3.5 bg-zinc-100 dark:bg-zinc-900">
+                                <div
+                                  className={`h-full transition-all duration-500 ${
+                                    actualOfTargetPct >= 85
+                                      ? "bg-emerald-500"
+                                      : actualOfTargetPct >= 60
+                                        ? "bg-amber-400"
+                                        : "bg-orange-500"
+                                  }`}
+                                  style={{ width: `${actualOfTargetPct}%` }}
+                                />
+                              </div>
+                              <span className="text-[9px] tabular-nums text-zinc-400 dark:text-zinc-600">
+                                {actualOfTargetPct.toFixed(0)}%
+                              </span>
                             </div>
-                            <span className="text-[10px] tabular-nums text-zinc-400 dark:text-zinc-600 w-8 text-right">
-                              {pct}%
-                            </span>
-                          </div>
+                          </HoverTooltip>
                         ) : (
-                          <div className="h-1.5 bg-zinc-100 dark:bg-zinc-800 opacity-40" />
+                          <div className="h-3.5 bg-zinc-100 dark:bg-zinc-800 opacity-40" />
                         )}
                       </td>
 

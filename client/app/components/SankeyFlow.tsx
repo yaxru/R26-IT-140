@@ -134,6 +134,8 @@ export function SankeyFlow({
 }: SankeyFlowProps) {
   const { nodeRect, ribbons } = buildLayout(columns, links, height);
   const maxLinkValue = Math.max(1, ...links.map((l) => l.value));
+  const labelById = new Map<string, string>();
+  columns.flat().forEach((n) => labelById.set(n.id, n.label));
 
   return (
     <svg viewBox={`0 0 ${W} ${height}`} className="w-full" style={{ height }}>
@@ -147,7 +149,11 @@ export function SankeyFlow({
             d={path}
             fill={fill}
             opacity={opacity}
-          />
+          >
+            <title>
+              {`${labelById.get(link.source) ?? link.source} \u2192 ${labelById.get(link.target) ?? link.target}: ${link.value}`}
+            </title>
+          </path>
         );
       })}
 
@@ -162,7 +168,9 @@ export function SankeyFlow({
           const isFirst = ci === 0;
           return (
             <g key={n.id}>
-              <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={fill} />
+              <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={fill}>
+                <title>{`${n.label}: ${Math.round(r.h)}px flow`}</title>
+              </rect>
               <text
                 x={isFirst ? r.x - 6 : r.x + r.w + 6}
                 y={r.y + r.h / 2 + 3}
