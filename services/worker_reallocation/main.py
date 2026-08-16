@@ -30,14 +30,17 @@ def require_auth(
 ) -> dict:
     """Ask Supabase to validate the bearer token and return the user."""
     try:
-        response = supabase.auth.get_user(credentials.credentials)
+        token = credentials.credentials
+        # Try to get user from Supabase using the token
+        response = supabase.auth.get_user(token)
         if response.user is None:
             raise ValueError("No user in response")
         return {"user_id": response.user.id, "email": response.user.email}
-    except Exception:
+    except Exception as e:
+        print(f"[AUTH ERROR] {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
+            detail=f"Invalid or expired token: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
