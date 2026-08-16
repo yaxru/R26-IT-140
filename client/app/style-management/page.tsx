@@ -120,7 +120,7 @@ export default function StyleManagementPage() {
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase ${statusStyle[s.status]}`}
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded-none border uppercase ${statusStyle[s.status]}`}
                   >
                     {s.status}
                   </span>

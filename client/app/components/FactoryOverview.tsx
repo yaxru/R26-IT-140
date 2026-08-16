@@ -72,7 +72,7 @@ export function FactoryOverview({ stations }: FactoryOverviewProps) {
             key={s.label}
             className={`bg-white dark:bg-[#111113] border p-4 flex flex-col gap-1.5 ${
               s.highlight
-                ? "border-red-200 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/20"
+                ? "border-orange-200 dark:border-orange-900/60 bg-orange-50/40 dark:bg-orange-950/20"
                 : "border-zinc-200 dark:border-zinc-800/60"
             }`}
           >
@@ -82,7 +82,7 @@ export function FactoryOverview({ stations }: FactoryOverviewProps) {
             <span
               className={`text-2xl font-bold font-mono tabular-nums tracking-tight ${
                 s.highlight
-                  ? "text-red-600 dark:text-red-400"
+                  ? "text-orange-600 dark:text-orange-400"
                   : "text-zinc-900 dark:text-zinc-100"
               }`}
             >
@@ -199,7 +199,7 @@ export function FactoryOverview({ stations }: FactoryOverviewProps) {
                                     ? "bg-emerald-500"
                                     : pct >= 60
                                       ? "bg-amber-400"
-                                      : "bg-red-500"
+                                      : "bg-orange-500"
                                 }`}
                                 style={{ width: `${pct}%` }}
                               />
@@ -221,8 +221,8 @@ export function FactoryOverview({ stations }: FactoryOverviewProps) {
                             Maintenance
                           </span>
                         ) : b.is_bottleneck ? (
-                          <span className="inline-flex items-center gap-1.5 text-[10px] font-mono text-red-600 dark:text-red-400">
-                            <span className="w-1.5 h-1.5 bg-red-500 animate-pulse" />
+                          <span className="inline-flex items-center gap-1.5 text-[10px] font-mono text-orange-600 dark:text-orange-400">
+                            <span className="w-1.5 h-1.5 bg-orange-500 animate-pulse" />
                             Bottleneck
                           </span>
                         ) : (

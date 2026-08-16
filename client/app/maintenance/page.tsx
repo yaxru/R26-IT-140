@@ -43,13 +43,13 @@ export default function MaintenancePage() {
   ];
 
   const priorityStyle: Record<string, string> = {
-    high: "text-red-400 bg-red-500/10 border-red-500/20",
+    high: "text-orange-400 bg-orange-500/10 border-orange-500/20",
     medium: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20",
     low: "text-blue-400 bg-blue-500/10 border-blue-500/20",
   };
 
   const statusStyle: Record<string, string> = {
-    open: "text-red-400 bg-red-500/10 border-red-500/20",
+    open: "text-orange-400 bg-orange-500/10 border-orange-500/20",
     "in-progress": "text-yellow-400 bg-yellow-500/10 border-yellow-500/20",
     scheduled: "text-blue-400 bg-blue-500/10 border-blue-500/20",
     resolved: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
@@ -122,7 +122,7 @@ export default function MaintenancePage() {
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase ${priorityStyle[t.priority]}`}
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded-none border uppercase ${priorityStyle[t.priority]}`}
                   >
                     {t.priority}
                   </span>
@@ -132,7 +132,7 @@ export default function MaintenancePage() {
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase ${statusStyle[t.status]}`}
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded-none border uppercase ${statusStyle[t.status]}`}
                   >
                     {t.status.replace("-", " ")}
                   </span>

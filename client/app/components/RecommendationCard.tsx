@@ -1,4 +1,5 @@
 import type { RecommendResponse, SingleMove } from "../types";
+import { RankedBarList } from "./RankedBarList";
 
 interface RecommendationCardProps {
   recommendation: RecommendResponse | null;
@@ -207,6 +208,27 @@ export function RecommendationCard({
                     style={{ width: `${recommendation.gap_coverage_pct}%` }}
                   />
                 </div>
+
+                {/* Ranked by contribution — interactive mini chart */}
+                {recommendation.moves.length > 1 && (
+                  <div className="pt-1">
+                    <div className="text-[9px] font-mono text-zinc-400 dark:text-zinc-600 uppercase tracking-wider mb-1">
+                      Ranked by contribution
+                    </div>
+                    <RankedBarList
+                      items={[...recommendation.moves]
+                        .sort((a, b) => b.net_profit - a.net_profit)
+                        .map((m) => ({
+                          id: m.operator_id,
+                          label: m.operator_id,
+                          sublabel: `Grade ${m.proficiency_grade}`,
+                          value: Math.max(m.net_profit, 0.01),
+                          displayValue: `${m.net_profit >= 0 ? "+" : ""}${m.net_profit.toFixed(1)}m`,
+                          accent: m.donor_cascade_risk ? "amber" : "emerald",
+                        }))}
+                    />
+                  </div>
+                )}
 
                 {/* Worker list */}
                 <div className="flex flex-col gap-2">

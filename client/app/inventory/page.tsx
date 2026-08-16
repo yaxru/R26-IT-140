@@ -59,7 +59,7 @@ export default function InventoryPage() {
   const statusStyle: Record<string, string> = {
     ok: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
     low: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20",
-    out: "text-red-400 bg-red-500/10 border-red-500/20",
+    out: "text-orange-400 bg-orange-500/10 border-orange-500/20",
   };
 
   return (
@@ -139,7 +139,7 @@ export default function InventoryPage() {
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase ${statusStyle[item.status]}`}
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded-none border uppercase ${statusStyle[item.status]}`}
                   >
                     {item.status === "out"
                       ? "out of stock"

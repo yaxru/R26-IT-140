@@ -60,7 +60,7 @@ export default function ReportsPage() {
               >
                 <span className="text-[9px] font-mono text-zinc-500">{v}</span>
                 <div
-                  className="w-full rounded-sm bg-emerald-500/70"
+                  className="w-full rounded-none bg-emerald-500/70"
                   style={{ height: `${(v / 100) * 100}%` }}
                 />
                 <span className="text-[9px] font-mono text-zinc-600">

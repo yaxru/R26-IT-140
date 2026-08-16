@@ -53,7 +53,7 @@ export default function WorkforcePage() {
   const statusStyle: Record<string, string> = {
     active: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
     break: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20",
-    absent: "text-red-400 bg-red-500/10 border-red-500/20",
+    absent: "text-orange-400 bg-orange-500/10 border-orange-500/20",
   };
 
   const gradeColor: Record<string, string> = {
@@ -137,7 +137,7 @@ export default function WorkforcePage() {
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase ${statusStyle[w.status]}`}
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded-none border uppercase ${statusStyle[w.status]}`}
                   >
                     {w.status}
                   </span>

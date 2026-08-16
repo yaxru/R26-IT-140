@@ -10,7 +10,7 @@ export default function LiveMonitoringPage() {
 
   const statusColor: Record<string, string> = {
     running: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
-    bottleneck: "text-red-400 bg-red-500/10 border-red-500/20",
+    bottleneck: "text-orange-400 bg-orange-500/10 border-orange-500/20",
     idle: "text-zinc-400 bg-zinc-500/10 border-zinc-500/20",
   };
 
@@ -26,7 +26,7 @@ export default function LiveMonitoringPage() {
             Real-time Station Status
           </h1>
         </div>
-        <span className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded">
+        <span className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-none">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           LIVE
         </span>
@@ -36,7 +36,7 @@ export default function LiveMonitoringPage() {
       <div className="grid grid-cols-3 gap-4">
         {[
           { label: "Running", value: "4", color: "text-emerald-500" },
-          { label: "Bottlenecks", value: "2", color: "text-red-400" },
+          { label: "Bottlenecks", value: "2", color: "text-orange-400" },
           { label: "Idle", value: "1", color: "text-zinc-400" },
         ].map(({ label, value, color }) => (
           <div
@@ -63,7 +63,7 @@ export default function LiveMonitoringPage() {
                 {s.id}
               </span>
               <span
-                className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase ${statusColor[s.status]}`}
+                className={`text-[10px] font-mono px-2 py-0.5 rounded-none border uppercase ${statusColor[s.status]}`}
               >
                 {s.status}
               </span>
@@ -74,7 +74,7 @@ export default function LiveMonitoringPage() {
             <div className="flex items-center gap-2">
               <div className="flex-1 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all ${s.status === "bottleneck" ? "bg-red-400" : s.status === "idle" ? "bg-zinc-600" : "bg-emerald-500"}`}
+                  className={`h-full rounded-full transition-all ${s.status === "bottleneck" ? "bg-orange-400" : s.status === "idle" ? "bg-zinc-600" : "bg-emerald-500"}`}
                   style={{ width: `${s.efficiency}%` }}
                 />
               </div>

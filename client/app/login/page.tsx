@@ -100,7 +100,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="px-3 py-2 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 text-xs font-mono">
+              <div className="px-3 py-2 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/60 text-orange-600 dark:text-orange-400 text-xs font-mono">
                 {error}
               </div>
             )}

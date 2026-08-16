@@ -219,6 +219,26 @@ function ChevronRightIcon() {
   );
 }
 
+function WorkerReallocationIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M17 3l4 4-4 4" />
+      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+      <path d="M7 21l-4-4 4-4" />
+      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+    </svg>
+  );
+}
+
 // ── Nav data ──────────────────────────────────────────────────────────────
 
 const NAV_SECTIONS = [
@@ -242,6 +262,11 @@ const NAV_SECTIONS = [
   {
     label: "Management",
     items: [
+      {
+        label: "Worker Reallocation",
+        href: "/worker-reallocation",
+        icon: <WorkerReallocationIcon />,
+      },
       { label: "Workforce", href: "/workforce", icon: <WorkforceIcon /> },
       {
         label: "Style Management",

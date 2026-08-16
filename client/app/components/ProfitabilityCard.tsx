@@ -1,4 +1,5 @@
 import type { RecommendResponse } from "../types";
+import { SegmentedBar } from "./SegmentedBar";
 
 const NET_PROFIT_MIN = -15;
 const NET_PROFIT_MAX = 20;
@@ -26,12 +27,16 @@ export function ProfitabilityCard({ recommendation }: ProfitabilityCardProps) {
       ? "from-emerald-500 to-teal-400"
       : score > 0
         ? "from-amber-500 to-yellow-400"
-        : "from-red-600 to-rose-500";
+        : "from-orange-600 to-amber-500";
+
+  const costOfMove = recommendation
+    ? Math.max(0, recommendation.expected_production_gain - score)
+    : 0;
 
   return (
     <div className="bg-white dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800/60 p-6 flex flex-col gap-5">
       <span className="text-[10px] font-mono tracking-widest text-zinc-400 dark:text-zinc-500 uppercase">
-        Profitability Score
+        Profitability &middot; Cost breakdown
       </span>
 
       {recommendation ? (
@@ -42,7 +47,7 @@ export function ProfitabilityCard({ recommendation }: ProfitabilityCardProps) {
               className={`text-5xl font-bold font-mono tracking-tight tabular-nums ${
                 score > 0
                   ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-red-600 dark:text-red-400"
+                  : "text-orange-600 dark:text-orange-400"
               }`}
             >
               {score > 0 ? "+" : ""}
@@ -92,25 +97,30 @@ export function ProfitabilityCard({ recommendation }: ProfitabilityCardProps) {
             </div>
           )}
 
-          {/* Gain / Cost breakdown */}
-          <div className="mt-auto grid grid-cols-2 gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-800/50">
-            <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 p-3">
-              <div className="text-[9px] font-mono text-emerald-600 dark:text-emerald-700 uppercase tracking-wider mb-1.5">
-                Expected Gain
-              </div>
-              <div className="text-sm font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
-                +{recommendation.expected_production_gain.toFixed(1)} min
-              </div>
+          {/* Where the minutes go — Guickly "cost breakdown" style segmented bar */}
+          <div className="mt-auto pt-4 border-t border-zinc-100 dark:border-zinc-800/50">
+            <div className="text-[9px] font-mono text-zinc-400 dark:text-zinc-600 uppercase tracking-wider mb-2.5">
+              Where the minutes go
             </div>
-            <div className="bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 p-3">
-              <div className="text-[9px] font-mono text-red-500 dark:text-red-700 uppercase tracking-wider mb-1.5">
-                Cost of Move{(recommendation.workers_found ?? 1) > 1 ? "s" : ""}
-              </div>
-              <div className="text-sm font-mono font-bold text-red-500 dark:text-red-400 tabular-nums">
-                −{(recommendation.expected_production_gain - score).toFixed(1)}{" "}
-                min
-              </div>
-            </div>
+            <SegmentedBar
+              height={28}
+              items={[
+                {
+                  id: "gain",
+                  label: "Expected gain",
+                  value: recommendation.expected_production_gain,
+                  displayValue: `+${recommendation.expected_production_gain.toFixed(1)}m`,
+                  color: "#10b981",
+                },
+                {
+                  id: "cost",
+                  label: `Cost of move${(recommendation.workers_found ?? 1) > 1 ? "s" : ""}`,
+                  value: costOfMove,
+                  displayValue: `-${costOfMove.toFixed(1)}m`,
+                  color: "#f59e0b",
+                },
+              ]}
+            />
           </div>
         </>
       ) : (

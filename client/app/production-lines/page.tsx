@@ -1,3 +1,5 @@
+import { RankedBarList } from "../components/RankedBarList";
+
 export default function ProductionLinesPage() {
   const lines = [
     {
@@ -36,7 +38,7 @@ export default function ProductionLinesPage() {
 
   const statusStyle: Record<string, string> = {
     "on-track": "text-emerald-500 border-emerald-500/30 bg-emerald-500/10",
-    behind: "text-red-400 border-red-500/30 bg-red-500/10",
+    behind: "text-orange-400 border-orange-500/30 bg-orange-500/10",
     complete: "text-blue-400 border-blue-500/30 bg-blue-500/10",
   };
 
@@ -71,6 +73,33 @@ export default function ProductionLinesPage() {
             </p>
           </div>
         ))}
+      </div>
+
+      {/* Ranked by output */}
+      <div className="bg-white dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800/60 p-5">
+        <span className="text-[10px] font-mono tracking-widest text-zinc-400 dark:text-zinc-500 uppercase">
+          Ranked by output
+        </span>
+        <h2 className="mt-1 mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          Lines by actual units produced
+        </h2>
+        <RankedBarList
+          items={[...lines]
+            .sort((a, b) => b.actual - a.actual)
+            .map((l) => ({
+              id: l.id,
+              label: l.id,
+              sublabel: l.style,
+              value: l.actual,
+              displayValue: `${l.actual}u`,
+              accent:
+                l.status === "behind"
+                  ? "orange"
+                  : l.status === "complete"
+                    ? "amber"
+                    : "emerald",
+            }))}
+        />
       </div>
 
       {/* Lines table */}
@@ -129,7 +158,7 @@ export default function ProductionLinesPage() {
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase ${statusStyle[l.status]}`}
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded-none border uppercase ${statusStyle[l.status]}`}
                   >
                     {l.status.replace("-", " ")}
                   </span>

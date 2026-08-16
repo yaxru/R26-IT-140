@@ -64,7 +64,7 @@ export default function SettingsPage() {
                     type={field.type === "select" ? "text" : field.type}
                     defaultValue={field.value}
                     disabled
-                    className="w-full px-3 py-2 rounded-sm text-xs font-mono
+                    className="w-full px-3 py-2 rounded-none text-xs font-mono
                       bg-zinc-900 border border-zinc-700 text-zinc-400
                       disabled:opacity-60 disabled:cursor-not-allowed"
                   />
@@ -79,7 +79,7 @@ export default function SettingsPage() {
         <h2 className="text-xs font-semibold text-zinc-300 mb-3">
           Danger Zone
         </h2>
-        <div className="flex items-center justify-between p-3 border border-red-500/20 rounded-sm bg-red-500/5">
+        <div className="flex items-center justify-between p-3 border border-orange-500/20 rounded-none bg-orange-500/5">
           <div>
             <p className="text-xs font-medium text-zinc-300">
               Reset Factory Data
@@ -90,8 +90,8 @@ export default function SettingsPage() {
           </div>
           <button
             disabled
-            className="px-3 py-1.5 text-xs font-mono text-red-400 border border-red-500/30 rounded-sm
-              disabled:opacity-50 disabled:cursor-not-allowed hover:bg-red-500/10 transition-colors"
+            className="px-3 py-1.5 text-xs font-mono text-orange-400 border border-orange-500/30 rounded-none
+              disabled:opacity-50 disabled:cursor-not-allowed hover:bg-orange-500/10 transition-colors"
           >
             Reset
           </button>
