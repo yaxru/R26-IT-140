@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Papa from "papaparse";
 import { createClient } from "@/lib/supabase/client";
 import { getAuthHeaders } from "@/shared/auth";
@@ -29,6 +29,16 @@ interface ImportResult {
   summary: { total: number; created: number; failed: number };
 }
 
+interface ExistingWorker {
+  id: string;
+  worker_id: string;
+  name: string;
+  phone_number: string;
+  contact_email: string;
+  internal_email: string;
+  line_id: string;
+}
+
 export default function WorkforcePage() {
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -44,9 +54,48 @@ export default function WorkforcePage() {
     "idle" | "validating" | "uploading" | "complete"
   >("idle");
   const [batchStatus, setBatchStatus] = useState("");
-  const [currentLinePage, setCurrentLinePage] = useState<
-    Record<string, number>
-  >({});
+  const [currentLinePage, setCurrentLinePage] = useState<Record<string, number>>({});
+
+  // Existing Workforce State
+  const [existingWorkers, setExistingWorkers] = useState<ExistingWorker[]>([]);
+  const [fetchingWorkers, setFetchingWorkers] = useState(true);
+  const [editingWorker, setEditingWorker] = useState<ExistingWorker | null>(null);
+  const [existingLinePage, setExistingLinePage] = useState<Record<string, number>>({});
+  
+  const fetchExistingWorkers = useCallback(async () => {
+    setFetchingWorkers(true);
+    try {
+      const { data, error } = await supabase
+        .from("operators")
+        .select(`
+          id, worker_id, name, phone_number, contact_email, internal_email,
+          operator_productivity ( current_line_id )
+        `);
+      
+      if (error) throw error;
+      
+      const mapped = (data || []).map((w: any) => ({
+        id: w.id,
+        worker_id: w.worker_id,
+        name: w.name,
+        phone_number: w.phone_number || "",
+        contact_email: w.contact_email || "",
+        internal_email: w.internal_email,
+        line_id: w.operator_productivity?.current_line_id || "UNASSIGNED"
+      }));
+      
+      setExistingWorkers(mapped);
+    } catch (err: any) {
+      console.error("Failed to fetch workers:", err);
+    } finally {
+      setFetchingWorkers(false);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchExistingWorkers();
+  }, [fetchExistingWorkers]);
+
 
   // ──────────────────────────────────────────────────────────────────────
   // Handle file selection & PapaParse
@@ -160,6 +209,9 @@ export default function WorkforcePage() {
       setShowImportModal(false);
       setUploadProgress("complete");
       if (fileInputRef.current) fileInputRef.current.value = "";
+      
+      fetchExistingWorkers();
+
     } catch (err) {
       setError(
         `Import failed: ${err instanceof Error ? err.message : "Unknown error"}`,
@@ -183,6 +235,39 @@ export default function WorkforcePage() {
     setShowImportModal(false);
     setSelectedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleDeleteWorker = async (userId: string) => {
+    if (!confirm("Are you sure you want to delete this worker? This will permanently delete their account.")) return;
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke("delete-worker", {
+        body: { userId }
+      });
+      if (invokeError) throw new Error(invokeError.message);
+      if (data?.error) throw new Error(data.error);
+      
+      fetchExistingWorkers();
+    } catch (err: any) {
+      alert(`Failed to delete: ${err.message}`);
+    }
+  };
+
+  const handleUpdateWorker = async (worker: ExistingWorker) => {
+    try {
+      const { error } = await supabase.from("operators").update({
+        name: worker.name,
+        worker_id: worker.worker_id,
+        phone_number: worker.phone_number,
+        contact_email: worker.contact_email
+      }).eq("id", worker.id);
+      
+      if (error) throw error;
+      
+      setEditingWorker(null);
+      fetchExistingWorkers();
+    } catch (err: any) {
+      alert(`Failed to update: ${err.message}`);
+    }
   };
 
   // Group workers by Line ID for the UI
@@ -514,6 +599,166 @@ export default function WorkforcePage() {
           )}
         </div>
       </div>
+      
+      {/* Existing Workforce Section */}
+      <div className="bg-white dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800/60 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Existing Workforce Database</h2>
+          <button onClick={fetchExistingWorkers} className="text-xs text-blue-500 hover:underline">Refresh List</button>
+        </div>
+        
+        {fetchingWorkers ? (
+          <div className="py-8 text-center text-xs text-zinc-500 animate-pulse">Loading workers...</div>
+        ) : existingWorkers.length === 0 ? (
+          <div className="py-8 text-center text-xs text-zinc-500">No workers found in the database.</div>
+        ) : (
+          Object.entries(
+            existingWorkers.reduce((acc, worker) => {
+              if (!acc[worker.line_id]) acc[worker.line_id] = [];
+              acc[worker.line_id].push(worker);
+              return acc;
+            }, {} as Record<string, ExistingWorker[]>)
+          ).map(([lineId, workers]) => {
+            const WORKERS_PER_PAGE = 10;
+            const page = existingLinePage[lineId] || 1;
+            const totalPages = Math.ceil(workers.length / WORKERS_PER_PAGE);
+            const paginatedWorkers = workers.slice((page - 1) * WORKERS_PER_PAGE, page * WORKERS_PER_PAGE);
+
+            return (
+              <div key={lineId} className="mb-6 border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-[#111113] overflow-hidden">
+                <div className="bg-zinc-100 dark:bg-zinc-800/50 px-4 py-2 border-b border-zinc-200 dark:border-zinc-800/60 flex justify-between items-center">
+                  <div>
+                    <span className="text-xs font-mono font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
+                      Production Line: <span className="text-blue-600 dark:text-blue-400">{lineId}</span>
+                    </span>
+                    <span className="ml-3 text-[10px] text-zinc-500 bg-zinc-200 dark:bg-zinc-700 px-2 py-0.5 rounded-full">
+                      {workers.length} worker(s)
+                    </span>
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="flex items-center gap-2 print:hidden">
+                      <button 
+                        onClick={() => setExistingLinePage(prev => ({ ...prev, [lineId]: Math.max(1, page - 1) }))} 
+                        disabled={page === 1}
+                        className="px-2 py-1 text-[10px] bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 disabled:opacity-50 rounded transition-colors"
+                      >
+                        Prev
+                      </button>
+                      <span className="text-[10px] text-zinc-500 font-mono">Page {page} of {totalPages}</span>
+                      <button 
+                        onClick={() => setExistingLinePage(prev => ({ ...prev, [lineId]: Math.min(totalPages, page + 1) }))} 
+                        disabled={page === totalPages}
+                        className="px-2 py-1 text-[10px] bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 disabled:opacity-50 rounded transition-colors"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-zinc-100 dark:border-zinc-800/40 text-zinc-500 bg-zinc-50 dark:bg-zinc-900/50">
+                        <th className="text-left p-3 font-medium">Name</th>
+                        <th className="text-left p-3 font-medium">ID</th>
+                        <th className="text-left p-3 font-medium">Phone</th>
+                        <th className="text-left p-3 font-medium">Internal Email</th>
+                        <th className="text-right p-3 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/40">
+                      {paginatedWorkers.map((w) => (
+                        <tr key={w.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors group">
+                          <td className="p-3 text-zinc-900 dark:text-zinc-100 font-medium">{w.name}</td>
+                          <td className="p-3 font-mono text-emerald-600 dark:text-emerald-400">{w.worker_id}</td>
+                          <td className="p-3 font-mono text-zinc-600 dark:text-zinc-400">{w.phone_number || '-'}</td>
+                          <td className="p-3 text-zinc-600 dark:text-zinc-400">{w.internal_email}</td>
+                          <td className="p-3 text-right">
+                            <button
+                              onClick={() => setEditingWorker(w)}
+                              className="text-[10px] px-2 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded mr-2 transition-colors border border-blue-200 dark:border-blue-800/60"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteWorker(w.id)}
+                              className="text-[10px] px-2 py-1 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded transition-colors border border-red-200 dark:border-red-800/60"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Edit Worker Modal */}
+      {editingWorker && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800/60 p-6 rounded shadow-xl w-full max-w-md">
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">Edit Worker Details</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Name</label>
+                <input 
+                  type="text" 
+                  value={editingWorker.name}
+                  onChange={e => setEditingWorker({ ...editingWorker, name: e.target.value })}
+                  className="w-full text-sm border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 bg-transparent px-3 py-2 rounded focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Worker ID</label>
+                <input 
+                  type="text" 
+                  value={editingWorker.worker_id}
+                  onChange={e => setEditingWorker({ ...editingWorker, worker_id: e.target.value })}
+                  className="w-full text-sm border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 bg-transparent px-3 py-2 rounded font-mono focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Phone Number</label>
+                <input 
+                  type="text" 
+                  value={editingWorker.phone_number}
+                  onChange={e => setEditingWorker({ ...editingWorker, phone_number: e.target.value })}
+                  className="w-full text-sm border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 bg-transparent px-3 py-2 rounded font-mono focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Personal Contact Email</label>
+                <input 
+                  type="email" 
+                  value={editingWorker.contact_email}
+                  onChange={e => setEditingWorker({ ...editingWorker, contact_email: e.target.value })}
+                  className="w-full text-sm border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 bg-transparent px-3 py-2 rounded focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div className="pt-4 flex justify-end gap-3 border-t border-zinc-200 dark:border-zinc-800">
+                <button 
+                  onClick={() => setEditingWorker(null)}
+                  className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => handleUpdateWorker(editingWorker)}
+                  className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Import Preview Modal */}
       {showImportModal && (
