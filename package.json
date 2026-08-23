@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "lucide-react": "^1.33.0",
     "papaparse": "^5.6.0"
   },
   "devDependencies": {
