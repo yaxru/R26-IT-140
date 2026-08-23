@@ -1,163 +1,200 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Bottleneck } from "./types";
 import { ErrorBanner } from "./components/ErrorBanner";
-import { FactoryOverview } from "./components/FactoryOverview";
-import { EfficiencyChart } from "./components/EfficiencyChart";
-import type { ChartPoint } from "./components/EfficiencyChart";
-import { StationFlowDiagram } from "./components/StationFlowDiagram";
-import { RankedBarList } from "./components/RankedBarList";
+import { OverviewNotificationPanel } from "./components/OverviewNotificationPanel";
+import { OverviewAnalytics } from "./components/OverviewAnalytics";
+import { OverviewStationTable } from "./components/OverviewStationTable";
 import { createClient } from "@/lib/supabase/client";
 import { getAuthHeaders } from "@/shared/auth";
 
-// Chart: one snapshot per hour, only during working hours
-const MAX_CHART_POINTS = 24; // up to 24-hour history
-const WORK_START_HOUR = 6; // 06:00
-const WORK_END_HOUR = 18; // 18:00
-const CHART_INTERVAL_MS = 3_600_000; // 1 hour
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
 export default function Home() {
   const supabase = createClient();
-  const [bottlenecks, setBottlenecks] = useState<Bottleneck[]>([]);
-  const [bottlenecksError, setBottlenecksError] = useState<string | null>(null);
-  const [chartHistory, setChartHistory] = useState<ChartPoint[]>([]);
+  const [stations, setStations] = useState<Bottleneck[]>([]);
+  const [stationsError, setStationsError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // ── Load stations once on mount ──────────────────────────────────────────
+  // Load stations on mount
   useEffect(() => {
     (async () => {
+      setLoading(true);
       const headers = await getAuthHeaders(supabase);
       fetch(`${API_BASE}/stations`, { headers })
         .then((res) => {
-          if (!res.ok)
-            throw new Error(`Failed to load stations (${res.status})`);
+          if (!res.ok) throw new Error(`Failed to load stations (${res.status})`);
           return res.json();
         })
         .then((data: Bottleneck[]) => {
-          setBottlenecks(data);
+          setStations(data);
         })
         .catch((e) =>
-          setBottlenecksError(
-            e instanceof Error ? e.message : "Could not load stations",
-          ),
-        );
+          setStationsError(
+            e instanceof Error ? e.message : "Could not load stations data"
+          )
+        )
+        .finally(() => setLoading(false));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Hourly overall-progress chart (working hours only) ─────────────────
-  useEffect(() => {
-    const takeSnapshot = async () => {
-      const h = new Date().getHours();
-      if (h < WORK_START_HOUR || h >= WORK_END_HOUR) return;
-      const headers = await getAuthHeaders(supabase).catch(() => ({}));
-      const res = await fetch(`${API_BASE}/stations`, { headers }).catch(
-        () => null,
-      );
-      if (!res || !res.ok) return;
-      const stations: Bottleneck[] = await res.json().catch(() => []);
-      const active = stations.filter(
-        (b) =>
-          b.actual_productivity !== null &&
-          b.targeted_productivity !== null &&
-          b.targeted_productivity > 0,
-      );
-      if (active.length === 0) return;
-      const avg =
-        active.reduce(
-          (s, b) =>
-            s + (b.actual_productivity! / b.targeted_productivity!) * 100,
-          0,
-        ) / active.length;
-      const now = new Date();
-      const label = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
-      setChartHistory((prev) => {
-        const next = [
-          ...prev,
-          { label, efficiency: Math.round(avg * 10) / 10 },
-        ];
-        return next.length > MAX_CHART_POINTS
-          ? next.slice(-MAX_CHART_POINTS)
-          : next;
-      });
-    };
+  // ── Key Derived Summary Metrics ──
+  const totalWip = stations.reduce((s, b) => s + b.wip, 0);
+  const activeLines = stations.filter(
+    (b) => b.actual_productivity !== null && b.actual_productivity > 0
+  ).length;
+  const bottleneckCount = stations.filter((b) => b.is_bottleneck).length;
 
-    takeSnapshot(); // snapshot on load
-    const id = setInterval(takeSnapshot, CHART_INTERVAL_MS);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const validStations = stations.filter(
+    (b) =>
+      b.targeted_productivity !== null &&
+      b.actual_productivity !== null &&
+      b.targeted_productivity > 0
+  );
 
-  const bottleneckCount = bottlenecks.filter((b) => b.is_bottleneck).length;
+  const avgEfficiency =
+    validStations.length > 0
+      ? validStations.reduce(
+          (sum, b) =>
+            sum + (b.actual_productivity! / b.targeted_productivity!) * 100,
+          0
+        ) / validStations.length
+      : 0;
 
   return (
-    <div className="px-6 py-6 space-y-6">
-      <FactoryOverview stations={bottlenecks} />
-
-      {bottlenecksError && <ErrorBanner message={bottlenecksError} />}
-
-      {/* Callout linking to the dedicated Worker Reallocation workflow */}
-      {bottleneckCount > 0 && (
-        <Link
-          href="/worker-reallocation"
-          className="flex items-center justify-between gap-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/50 px-5 py-3.5 hover:bg-orange-100/60 dark:hover:bg-orange-950/40 transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <span className="w-2 h-2 bg-orange-500 animate-pulse shrink-0" />
-            <span className="text-xs font-mono text-orange-700 dark:text-orange-400">
-              <strong className="font-semibold">
-                {bottleneckCount} station{bottleneckCount === 1 ? "" : "s"}
-              </strong>{" "}
-              need operator reallocation
-            </span>
-          </div>
-          <span className="text-[10px] font-mono text-orange-600 dark:text-orange-400 uppercase tracking-wider shrink-0">
-            Open Worker Reallocation &rarr;
-          </span>
-        </Link>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          <StationFlowDiagram stations={bottlenecks} />
+    <main className="px-6 py-6 space-y-6 max-w-[1400px] mx-auto">
+      {/* ── Page Title & Global Actions ── */}
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <p className="text-[11px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-1">
+            Production Management
+          </p>
+          <h1 className="text-2xl font-bold text-[#242424] dark:text-zinc-100 tracking-tight">
+            Factory Floor Overview
+          </h1>
+          <p className="text-xs text-[#9A9A9A] dark:text-zinc-500 mt-0.5">
+            Real-time garment line throughput, WIP load distribution, and alert tracking
+          </p>
         </div>
-        <div className="bg-white dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800/60 p-5">
-          <span className="text-[10px] font-mono tracking-widest text-zinc-400 dark:text-zinc-500 uppercase">
-            Ranked by WIP
-          </span>
-          <h2 className="mt-1 mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            Busiest stations
-          </h2>
-          <RankedBarList
-            items={[...bottlenecks]
-              .sort((a, b) => b.wip - a.wip)
-              .slice(0, 8)
-              .map((b) => ({
-                id: b.station_id,
-                label: b.station_id,
-                sublabel: b.required_skill,
-                value: b.wip,
-                displayValue: `${b.wip}u`,
-                accent: b.is_bottleneck ? "orange" : "emerald",
-              }))}
-          />
+
+        {/* Global Live Status Pill */}
+        <div className="flex items-center gap-3">
+          <Link
+            href="/worker-reallocation"
+            className={`inline-flex items-center gap-2 px-3 py-1.5 border transition-colors text-xs font-semibold ${
+              bottleneckCount > 0
+                ? "bg-[#FDFBF8] dark:bg-amber-950/20 text-[#A77329] border-[#EACFA9] hover:bg-[#F4E5D1]"
+                : "bg-[#E6F1EC] dark:bg-[#0A321E]/20 text-[#1A7C4B] border-[#B9D7C8] hover:bg-[#D0E4DA]"
+            }`}
+          >
+            <span
+              className={`w-2 h-2 ${
+                bottleneckCount > 0 ? "bg-[#CE8E33] animate-pulse" : "bg-[#1A7C4B]"
+              }`}
+              aria-hidden="true"
+            />
+            {bottleneckCount > 0
+              ? `${bottleneckCount} Bottleneck Line${bottleneckCount > 1 ? "s" : ""} — Reallocate →`
+              : "All Lines On Target →"}
+          </Link>
         </div>
       </div>
 
-      <EfficiencyChart data={chartHistory} />
+      {/* Error banner if API fails */}
+      {stationsError && <ErrorBanner message={stationsError} />}
 
-      <p className="text-center text-[10px] font-mono text-zinc-400 dark:text-zinc-700 pb-4">
-        StitchFlow · Factory Overview v1.0 · Snapshots refresh hourly
-      </p>
-    </div>
+      {/* ── Summary Key Performance Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Metric 1: Total WIP */}
+        <div className="bg-white dark:bg-[#111113] border border-[#EAEAEA] dark:border-zinc-800 p-5 flex flex-col justify-between">
+          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
+            Total WIP Queue
+          </p>
+          <p className="text-3xl font-bold font-mono tabular-nums text-[#242424] dark:text-zinc-100 my-2">
+            {loading ? "—" : totalWip.toLocaleString()}
+            <span className="text-xs font-normal text-[#9A9A9A] dark:text-zinc-500 ml-1.5">
+              units
+            </span>
+          </p>
+          <p className="text-[11px] text-[#9A9A9A] dark:text-zinc-600">
+            across {stations.length} active stations
+          </p>
+        </div>
+
+        {/* Metric 2: Active Lines */}
+        <div className="bg-white dark:bg-[#111113] border border-[#EAEAEA] dark:border-zinc-800 p-5 flex flex-col justify-between">
+          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
+            Operating Lines
+          </p>
+          <p className="text-3xl font-bold font-mono tabular-nums text-[#242424] dark:text-zinc-100 my-2">
+            {loading ? "—" : `${activeLines} / ${stations.length}`}
+          </p>
+          <p className="text-[11px] text-[#1A7C4B] dark:text-[#47966F]">
+            {stations.length - activeLines > 0
+              ? `${stations.length - activeLines} line in maintenance`
+              : "100% lines operating"}
+          </p>
+        </div>
+
+        {/* Metric 3: Factory Efficiency Rate */}
+        <div className="bg-white dark:bg-[#111113] border border-[#EAEAEA] dark:border-zinc-800 p-5 flex flex-col justify-between">
+          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
+            Factory Efficiency Rate
+          </p>
+          <p className="text-3xl font-bold font-mono tabular-nums text-[#1A7C4B] dark:text-[#47966F] my-2">
+            {loading ? "—" : `${avgEfficiency.toFixed(1)}%`}
+          </p>
+          <p className="text-[11px] text-[#9A9A9A] dark:text-zinc-600">
+            vs 100% target standard
+          </p>
+        </div>
+
+        {/* Metric 4: Bottleneck Lines */}
+        <div
+          className={`bg-white dark:bg-[#111113] border p-5 flex flex-col justify-between ${
+            bottleneckCount > 0
+              ? "border-[#EACFA9] dark:border-amber-900/60 bg-[#FDFBF8]/50 dark:bg-amber-950/10"
+              : "border-[#EAEAEA] dark:border-zinc-800"
+          }`}
+        >
+          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
+            Active Bottlenecks
+          </p>
+          <p
+            className={`text-3xl font-bold font-mono tabular-nums my-2 ${
+              bottleneckCount > 0 ? "text-[#CE8E33]" : "text-[#1A7C4B] dark:text-[#47966F]"
+            }`}
+          >
+            {loading ? "—" : bottleneckCount}
+          </p>
+          <p
+            className={`text-[11px] ${
+              bottleneckCount > 0 ? "text-[#A77329] font-medium" : "text-[#9A9A9A]"
+            }`}
+          >
+            {bottleneckCount > 0 ? "Requires rebalancing" : "Optimal flow maintained"}
+          </p>
+        </div>
+      </div>
+
+      {/* ── Factory Notifications & Alerts Panel ── */}
+      <OverviewNotificationPanel stations={stations} />
+
+      {/* ── New Visual Analytics & Visualizations ── */}
+      <OverviewAnalytics stations={stations} />
+
+      {/* ── Redesigned Station Floor Table ── */}
+      <OverviewStationTable stations={stations} />
+
+      {/* ── Footer ── */}
+      <footer className="pt-2">
+        <p className="text-center text-[11px] text-[#C6C6C6] dark:text-zinc-700">
+          Opsis · Factory Floor Administration v1.0 · Snapshots update in real time
+        </p>
+      </footer>
+    </main>
   );
 }
