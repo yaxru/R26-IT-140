@@ -14,9 +14,9 @@ export interface AuthSession {
   access_token: string | null;
 }
 
-export interface AuthHeaders {
-  Authorization: string;
-}
+export type AuthHeaders = {
+  Authorization?: string;
+} & Record<string, string>;
 
 export interface BulkCreateWorkersPayload {
   workers: WorkerRecord[];

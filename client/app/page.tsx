@@ -59,7 +59,7 @@ export default function Home() {
     const takeSnapshot = async () => {
       const h = new Date().getHours();
       if (h < WORK_START_HOUR || h >= WORK_END_HOUR) return;
-      const headers = await getAuthHeaders().catch(() => ({}));
+      const headers = await getAuthHeaders(supabase).catch(() => ({}));
       const res = await fetch(`${API_BASE}/stations`, { headers }).catch(
         () => null,
       );

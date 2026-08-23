@@ -1,6 +1,21 @@
 # Supabase Setup for Opsis
 
-This folder contains Supabase Edge Functions and configuration for the Opsis garment factory SaaS.
+This folder contains Supabase Edge Functions and database configuration for the Opsis garment factory SaaS.
+
+## ⚠️ START HERE: Database Setup
+
+**New to this project?** Follow the complete setup guide:
+
+→ See [SETUP_INSTRUCTIONS.md](./SETUP_INSTRUCTIONS.md)
+
+This includes:
+
+1. Running the database schema
+2. Configuring supervisor accounts
+3. Troubleshooting 401 errors
+4. Testing the complete flow
+
+---
 
 ## Edge Functions
 
@@ -10,7 +25,7 @@ Creates worker accounts in bulk from CSV data. Supervisors can import worker lis
 
 **Endpoint:** `POST /functions/v1/bulk-create-workers`
 
-**Authentication:** Required (JWT Bearer token)
+**Authentication:** Required (JWT Bearer token from supervisor account)
 
 **Request Body:**
 
@@ -33,7 +48,7 @@ Creates worker accounts in bulk from CSV data. Supervisors can import worker lis
 
 **Constraints:**
 
-- Maximum 100 workers per request (prevents timeouts and abuse)
+- Maximum 100 workers per request (prevents timeouts)
 - `firstName`: Required, non-empty string
 - `workerId`: Required, exactly 4 digits
 - `lineId`: Required, non-empty string
@@ -68,93 +83,39 @@ Creates worker accounts in bulk from CSV data. Supervisors can import worker lis
 
 **Error Responses:**
 
-| Status | Error                         | Description                              |
-| ------ | ----------------------------- | ---------------------------------------- |
-| 401    | Missing/Invalid Authorization | No Bearer token or token expired         |
-| 400    | Invalid JSON payload          | Malformed request body                   |
-| 400    | Validation errors             | Missing/invalid fields in worker records |
-| 413    | Payload too large             | More than 100 workers in request         |
-| 500    | Internal server error         | Database or unexpected error             |
+| Status | Error                         | Description                      |
+| ------ | ----------------------------- | -------------------------------- |
+| 401    | Missing/Invalid Authorization | No Bearer token or token expired |
+| 400    | Invalid JSON payload          | Malformed request body           |
+| 413    | Payload too large             | More than 100 workers in request |
 
-## Setup Instructions
+---
 
-### 1. Initialize Supabase in Your Project
+## Quick Deploy
 
-```bash
-cd supabase
-supabase init
-```
-
-### 2. Configure Environment Variables
-
-Create `.env.local` in the project root:
+Once your database is configured:
 
 ```bash
-# Supabase Configuration
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-supabase-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key  # For Edge Functions
-
-# Anon Key (for browser auth)
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-```
-
-### 3. Deploy Edge Function
-
-```bash
+# Deploy the bulk-create-workers function
 supabase functions deploy bulk-create-workers
-```
 
-Or deploy all functions:
-
-```bash
+# Or deploy all functions
 supabase functions deploy
 ```
 
-### 4. Test the Function
+**Required Environment Variables:**
 
-```bash
-# Get your authorization token first
-export TOKEN="your-jwt-token-here"
-
-curl -X POST \
-  https://your-project.supabase.co/functions/v1/bulk-create-workers \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "workers": [
-      {
-        "firstName": "Yasiru",
-        "workerId": "4092",
-        "lineId": "LINE-A"
-      }
-    ]
-  }'
-```
-
-## Database Schema
-
-The Edge Function expects these Supabase tables:
-
-### `public.workers`
-
-```sql
-create table public.workers (
-  id uuid primary key references auth.users on delete cascade,
-  email text not null unique,
-  first_name text not null,
-  worker_id text not null unique,
-  line_id text not null,
-  supervisor_id uuid not null references auth.users on delete cascade,
-  created_at timestamp not null default now(),
+- `SUPABASE_URL` - Your project URL
+- `SUPABASE_ANON_KEY` - Anon key (for auth verification)
+- `SUPABASE_SERVICE_ROLE_KEY` - Service role key (for admin operations)
   updated_at timestamp not null default now()
-);
+  );
 
 create index idx_workers_supervisor_id on public.workers(supervisor_id);
 create index idx_workers_line_id on public.workers(line_id);
 create index idx_workers_worker_id on public.workers(worker_id);
-```
+
+````
 
 ### Row Level Security (RLS)
 
@@ -171,7 +132,7 @@ create policy "Supervisors can insert workers"
   on public.workers
   for insert
   with check (auth.uid() = supervisor_id);
-```
+````
 
 ## Development
 

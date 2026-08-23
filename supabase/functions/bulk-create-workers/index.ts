@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/+esm";
 
 // ============================================================================
 // Types
@@ -299,14 +299,13 @@ serve(async (req: Request) => {
           continue;
         }
 
-        // Insert into workers table
-        const { error: dbError } = await supabase.from("workers").insert({
+        // Insert into operators table (not workers)
+        const { error: dbError } = await supabase.from("operators").insert({
           id: userId,
-          email,
-          first_name: worker.firstName,
+          internal_email: email,
+          name: worker.firstName,
           worker_id: worker.workerId,
           line_id: worker.lineId,
-          supervisor_id: supervisorId,
           created_at: new Date().toISOString(),
         });
 

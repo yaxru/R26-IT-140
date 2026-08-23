@@ -15,8 +15,13 @@ interface ParsedWorker {
 }
 
 interface ImportResult {
-  created: WorkerAccountCreated[];
-  failed: { workerId?: string; reason: string }[];
+  success: WorkerAccountCreated[];
+  failed: {
+    firstName?: string;
+    workerId?: string;
+    lineId?: string;
+    reason: string;
+  }[];
   summary: { total: number; created: number; failed: number };
 }
 
@@ -127,15 +132,23 @@ export default function WorkforcePage() {
         },
       );
 
-      const result: BulkCreateWorkersResponse = await response.json();
+      const result = (await response.json()) as
+        | BulkCreateWorkersResponse
+        | { error: string };
 
       if (!response.ok) {
+        const errorMsg =
+          "error" in result ? result.error : "Failed to create workers";
         throw new Error(
-          result.error || `Failed to create workers (${response.status})`,
+          errorMsg + (response.status ? ` (${response.status})` : ""),
         );
       }
 
-      setImportResult(result as ImportResult);
+      if ("error" in result) {
+        throw new Error(result.error);
+      }
+
+      setImportResult(result);
       setPreviewData([]);
       setShowImportModal(false);
       if (fileInputRef.current) {
@@ -288,7 +301,7 @@ export default function WorkforcePage() {
               )}
 
               {/* Print Credentials */}
-              {importResult.created.length > 0 && (
+              {importResult.success.length > 0 && (
                 <div>
                   <p className="text-xs font-mono text-zinc-500 uppercase mb-3">
                     Credential Cards (Print & Distribute)
@@ -300,7 +313,7 @@ export default function WorkforcePage() {
                     Print Credentials
                   </button>
                   <div className="mt-6 columns-3 gap-6 print:columns-4">
-                    {importResult.created.map((worker) => (
+                    {importResult.success.map((worker) => (
                       <CredentialCard key={worker.id} worker={worker} />
                     ))}
                   </div>

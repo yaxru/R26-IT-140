@@ -20,7 +20,7 @@ import type { AuthHeaders, AuthSession, AuthUser } from "./types";
  */
 export async function getAuthHeaders(
   supabaseClient: SupabaseClient,
-): Promise<AuthHeaders | {}> {
+): Promise<AuthHeaders> {
   const {
     data: { session },
   } = await supabaseClient.auth.getSession();
