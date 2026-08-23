@@ -5,9 +5,9 @@ import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 // ============================================================================
 interface WorkerRecord {
   firstName: string;
-  workerId: string; 
+  workerId: string;
   lineId: string;
-  phoneNumber?: string;  // Added from the updated CSV
+  phoneNumber?: string; // Added from the updated CSV
   contactEmail?: string; // Added from the updated CSV
 }
 
@@ -22,6 +22,8 @@ interface WorkerAccountCreated {
   workerId: string;
   lineId: string;
   plainTextPin: string;
+  contactEmail?: string;
+  phoneNumber?: string;
 }
 
 interface WorkerCreationError {
@@ -54,10 +56,14 @@ function generatePin(): string {
   return String(Math.floor(Math.random() * 10000)).padStart(4, "0");
 }
 
-function validateWorkerRecord(worker: WorkerRecord, index: number): string | null {
+function validateWorkerRecord(
+  worker: WorkerRecord,
+  index: number,
+): string | null {
   if (!worker.firstName) return `Record ${index}: Missing firstName`;
   if (!worker.workerId) return `Record ${index}: Missing workerId`;
-  if (!/^\d{4}$/.test(worker.workerId)) return `Record ${index}: workerId must be 4 digits`;
+  if (!/^\d{4}$/.test(worker.workerId))
+    return `Record ${index}: workerId must be 4 digits`;
   if (!worker.lineId) return `Record ${index}: Missing lineId`;
   return null;
 }
@@ -66,12 +72,21 @@ function constructEmail(firstName: string, workerId: string): string {
   return `${firstName.toLowerCase()}.${workerId}@${WORKER_EMAIL_DOMAIN}`;
 }
 
-async function verifyToken(authHeader: string, supabaseUrl: string, supabaseKey: string) {
-  if (!authHeader.startsWith("Bearer ")) throw new Error("Invalid Authorization header format");
+async function verifyToken(
+  authHeader: string,
+  supabaseUrl: string,
+  supabaseKey: string,
+) {
+  if (!authHeader.startsWith("Bearer "))
+    throw new Error("Invalid Authorization header format");
   const token = authHeader.slice(7);
   const supabase = createClient(supabaseUrl, supabaseKey);
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user) throw new Error(`Token verification failed: ${error?.message}`);
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(token);
+  if (error || !user)
+    throw new Error(`Token verification failed: ${error?.message}`);
   return { id: user.id, email: user.email || "" };
 }
 
@@ -83,7 +98,8 @@ Deno.serve(async (req: Request) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
   };
 
   if (req.method === "OPTIONS") {
@@ -100,9 +116,13 @@ Deno.serve(async (req: Request) => {
   try {
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
-        status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+      return new Response(
+        JSON.stringify({ error: "Missing Authorization header" }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        },
+      );
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -110,29 +130,44 @@ Deno.serve(async (req: Request) => {
 
     if (!supabaseUrl || !supabaseKey) {
       return new Response(JSON.stringify({ error: "Missing config" }), {
-        status: 500, headers: { "Content-Type": "application/json", ...corsHeaders },
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
     try {
       await verifyToken(authHeader, supabaseUrl, supabaseKey);
     } catch (error) {
-      return new Response(JSON.stringify({ error: `Auth failed: ${error.message}` }), {
-        status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+      return new Response(
+        JSON.stringify({ error: `Auth failed: ${error.message}` }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        },
+      );
     }
 
     let payload: BulkCreateRequest;
-    try { payload = await req.json(); } catch {
+    try {
+      payload = await req.json();
+    } catch {
       return new Response(JSON.stringify({ error: "Invalid JSON payload" }), {
-        status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
-    if (!Array.isArray(payload.workers) || payload.workers.length > MAX_WORKERS_PER_REQUEST) {
-      return new Response(JSON.stringify({ error: "Invalid payload or exceeds limit" }), {
-        status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+    if (
+      !Array.isArray(payload.workers) ||
+      payload.workers.length > MAX_WORKERS_PER_REQUEST
+    ) {
+      return new Response(
+        JSON.stringify({ error: "Invalid payload or exceeds limit" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        },
+      );
     }
 
     const validationErrors: WorkerCreationError[] = [];
@@ -147,7 +182,10 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const supabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const supabase = createClient(
+      supabaseUrl,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
     const createdWorkers: WorkerAccountCreated[] = [];
 
     for (const worker of validWorkers) {
@@ -155,14 +193,20 @@ Deno.serve(async (req: Request) => {
       const plainTextPin = generatePin();
 
       try {
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-          email,
-          password: plainTextPin,
-          email_confirm: true,
-          user_metadata: { firstName: worker.firstName, workerId: worker.workerId, lineId: worker.lineId },
-        });
+        const { data: authData, error: authError } =
+          await supabase.auth.admin.createUser({
+            email,
+            password: plainTextPin,
+            email_confirm: true,
+            user_metadata: {
+              firstName: worker.firstName,
+              workerId: worker.workerId,
+              lineId: worker.lineId,
+            },
+          });
 
-        if (authError) throw new Error(`Auth creation failed: ${authError.message}`);
+        if (authError)
+          throw new Error(`Auth creation failed: ${authError.message}`);
         const userId = authData?.user?.id;
         if (!userId) throw new Error("No user ID returned");
 
@@ -178,18 +222,46 @@ Deno.serve(async (req: Request) => {
 
         if (dbError) throw new Error(`DB insert failed: ${dbError.message}`);
 
-        createdWorkers.push({ id: userId, email, firstName: worker.firstName, workerId: worker.workerId, lineId: worker.lineId, plainTextPin });
+        createdWorkers.push({
+          id: userId,
+          email,
+          firstName: worker.firstName,
+          workerId: worker.workerId,
+          lineId: worker.lineId,
+          plainTextPin,
+          contactEmail: worker.contactEmail,
+          phoneNumber: worker.phoneNumber,
+        });
       } catch (error) {
         validationErrors.push({ ...worker, reason: error.message });
       }
     }
 
-    return new Response(JSON.stringify({ success: createdWorkers, failed: validationErrors, summary: { total: payload.workers.length, created: createdWorkers.length, failed: validationErrors.length } }), {
-      status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return new Response(
+      JSON.stringify({
+        success: createdWorkers,
+        failed: validationErrors,
+        summary: {
+          total: payload.workers.length,
+          created: createdWorkers.length,
+          failed: validationErrors.length,
+        },
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      },
+    );
   } catch (error) {
-    return new Response(JSON.stringify({ error: "Internal server error", details: error.message }), {
-      status: 500, headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return new Response(
+      JSON.stringify({
+        error: "Internal server error",
+        details: error.message,
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      },
+    );
   }
 });

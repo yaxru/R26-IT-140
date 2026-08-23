@@ -45,6 +45,8 @@ export interface WorkerAccountCreated {
   workerId: string;
   lineId: string;
   plainTextPin: string; // 4-digit PIN for printing
+  contactEmail?: string;
+  phoneNumber?: string;
 }
 
 export interface WorkerCreationError {
