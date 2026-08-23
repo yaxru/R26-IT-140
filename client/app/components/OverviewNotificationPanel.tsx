@@ -115,18 +115,17 @@ export function OverviewNotificationPanel({
   };
 
   return (
-    <div className="bg-white dark:bg-[#111113]">
+    <div className="bg-white dark:bg-[#111113] h-full flex flex-col">
       {/* Header */}
-      <div className="px-5 py-3.5 border-b border-[#EAEAEA] dark:border-zinc-800 flex items-center justify-between flex-wrap gap-2">
+      <div className="px-5 py-3.5 border-b border-[#EAEAEA] dark:border-zinc-800 flex items-center justify-between flex-wrap gap-2 shrink-0">
         <div className="flex items-center gap-3">
           <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
-            Factory Notifications &amp; Alert Panel
+            Alert Center
           </p>
           {criticalCount > 0 && (
             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold text-[#A77329] bg-[#FDFBF8] dark:bg-amber-950/20 border border-[#EACFA9] dark:border-amber-800/40">
               <span className="w-1.5 h-1.5 bg-[#CE8E33] animate-pulse" />
-              {criticalCount} Critical Action{criticalCount > 1 ? "s" : ""}{" "}
-              Needed
+              {criticalCount} Critical
             </span>
           )}
         </div>
@@ -137,7 +136,7 @@ export function OverviewNotificationPanel({
             [
               {
                 id: "all",
-                label: "All Alerts",
+                label: "All",
                 count: allNotifications.length - dismissedIds.length,
               },
               { id: "critical", label: "Critical", count: criticalCount },
@@ -148,7 +147,7 @@ export function OverviewNotificationPanel({
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id)}
-              className={`px-2.5 py-1 transition-colors border ${
+              className={`px-2 py-1 transition-colors border ${
                 filter === tab.id
                   ? "bg-[#1A7C4B] text-white border-[#1A7C4B]"
                   : "bg-transparent text-[#5F5F5F] dark:text-zinc-400 border-transparent hover:bg-[#F8F8F8] dark:hover:bg-zinc-800"
@@ -156,7 +155,7 @@ export function OverviewNotificationPanel({
             >
               {tab.label}
               <span
-                className={`ml-1.5 text-[9px] tabular-nums ${
+                className={`ml-1 text-[9px] tabular-nums ${
                   filter === tab.id
                     ? "text-white/80"
                     : "text-[#9A9A9A] dark:text-zinc-500"
@@ -170,10 +169,10 @@ export function OverviewNotificationPanel({
       </div>
 
       {/* Notifications List */}
-      <div className="divide-y divide-[#F1F1F1] dark:divide-zinc-800/60 max-h-[320px] overflow-y-auto">
+      <div className="flex-1 overflow-y-auto divide-y divide-[#F1F1F1] dark:divide-zinc-800/60 min-h-[260px]">
         {visibleNotifications.length === 0 ? (
           <div className="py-8 text-center text-xs text-[#9A9A9A] dark:text-zinc-600">
-            No active notifications for this filter category.
+            No active notifications.
           </div>
         ) : (
           visibleNotifications.map((item) => (
@@ -190,7 +189,7 @@ export function OverviewNotificationPanel({
               <div className="flex items-start gap-3 flex-1 min-w-0">
                 {/* Indicator Dot */}
                 <span
-                  className={`mt-1 w-2 h-2 shrink-0 ${
+                  className={`mt-1.5 w-2 h-2 shrink-0 ${
                     item.type === "critical"
                       ? "bg-[#CE8E33] animate-pulse"
                       : item.type === "warning"
@@ -201,7 +200,7 @@ export function OverviewNotificationPanel({
                 />
 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
                     <span className="text-xs font-bold text-[#242424] dark:text-zinc-100">
                       {item.title}
                     </span>
@@ -209,29 +208,29 @@ export function OverviewNotificationPanel({
                       • {item.timestamp}
                     </span>
                   </div>
-                  <p className="text-xs text-[#5F5F5F] dark:text-zinc-400 mt-0.5 leading-relaxed">
+                  <p className="text-[11px] text-[#5F5F5F] dark:text-zinc-400 leading-relaxed pr-2">
                     {item.message}
                   </p>
                 </div>
               </div>
 
               {/* Action Button & Dismiss */}
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-col sm:flex-row items-center gap-2 shrink-0 mt-1 sm:mt-0">
                 {item.actionUrl && (
                   <Link
                     href={item.actionUrl}
-                    className={`text-[11px] font-semibold px-2.5 py-1 border transition-colors ${
+                    className={`text-[10px] font-semibold px-2.5 py-1.5 border transition-colors ${
                       item.type === "critical"
                         ? "bg-[#1A7C4B] text-white border-[#15633C] hover:bg-[#15633C]"
                         : "bg-[#F8F8F8] dark:bg-zinc-800 text-[#333333] dark:text-zinc-200 border-[#EAEAEA] dark:border-zinc-700 hover:bg-[#EAEAEA]"
                     }`}
                   >
-                    {item.actionLabel || "View Details →"}
+                    {item.actionLabel || "View →"}
                   </Link>
                 )}
                 <button
                   onClick={() => handleDismiss(item.id)}
-                  className="text-[#9A9A9A] hover:text-[#242424] dark:hover:text-zinc-200 text-xs px-1.5 py-0.5"
+                  className="text-[#9A9A9A] hover:text-[#242424] dark:hover:text-zinc-200 text-xs px-2 py-1"
                   title="Dismiss notification"
                 >
                   ✕

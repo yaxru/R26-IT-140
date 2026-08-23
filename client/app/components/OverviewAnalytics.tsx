@@ -1,240 +1,433 @@
 "use client";
 
+import { useState } from "react";
 import type { Bottleneck } from "../types";
+
+// ─── 1. Interactive Line Chart (Hourly Pace) ─────────────────────────────────
+
+function InteractiveLineChart() {
+  const shiftHours = [
+    { hour: "08:00", actual: 120, target: 150 },
+    { hour: "09:00", actual: 160, target: 150 },
+    { hour: "10:00", actual: 155, target: 150 },
+    { hour: "11:00", actual: 130, target: 150 },
+    { hour: "12:00", actual: 95, target: 100 }, // lunch dip
+    { hour: "13:00", actual: 145, target: 150 },
+    { hour: "14:00", actual: 138, target: 150 },
+    { hour: "15:00", actual: 152, target: 150 },
+  ];
+
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
+  const w = 600;
+  const h = 160;
+  const maxVal = 200;
+
+  const getX = (i: number) => (i / (shiftHours.length - 1)) * w;
+  const getY = (val: number) => h - (val / maxVal) * h;
+
+  const actualPath = shiftHours
+    .map((d, i) => `${i === 0 ? "M" : "L"} ${getX(i)} ${getY(d.actual)}`)
+    .join(" ");
+
+  const targetPath = shiftHours
+    .map((d, i) => `${i === 0 ? "M" : "L"} ${getX(i)} ${getY(d.target)}`)
+    .join(" ");
+
+  const actualFillPath = `${actualPath} L ${w} ${h} L 0 ${h} Z`;
+
+  return (
+    <div className="w-full relative mt-4">
+      <svg viewBox={`0 -20 ${w} ${h + 40}`} className="w-full h-auto overflow-visible group">
+        <defs>
+          <linearGradient id="actualGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#1A7C4B" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#1A7C4B" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {/* Y-Axis Grid Lines */}
+        {[0, 50, 100, 150, 200].map((val) => (
+          <g key={val}>
+            <line
+              x1="0" y1={getY(val)} x2={w} y2={getY(val)}
+              stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 2"
+              className="text-[#EAEAEA] dark:text-zinc-800"
+            />
+            <text
+              x="-10" y={getY(val) + 3} textAnchor="end" fontSize="9"
+              className="fill-[#9A9A9A] dark:fill-zinc-600 font-mono"
+            >
+              {val}
+            </text>
+          </g>
+        ))}
+
+        {/* Target Line */}
+        <path d={targetPath} fill="none" stroke="#9A9A9A" strokeWidth="1.5" strokeDasharray="4 4" className="opacity-50" />
+        
+        {/* Actual Area and Line */}
+        <path d={actualFillPath} fill="url(#actualGradient)" className="transition-opacity duration-300 group-hover:opacity-60" />
+        <path d={actualPath} fill="none" stroke="#1A7C4B" strokeWidth="2" strokeLinejoin="round" />
+
+        {/* Hover Crosshair & Tooltip */}
+        {hoverIndex !== null && (
+          <g className="transition-opacity duration-150">
+            {/* Vertical Guide Line */}
+            <line
+              x1={getX(hoverIndex)} y1="0" x2={getX(hoverIndex)} y2={h}
+              stroke="#5F5F5F" strokeWidth="1" strokeDasharray="3 3"
+            />
+            
+            {/* Hover Points */}
+            <circle cx={getX(hoverIndex)} cy={getY(shiftHours[hoverIndex].target)} r="4" fill="#9A9A9A" />
+            <circle cx={getX(hoverIndex)} cy={getY(shiftHours[hoverIndex].actual)} r="4" fill="#1A7C4B" stroke="#FFFFFF" strokeWidth="1.5" className="dark:stroke-[#111113]" />
+
+            {/* Tooltip Box */}
+            <g transform={`translate(${getX(hoverIndex) > w - 100 ? getX(hoverIndex) - 100 : getX(hoverIndex) + 10}, ${getY(shiftHours[hoverIndex].actual) - 30})`}>
+              <rect x="0" y="0" width="90" height="48" fill="#242424" className="dark:fill-[#FFFFFF]" />
+              <text x="8" y="16" fontSize="9" fill="#9A9A9A" className="font-mono uppercase tracking-widest">{shiftHours[hoverIndex].hour}</text>
+              <text x="8" y="30" fontSize="10" fill="#FFFFFF" className="dark:fill-[#111113] font-bold">Act: {shiftHours[hoverIndex].actual}</text>
+              <text x="8" y="42" fontSize="9" fill="#9A9A9A" className="font-mono">Tgt: {shiftHours[hoverIndex].target}</text>
+            </g>
+          </g>
+        )}
+
+        {/* Invisible Hover Zones for Interaction */}
+        {shiftHours.map((_, i) => {
+          const zoneW = w / (shiftHours.length - 1);
+          const zoneX = getX(i) - zoneW / 2;
+          return (
+            <rect
+              key={i}
+              x={zoneX} y="0" width={zoneW} height={h}
+              fill="transparent"
+              onMouseEnter={() => setHoverIndex(i)}
+              onMouseLeave={() => setHoverIndex(null)}
+              className="cursor-crosshair"
+            />
+          );
+        })}
+
+        {/* X-Axis Labels (Static) */}
+        {shiftHours.map((d, i) => (
+          <text
+            key={i}
+            x={getX(i)} y={h + 16}
+            textAnchor="middle" fontSize="9"
+            className={`font-mono transition-colors duration-200 ${hoverIndex === i ? 'fill-[#242424] dark:fill-zinc-100 font-bold' : 'fill-[#9A9A9A] dark:fill-zinc-600'}`}
+          >
+            {d.hour}
+          </text>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+// ─── 2. Interactive Interactive Donut Chart (Health) ──────────────────────────
+
+function InteractiveDonutChart({ stations }: { stations: Bottleneck[] }) {
+  const [hoverSlice, setHoverSlice] = useState<"optimal" | "bottleneck" | "offline" | null>(null);
+
+  const totalLines = stations.length || 1;
+  const bottlenecksCount = stations.filter(s => s.is_bottleneck).length;
+  const offlineCount = stations.filter(s => s.actual_productivity === null || s.actual_productivity === 0).length;
+  const optimalCount = totalLines - bottlenecksCount - offlineCount;
+
+  const radius = 42;
+  const circumference = 2 * Math.PI * radius;
+
+  const optPct = optimalCount / totalLines;
+  const botPct = bottlenecksCount / totalLines;
+  const offPct = offlineCount / totalLines;
+
+  // Calculate Dash Arrays (Length of stroke, followed by gap that hides the rest of the circle)
+  const optDash = optPct * circumference;
+  const botDash = botPct * circumference;
+  const offDash = offPct * circumference;
+
+  // Offsets to start each slice where the previous left off
+  const botOffset = -optDash;
+  const offOffset = -(optDash + botDash);
+
+  const handleHover = (slice: "optimal" | "bottleneck" | "offline" | null) => setHoverSlice(slice);
+
+  // Center display data
+  const centerValue = hoverSlice === "optimal" ? optimalCount 
+                    : hoverSlice === "bottleneck" ? bottlenecksCount 
+                    : hoverSlice === "offline" ? offlineCount 
+                    : totalLines;
+                    
+  const centerLabel = hoverSlice === "optimal" ? "Optimal" 
+                    : hoverSlice === "bottleneck" ? "Bottleneck" 
+                    : hoverSlice === "offline" ? "Offline" 
+                    : "Total Stations";
+
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center relative my-4">
+      <svg viewBox="0 0 100 100" className="w-36 h-36 transform -rotate-90">
+        
+        {/* Offline Slice */}
+        {offlineCount > 0 && (
+          <circle
+            cx="50" cy="50" r={radius}
+            fill="none"
+            stroke={hoverSlice === "offline" || !hoverSlice ? "#F1F1F1" : "#F8F8F8"}
+            className="dark:stroke-zinc-800 transition-all duration-300"
+            strokeWidth={hoverSlice === "offline" ? "14" : "10"}
+            strokeDasharray={`${offDash} ${circumference}`}
+            strokeDashoffset={offOffset}
+            pointerEvents="stroke"
+            onMouseEnter={() => handleHover("offline")}
+            onMouseLeave={() => handleHover(null)}
+          />
+        )}
+
+        {/* Bottleneck Slice */}
+        {bottlenecksCount > 0 && (
+          <circle
+            cx="50" cy="50" r={radius}
+            fill="none"
+            stroke={hoverSlice === "bottleneck" || !hoverSlice ? "#CE8E33" : "#F4E5D1"}
+            className="transition-all duration-300 dark:stroke-amber-900"
+            strokeWidth={hoverSlice === "bottleneck" ? "14" : "10"}
+            strokeDasharray={`${botDash} ${circumference}`}
+            strokeDashoffset={botOffset}
+            pointerEvents="stroke"
+            onMouseEnter={() => handleHover("bottleneck")}
+            onMouseLeave={() => handleHover(null)}
+          />
+        )}
+
+        {/* Optimal Slice */}
+        {optimalCount > 0 && (
+          <circle
+            cx="50" cy="50" r={radius}
+            fill="none"
+            stroke={hoverSlice === "optimal" || !hoverSlice ? "#1A7C4B" : "#E6F1EC"}
+            className="transition-all duration-300 dark:stroke-[#0A321E]"
+            strokeWidth={hoverSlice === "optimal" ? "14" : "10"}
+            strokeDasharray={`${optDash} ${circumference}`}
+            strokeDashoffset="0"
+            pointerEvents="stroke"
+            onMouseEnter={() => handleHover("optimal")}
+            onMouseLeave={() => handleHover(null)}
+          />
+        )}
+      </svg>
+      
+      {/* Dynamic Center Text */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        <span className="text-3xl font-bold tabular-nums text-[#242424] dark:text-zinc-100 leading-none">
+          {centerValue}
+        </span>
+        <span className="text-[9px] font-medium text-[#9A9A9A] dark:text-zinc-500 uppercase tracking-widest mt-1">
+          {centerLabel}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── 3. Interactive Bar Chart (WIP Load) ──────────────────────────────────────
+
+function InteractiveBarChart({ stations }: { stations: Bottleneck[] }) {
+  const wipStations = [...stations].slice(0, 15); // limit for clean display
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
+  const w = 800;
+  const h = 140;
+  const maxWip = Math.max(...wipStations.map(s => s.wip), 50);
+  const threshold = 40;
+
+  return (
+    <div className="w-full relative mt-4">
+      <svg viewBox={`0 -20 ${w} ${h + 40}`} className="w-full h-auto overflow-visible">
+        
+        {/* Y-Axis Grid Lines */}
+        {[0, Math.round(maxWip / 2), maxWip].map((val, idx) => {
+          const y = h - (val / maxWip) * h;
+          return (
+            <g key={idx}>
+              <line 
+                x1="0" y1={y} x2={w} y2={y} 
+                stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 2" 
+                className="text-[#EAEAEA] dark:text-zinc-800" 
+              />
+              <text 
+                x="-10" y={y + 3} textAnchor="end" fontSize="9" 
+                className="fill-[#9A9A9A] dark:fill-zinc-600 font-mono"
+              >
+                {val}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Threshold Warning Line */}
+        <line 
+          x1="0" y1={h - (threshold / maxWip) * h} x2={w} y2={h - (threshold / maxWip) * h} 
+          stroke="#CE8E33" strokeWidth="1" strokeDasharray="4 4" className="opacity-60"
+        />
+        <text x={w + 5} y={h - (threshold / maxWip) * h + 3} fontSize="9" className="fill-[#CE8E33] font-mono">
+          LIMIT
+        </text>
+
+        {/* Bars */}
+        {wipStations.length === 0 ? (
+          <text x={w / 2} y={h / 2} textAnchor="middle" fontSize="12" className="fill-[#9A9A9A]">No station data available</text>
+        ) : (
+          wipStations.map((s, i) => {
+            const barW = (w / wipStations.length) - 16;
+            const x = i * (w / wipStations.length) + 8;
+            const barH = (s.wip / maxWip) * h;
+            const y = h - barH;
+            
+            // Determine Color based on Status and Hover State
+            const isHovered = hoverIndex === i;
+            const isDimmed = hoverIndex !== null && hoverIndex !== i;
+            
+            let fillClass = s.is_bottleneck ? "fill-[#CE8E33]" : "fill-[#1A7C4B]";
+            if (isDimmed) fillClass = s.is_bottleneck ? "fill-[#F4E5D1] dark:fill-amber-900" : "fill-[#E6F1EC] dark:fill-[#0A321E]";
+
+            return (
+              <g key={s.station_id}>
+                {/* Invisible Hover Zone covering full height to catch mouse earlier */}
+                <rect 
+                  x={x - 4} y={0} width={barW + 8} height={h} 
+                  fill="transparent"
+                  onMouseEnter={() => setHoverIndex(i)}
+                  onMouseLeave={() => setHoverIndex(null)}
+                  className="cursor-pointer"
+                />
+
+                {/* Visible Bar */}
+                <rect 
+                  x={x} y={y} width={barW} height={barH} 
+                  className={`${fillClass} transition-colors duration-200 pointer-events-none`}
+                />
+
+                {/* X-Axis Label */}
+                <text 
+                  x={x + barW / 2} y={h + 16} 
+                  textAnchor="middle" fontSize="9" 
+                  className={`font-mono transition-colors duration-200 ${isHovered ? 'fill-[#242424] dark:fill-zinc-100 font-bold' : 'fill-[#9A9A9A] dark:fill-zinc-600'}`}
+                >
+                  {s.station_id}
+                </text>
+
+                {/* Tooltip on Hover */}
+                {isHovered && (
+                  <g className="pointer-events-none" transform={`translate(${x + barW / 2}, ${y - 8})`}>
+                    <rect x="-35" y="-30" width="70" height="24" fill="#242424" className="dark:fill-[#FFFFFF]" />
+                    <polygon points="-5,-6 5,-6 0,0" fill="#242424" className="dark:fill-[#FFFFFF]" />
+                    <text x="0" y="-14" textAnchor="middle" fontSize="10" fill="#FFFFFF" className="dark:fill-[#111113] font-bold font-mono">
+                      {s.wip} units
+                    </text>
+                  </g>
+                )}
+              </g>
+            );
+          })
+        )}
+      </svg>
+    </div>
+  );
+}
+
+// ─── Main Analytics Layout ────────────────────────────────────────────────────
 
 interface OverviewAnalyticsProps {
   stations: Bottleneck[];
 }
 
 export function OverviewAnalytics({ stations }: OverviewAnalyticsProps) {
-  // ── Stage Load Breakdown (Derived or Standard garment production stages) ──
-  const stages = [
-    {
-      name: "Cutting & Preparation",
-      code: "PREP",
-      stationsCount: 2,
-      wip: stations.slice(0, 2).reduce((s, b) => s + b.wip, 0) || 45,
-      maxCap: 100,
-    },
-    {
-      name: "Sub-Assembly",
-      code: "SUB",
-      stationsCount: 3,
-      wip: stations.slice(2, 5).reduce((s, b) => s + b.wip, 0) || 72,
-      maxCap: 120,
-    },
-    {
-      name: "Main Sewing Line",
-      code: "SEW",
-      stationsCount: 4,
-      wip: stations.slice(5, 9).reduce((s, b) => s + b.wip, 0) || 98,
-      maxCap: 150,
-    },
-    {
-      name: "Ironing & Finishing",
-      code: "FIN",
-      stationsCount: 2,
-      wip: stations.slice(9, 11).reduce((s, b) => s + b.wip, 0) || 30,
-      maxCap: 80,
-    },
-    {
-      name: "QC & Final Inspection",
-      code: "QC",
-      stationsCount: 1,
-      wip: stations.slice(11, 12).reduce((s, b) => s + b.wip, 0) || 18,
-      maxCap: 50,
-    },
-  ];
-
-  // ── Shift Hourly Production Pace (08:00 - 16:00) ──
-  const shiftHours = [
-    { hour: "08:00", actual: 140, target: 150, status: "on-track" },
-    { hour: "09:00", actual: 155, target: 150, status: "exceeded" },
-    { hour: "10:00", actual: 148, target: 150, status: "on-track" },
-    { hour: "11:00", actual: 132, target: 150, status: "lagging" },
-    { hour: "12:00", actual: 95, target: 100, status: "lunch" },
-    { hour: "13:00", actual: 152, target: 150, status: "exceeded" },
-    { hour: "14:00", actual: 138, target: 150, status: "lagging" },
-    { hour: "15:00", actual: 145, target: 150, status: "on-track" },
-  ];
+  const totalLines = stations.length || 1;
+  const bottlenecksCount = stations.filter(s => s.is_bottleneck).length;
+  const offlineCount = stations.filter(s => s.actual_productivity === null || s.actual_productivity === 0).length;
+  const optimalCount = totalLines - bottlenecksCount - offlineCount;
 
   return (
     <div className="flex flex-col lg:flex-row">
-      {/* ── Left Column: Line Productivity Comparison Bar Matrix ── */}
-      <div className="lg:w-2/3 border-b lg:border-b-0 lg:border-r border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113] p-5 flex flex-col justify-between">
-        <div>
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#F1F1F1] dark:border-zinc-800">
-            <div>
-              <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
-                Productivity Performance
-              </p>
-              <h3 className="text-sm font-bold text-[#242424] dark:text-zinc-100 mt-0.5">
-                Line Output vs Target Productivity
-              </h3>
-            </div>
-            <div className="flex items-center gap-4 text-[10px] text-[#5F5F5F] dark:text-zinc-400">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 bg-[#1A7C4B]" /> Target Met
-                (&ge;90%)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 bg-[#CE8E33]" /> Bottleneck /
-                Shortfall
-              </span>
-            </div>
+      
+      {/* ── Left Column: Hourly Velocity Line Chart ── */}
+      <div className="lg:w-2/3 border-b lg:border-b-0 lg:border-r border-[#EAEAEA] dark:border-zinc-800 p-5 lg:p-6 flex flex-col justify-between">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
+              Production Velocity Trend
+            </p>
+            <h3 className="text-sm font-bold text-[#242424] dark:text-zinc-100 mt-0.5">
+              Hourly Output vs Target (Current Shift)
+            </h3>
           </div>
-
-          {/* Bar Comparison Grid */}
-          {stations.length === 0 ? (
-            <div className="py-12 text-center text-xs text-[#9A9A9A] dark:text-zinc-600">
-              Loading line productivity data...
-            </div>
-          ) : (
-            <div className="space-y-3.5">
-              {stations.map((s) => {
-                const target = s.targeted_productivity
-                  ? s.targeted_productivity * 100
-                  : 100;
-                const actual = s.actual_productivity
-                  ? s.actual_productivity * 100
-                  : 0;
-                const pct = Math.min(100, Math.round((actual / target) * 100));
-
-                return (
-                  <div key={s.station_id} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-[#242424] dark:text-zinc-100 w-24">
-                          {s.station_id}
-                        </span>
-                        <span className="text-[10px] text-[#9A9A9A] dark:text-zinc-500 font-mono">
-                          ({s.required_skill})
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 font-mono text-[11px] tabular-nums">
-                        <span className="text-[#9A9A9A] dark:text-zinc-500">
-                          {actual.toFixed(0)}% / {target.toFixed(0)}%
-                        </span>
-                        <span
-                          className={`font-bold w-12 text-right ${
-                            s.is_bottleneck
-                              ? "text-[#CE8E33]"
-                              : "text-[#1A7C4B] dark:text-[#47966F]"
-                          }`}
-                        >
-                          {pct}%
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar Container */}
-                    <div className="w-full h-2.5 bg-[#F1F1F1] dark:bg-zinc-800 overflow-hidden flex">
-                      <div
-                        className={`h-full transition-all duration-500 ${
-                          s.is_bottleneck ? "bg-[#CE8E33]" : "bg-[#1A7C4B]"
-                        }`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <div className="flex items-center gap-4 text-[10px] text-[#5F5F5F] dark:text-zinc-400 font-mono">
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-[2px] bg-[#1A7C4B]" /> Actual
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-[2px] bg-[#9A9A9A] border-t border-dashed border-[#9A9A9A] bg-transparent" /> Target
+            </span>
+          </div>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-[#F1F1F1] dark:border-zinc-800 flex justify-between items-center text-[10px] text-[#9A9A9A] dark:text-zinc-500">
-          <span>Updated every shift cycle</span>
-          <span>Target Standard: 100% Productivity</span>
+        <InteractiveLineChart />
+      </div>
+
+      {/* ── Right Column: Health Donut & WIP Bar Chart ── */}
+      <div className="lg:w-1/3 flex flex-col">
+        
+        {/* Health Donut Chart */}
+        <div className="border-b border-[#EAEAEA] dark:border-zinc-800 p-5 lg:p-6 flex flex-col">
+          <div>
+            <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
+              Line Health Distribution
+            </p>
+            <h3 className="text-sm font-bold text-[#242424] dark:text-zinc-100 mt-0.5">
+              Current Station Status
+            </h3>
+          </div>
+
+          <InteractiveDonutChart stations={stations} />
+
+          {/* Legend */}
+          <div className="space-y-2 text-[11px]">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-[#5F5F5F] dark:text-zinc-400">
+                <span className="w-2 h-2 bg-[#1A7C4B]" /> Optimal
+              </span>
+              <span className="font-semibold text-[#242424] dark:text-zinc-100 tabular-nums">{optimalCount}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-[#5F5F5F] dark:text-zinc-400">
+                <span className="w-2 h-2 bg-[#CE8E33]" /> Bottleneck
+              </span>
+              <span className="font-semibold text-[#242424] dark:text-zinc-100 tabular-nums">{bottlenecksCount}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-[#5F5F5F] dark:text-zinc-400">
+                <span className="w-2 h-2 bg-[#F1F1F1] dark:bg-zinc-800" /> Offline/Maintenance
+              </span>
+              <span className="font-semibold text-[#242424] dark:text-zinc-100 tabular-nums">{offlineCount}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* WIP Bar Chart */}
+        <div className="p-5 lg:p-6 flex flex-col">
+          <div className="mb-2">
+            <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
+              Work-In-Progress Queue
+            </p>
+            <h3 className="text-sm font-bold text-[#242424] dark:text-zinc-100 mt-0.5">
+              WIP Load by Station
+            </h3>
+          </div>
+          <InteractiveBarChart stations={stations} />
         </div>
       </div>
 
-      {/* ── Right Column: Stage Load Distribution & Shift Pace ── */}
-      <div className="lg:w-1/3 flex flex-col bg-white dark:bg-[#111113]">
-        {/* Stage Load Breakdown Card */}
-        <div className="border-b border-[#EAEAEA] dark:border-zinc-800 p-5">
-          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
-            Production Stage Load
-          </p>
-          <h3 className="text-sm font-bold text-[#242424] dark:text-zinc-100 mt-0.5 mb-3.5">
-            WIP Distribution across Stages
-          </h3>
-
-          <div className="space-y-3">
-            {stages.map((stg) => {
-              const loadPct = Math.min(
-                100,
-                Math.round((stg.wip / stg.maxCap) * 100),
-              );
-              const isHigh = loadPct > 75;
-
-              return (
-                <div key={stg.code} className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="font-medium text-[#333333] dark:text-zinc-200">
-                      {stg.name}
-                    </span>
-                    <span className="font-mono text-[11px] text-[#5F5F5F] dark:text-zinc-400 tabular-nums">
-                      {stg.wip} / {stg.maxCap} u ({loadPct}%)
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-[#F1F1F1] dark:bg-zinc-800 overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-500 ${
-                        isHigh ? "bg-[#CE8E33]" : "bg-[#1A7C4B]"
-                      }`}
-                      style={{ width: `${loadPct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Hourly Production Pace Card */}
-        <div className="p-5">
-          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
-            Shift Production Rhythm
-          </p>
-          <h3 className="text-sm font-bold text-[#242424] dark:text-zinc-100 mt-0.5 mb-3.5">
-            Hourly Garment Throughput Pace
-          </h3>
-
-          <div className="grid grid-cols-4 gap-2">
-            {shiftHours.map((sh) => (
-              <div
-                key={sh.hour}
-                className={`p-2 border text-center ${
-                  sh.status === "exceeded"
-                    ? "bg-[#E6F1EC] dark:bg-[#0A321E]/30 border-[#B9D7C8] dark:border-[#104A2D]"
-                    : sh.status === "lagging"
-                      ? "bg-[#FDFBF8] dark:bg-amber-950/20 border-[#EACFA9] dark:border-amber-800/40"
-                      : "bg-[#F8F8F8] dark:bg-zinc-900 border-[#EAEAEA] dark:border-zinc-800"
-                }`}
-              >
-                <p className="text-[9px] font-mono text-[#9A9A9A] dark:text-zinc-500 uppercase">
-                  {sh.hour}
-                </p>
-                <p
-                  className={`text-sm font-bold font-mono tabular-nums mt-0.5 ${
-                    sh.status === "exceeded"
-                      ? "text-[#1A7C4B] dark:text-[#47966F]"
-                      : sh.status === "lagging"
-                        ? "text-[#CE8E33]"
-                        : "text-[#242424] dark:text-zinc-200"
-                  }`}
-                >
-                  {sh.actual}
-                </p>
-                <p className="text-[8px] font-mono text-[#9A9A9A] dark:text-zinc-500 mt-0.5">
-                  / {sh.target} u
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
