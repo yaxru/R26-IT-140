@@ -22,9 +22,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           collapsed={collapsed}
           onToggle={() => setCollapsed((v) => !v)}
         />
-        <main className="flex-1 overflow-y-auto bg-zinc-50 dark:bg-[#0d0d0f]">
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           {children}
-        </main>
+        </div>
       </div>
     </div>
   );

@@ -446,7 +446,7 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
             recommended=False,
             no_move_reason=(
                 f"Best available worker (Grade {fg}) would recover {gain:.1f} min "
-                f"but relocation costs {cost:.1f} min — net {profit:.1f} min. "
+                f"but relocation costs {cost:.1f} min - net {profit:.1f} min. "
                 f"Gap is within normal variance; no move justified."
             ),
             moves=[no_move], workers_needed=workers_needed, workers_found=0,
