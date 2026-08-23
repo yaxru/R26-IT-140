@@ -127,7 +127,7 @@ export function GlobalHeader({ collapsed, onToggle }: GlobalHeaderProps) {
         </button>
 
         {isProfileOpen && (
-          <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800 shadow-2xl py-1 z-50 text-sm text-zinc-900 dark:text-zinc-300 rounded-none">
+          <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800  py-1 z-50 text-sm text-zinc-900 dark:text-zinc-300 rounded-none">
             
             <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
               <p className="font-semibold text-zinc-900 dark:text-zinc-100 truncate">

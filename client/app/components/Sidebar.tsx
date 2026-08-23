@@ -67,7 +67,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
   return (
     <>
       <div 
-        className={`shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+        className={`shrink-0 transition-[width] duration-300 ease-in-out ${
           collapsed ? "w-14" : "w-60"
         }`} 
       />
@@ -75,7 +75,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
       <aside
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className={`fixed top-0 left-0 z-40 flex flex-col h-screen bg-[#111113] border-r border-zinc-800/60 overflow-hidden transition-[width,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+        className={`fixed top-0 left-0 z-40 flex flex-col h-screen bg-[#111113] border-r border-zinc-800/60 overflow-hidden transition-[width,box-shadow] duration-300 ease-in-out ${
           isExpanded ? "w-60" : "w-14"
         } ${collapsed && isHovered ? " border-r-zinc-700/60" : ""}`}
       >
