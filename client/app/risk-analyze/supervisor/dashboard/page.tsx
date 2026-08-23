@@ -14,6 +14,55 @@ type LaberUser = {
   is_flagged: boolean;
 };
 
+type EmployeeTrend = "IMPROVING" | "DECLINING" | "STABLE" | "NOT_ENOUGH_DATA";
+
+type EmployeeAnalytics = {
+  id: number;
+  name: string;
+  employee_code: string;
+  totalSubmissions: number;
+  todaySubmissions: number;
+  avgEfficiency: number;
+  trend: EmployeeTrend;
+  riskLevel: LaborEntry["risk_level"];
+  isOutlier: boolean;
+  isFlagged: boolean;
+  lastSubmittedAt: string;
+  recentEfficiencies: number[];
+};
+
+function entryTimestamp(entry: LaborEntry) {
+  return `${entry.date}T${entry.time || "00:00:00"}`;
+}
+
+function riskRank(employee: EmployeeAnalytics) {
+  const levelRank = employee.riskLevel === "HIGH" ? 0 : employee.riskLevel === "MEDIUM" ? 1 : 2;
+  return (employee.isFlagged ? 0 : 1) * 3 + levelRank;
+}
+
+function Sparkline({ values }: { values: number[] }) {
+  const width = 180;
+  const height = 48;
+  const min = Math.min(...values, 0);
+  const max = Math.max(...values, 100);
+  const range = max - min || 1;
+  const points = values
+    .map((value, index) => {
+      const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width;
+      const y = height - ((value - min) / range) * height;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full max-w-[180px] h-12" aria-label="Recent efficiency trend">
+      <line x1="0" y1={height / 2} x2={width} y2={height / 2} stroke="var(--ink-line)" strokeDasharray="3 3" />
+      <polyline points={points} fill="none" stroke="var(--green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {values.length > 0 && <circle cx={values.length === 1 ? width / 2 : width} cy={height - ((values[values.length - 1] - min) / range) * height} r="3" fill="var(--green)" />}
+    </svg>
+  );
+}
+
 export default function SupervisorDashboard() {
   const router = useRouter();
   const session = useMemo(() => getSupervisorSession(), []);
@@ -78,6 +127,56 @@ export default function SupervisorDashboard() {
       ? todaysEntries.reduce((sum, e) => sum + Number(e.efficiency), 0) / todaysEntries.length
       : null;
   const highRiskToday = todaysEntries.filter((e) => e.risk_level === "HIGH" || e.is_outlier).length;
+
+  const employeeAnalytics = useMemo<EmployeeAnalytics[]>(() => {
+    const grouped = new Map<number, LaborEntry[]>();
+    for (const entry of entries) {
+      const employeeEntries = grouped.get(entry.laborers_id) || [];
+      employeeEntries.push(entry);
+      grouped.set(entry.laborers_id, employeeEntries);
+    }
+
+    return Array.from(grouped.entries())
+      .map(([id, employeeEntries]) => {
+        const chronological = [...employeeEntries].sort(
+          (a, b) => entryTimestamp(a).localeCompare(entryTimestamp(b)),
+        );
+        const newestFirst = [...chronological].reverse();
+        const recentEfficiencies = newestFirst.slice(0, 6).map((entry) => Number(entry.efficiency));
+        const trend: EmployeeTrend =
+          recentEfficiencies.length < 6
+            ? "NOT_ENOUGH_DATA"
+            : recentEfficiencies.slice(0, 3).reduce((sum, value) => sum + value, 0) / 3 >
+                recentEfficiencies.slice(3, 6).reduce((sum, value) => sum + value, 0) / 3
+              ? "IMPROVING"
+              : recentEfficiencies.slice(0, 3).reduce((sum, value) => sum + value, 0) / 3 <
+                  recentEfficiencies.slice(3, 6).reduce((sum, value) => sum + value, 0) / 3
+                ? "DECLINING"
+                : "STABLE";
+        const latest = newestFirst[0];
+        const user = users.find((candidate) => candidate.id === id);
+        const flaggedEmployee = flagged.some((candidate) => candidate.id === id);
+
+        return {
+          id,
+          name: latest.laborer_name || user?.name || "Unknown employee",
+          employee_code: latest.employee_code || user?.employee_code || "—",
+          totalSubmissions: employeeEntries.length,
+          todaySubmissions: employeeEntries.filter((entry) => entry.date === today).length,
+          avgEfficiency:
+            employeeEntries.reduce((sum, entry) => sum + Number(entry.efficiency), 0) / employeeEntries.length,
+          trend,
+          riskLevel: latest.risk_level,
+          isOutlier: latest.is_outlier,
+          isFlagged: flaggedEmployee,
+          lastSubmittedAt: entryTimestamp(latest),
+          recentEfficiencies,
+        };
+      })
+      .sort((a, b) => riskRank(a) - riskRank(b) || a.avgEfficiency - b.avgEfficiency);
+  }, [entries, flagged, today, users]);
+
+  const [expandedEmployeeId, setExpandedEmployeeId] = useState<number | null>(null);
 
   if (!ready || !session) {
     return (
@@ -184,52 +283,56 @@ export default function SupervisorDashboard() {
           </div>
         </div>
 
-        {/* ---------------- All entries table ---------------- */}
-        <div className="panel p-5 overflow-x-auto scrollbar-thin">
-          <div className="eyebrow text-[var(--ink-muted)] mb-4">Live entries</div>
-          <table className="w-full text-sm min-w-[820px]">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-[var(--ink-muted)] border-b border-[var(--ink-line)]">
-                <th className="py-2 pr-3">Employee</th>
-                <th className="py-2 pr-3">Date / time</th>
-                <th className="py-2 pr-3">Efficiency</th>
-                <th className="py-2 pr-3">Status</th>
-                <th className="py-2 pr-3">Predicted</th>
-                <th className="py-2 pr-3">Risk</th>
-                <th className="py-2 pr-3">Downtime reason</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.slice(0, 25).map((e) => (
-                <tr key={e.id} className="border-b border-[var(--ink-line)]/50">
-                  <td className="py-2.5 pr-3 text-white">
-                    {e.laborer_name} <span className="mono text-[var(--ink-muted)]">· {e.employee_code}</span>
-                  </td>
-                  <td className="py-2.5 pr-3 mono text-[var(--ink-muted)]">
-                    {e.date} {e.time?.slice(0, 5)}
-                  </td>
-                  <td className="py-2.5 pr-3 mono text-white">{Number(e.efficiency).toFixed(1)}%</td>
-                  <td className="py-2.5 pr-3">
-                    <StatusTag status={e.status} />
-                  </td>
-                  <td className="py-2.5 pr-3 mono text-[var(--ink-muted)]">
-                    {e.predicted_output != null ? Number(e.predicted_output).toFixed(0) : "—"}
-                  </td>
-                  <td className="py-2.5 pr-3">
-                    <RiskTag level={e.risk_level} outlier={e.is_outlier} />
-                  </td>
-                  <td className="py-2.5 pr-3 text-[var(--ink-muted)]">{e.downtime_reason || "—"}</td>
-                </tr>
-              ))}
-              {entries.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="py-6 text-center text-[var(--ink-muted)]">
-                    No entries logged yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        {/* ---------------- Employee-wise analytics ---------------- */}
+        <div className="panel p-5">
+          <div className="eyebrow text-[var(--ink-muted)] mb-4">Employee-wise analytics</div>
+          {employeeAnalytics.length === 0 ? (
+            <p className="text-sm text-[var(--ink-muted)]">No entries logged yet.</p>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-4">
+              {employeeAnalytics.map((employee) => {
+                const isExpanded = expandedEmployeeId === employee.id;
+                return (
+                  <button
+                    type="button"
+                    key={employee.id}
+                    onClick={() => setExpandedEmployeeId(isExpanded ? null : employee.id)}
+                    className="panel-raised p-4 text-left w-full hover:border-[var(--ink-muted)] transition-colors"
+                    aria-expanded={isExpanded}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-white font-medium truncate">
+                          {employee.name} <span className="mono text-xs text-[var(--ink-muted)]">· {employee.employee_code}</span>
+                        </div>
+                        <div className="mono text-[10px] text-[var(--ink-muted)] mt-1">
+                          Last submission {employee.lastSubmittedAt.replace("T", " ").slice(0, 16)}
+                        </div>
+                      </div>
+                      <RiskTag level={employee.riskLevel} outlier={employee.isOutlier} />
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 mt-4">
+                      <Metric label="Submissions" value={`${employee.totalSubmissions} / ${employee.todaySubmissions}`} detail="all / today" />
+                      <Metric label="Avg efficiency" value={`${employee.avgEfficiency.toFixed(1)}%`} />
+                      <Metric label="Trend" value={employee.trend.replaceAll("_", " ")} />
+                    </div>
+                    <div className="flex items-center justify-between mt-4 text-[10px] mono">
+                      <span className={employee.isFlagged ? "text-[var(--red)]" : "text-[var(--ink-muted)]"}>
+                        {employee.isFlagged ? "FLAGGED" : "Not flagged"}
+                      </span>
+                      <span className="text-[var(--ink-muted)]">{isExpanded ? "Hide trend" : "View trend"}</span>
+                    </div>
+                    {isExpanded && (
+                      <div className="mt-3 pt-3 border-t border-[var(--ink-line)] flex items-center justify-between gap-4">
+                        <span className="eyebrow text-[var(--ink-muted)]">Recent efficiency</span>
+                        <Sparkline values={[...employee.recentEfficiencies].reverse()} />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </main>
@@ -246,9 +349,14 @@ function Kpi({ label, value, tone }: { label: string; value: string | number; to
   );
 }
 
-function StatusTag({ status }: { status: string }) {
-  const cls = status === "HIGH" ? "tag-high" : status === "MEDIUM" ? "tag-medium" : "tag-low";
-  return <span className={`tag ${cls}`}>{status}</span>;
+function Metric({ label, value, detail }: { label: string; value: string; detail?: string }) {
+  return (
+    <div>
+      <div className="eyebrow text-[var(--ink-muted)] text-[9px]">{label}</div>
+      <div className="led-digits text-lg text-white mt-1">{value}</div>
+      {detail && <div className="mono text-[9px] text-[var(--ink-muted)]">{detail}</div>}
+    </div>
+  );
 }
 
 function RiskTag({ level, outlier }: { level: string | null; outlier: boolean }) {

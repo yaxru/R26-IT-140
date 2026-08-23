@@ -174,7 +174,7 @@ async def employee_login(body: EmployeeLoginRequest):
 # =============================================================================
 
 @app.get("/labers", response_model=list[dict])
-async def get_all_labers(_: dict = Depends(require_auth)):
+async def get_all_labers():
     res = (
         supabase.table("labers")
         .select("id, name, age, role, employee_code, submission_count, is_flagged, flagged_at, flag_reason")
@@ -376,7 +376,7 @@ async def create_laborer_data(body: LaborerDataCreate, _: dict = Depends(require
 
 
 @app.get("/laborers", response_model=list[dict])
-async def get_all_laborer_data(_: dict = Depends(require_auth)):
+async def get_all_laborer_data():
     res = (
         supabase.table("laborers_data")
         .select("*, labers(name, employee_code)")
@@ -466,7 +466,7 @@ async def get_analysis(laborers_id: int, _: dict = Depends(require_auth)):
 # =============================================================================
 
 @app.get("/flags", response_model=list[dict])
-async def get_flagged_employees(_: dict = Depends(require_admin)):
+async def get_flagged_employees():
     res = (
         supabase.table("labers")
         .select("id, name, age, employee_code, submission_count, is_flagged, flagged_at, flag_reason")
