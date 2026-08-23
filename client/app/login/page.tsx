@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { signInWithPassword } from "@/shared/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,20 +18,10 @@ export default function LoginPage() {
     setLoading(true);
 
     const supabase = createClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const errorMsg = await signInWithPassword(supabase, email, password);
 
-    if (authError) {
-      // Supabase returns 400 "Email not confirmed" when email confirmation
-      // is enabled in the project. Disable it under:
-      // Auth → Providers → Email → toggle off "Confirm email"
-      const msg =
-        authError.message === "Email not confirmed"
-          ? "Your account email is not confirmed. Ask your admin to disable email confirmation in Supabase Auth settings, or confirm the email."
-          : authError.message;
-      setError(msg);
+    if (errorMsg) {
+      setError(errorMsg);
       setLoading(false);
       return;
     }
