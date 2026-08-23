@@ -59,9 +59,9 @@ export function OverviewAnalytics({ stations }: OverviewAnalyticsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-      {/* ── Left 2 Columns: Line Productivity Comparison Bar Matrix ── */}
-      <div className="lg:col-span-2 bg-white dark:bg-[#111113] border border-[#EAEAEA] dark:border-zinc-800 p-5 flex flex-col justify-between">
+    <div className="flex flex-col lg:flex-row">
+      {/* ── Left Column: Line Productivity Comparison Bar Matrix ── */}
+      <div className="lg:w-2/3 border-b lg:border-b-0 lg:border-r border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113] p-5 flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#F1F1F1] dark:border-zinc-800">
             <div>
@@ -150,9 +150,9 @@ export function OverviewAnalytics({ stations }: OverviewAnalyticsProps) {
       </div>
 
       {/* ── Right Column: Stage Load Distribution & Shift Pace ── */}
-      <div className="space-y-5">
+      <div className="lg:w-1/3 flex flex-col bg-white dark:bg-[#111113]">
         {/* Stage Load Breakdown Card */}
-        <div className="bg-white dark:bg-[#111113] border border-[#EAEAEA] dark:border-zinc-800 p-5">
+        <div className="border-b border-[#EAEAEA] dark:border-zinc-800 p-5">
           <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
             Production Stage Load
           </p>
@@ -193,7 +193,7 @@ export function OverviewAnalytics({ stations }: OverviewAnalyticsProps) {
         </div>
 
         {/* Hourly Production Pace Card */}
-        <div className="bg-white dark:bg-[#111113] border border-[#EAEAEA] dark:border-zinc-800 p-5">
+        <div className="p-5">
           <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
             Shift Production Rhythm
           </p>

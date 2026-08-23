@@ -115,7 +115,7 @@ export function OverviewNotificationPanel({
   };
 
   return (
-    <div className="bg-white dark:bg-[#111113] border border-[#EAEAEA] dark:border-zinc-800">
+    <div className="bg-white dark:bg-[#111113]">
       {/* Header */}
       <div className="px-5 py-3.5 border-b border-[#EAEAEA] dark:border-zinc-800 flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">

@@ -12,6 +12,47 @@ import { getAuthHeaders } from "@/shared/auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+// ─── KPI Stat ─────────────────────────────────────────────────────────────────
+
+function KpiTile({
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  label: string;
+  value: string | React.ReactNode;
+  sub?: string;
+  accent?: "green" | "amber" | "none";
+}) {
+  const valueColor =
+    accent === "green"
+      ? "text-[#1A7C4B] dark:text-[#47966F]"
+      : accent === "amber"
+        ? "text-[#CE8E33] dark:text-[#D7A45A]"
+        : "text-[#242424] dark:text-zinc-100";
+
+  return (
+    <div className="flex-1 border-b sm:border-b-0 sm:border-r border-[#EAEAEA] dark:border-zinc-800 last:border-b-0 sm:last:border-r-0 px-5 py-4 flex flex-col justify-center">
+      <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-1">
+        {label}
+      </p>
+      <p
+        className={`text-2xl font-bold tabular-nums leading-none ${valueColor}`}
+      >
+        {value}
+      </p>
+      {sub && (
+        <p className="text-[11px] text-[#9A9A9A] dark:text-zinc-600 mt-1">
+          {sub}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function Home() {
   const supabase = createClient();
   const [stations, setStations] = useState<Bottleneck[]>([]);
@@ -65,136 +106,141 @@ export default function Home() {
       : 0;
 
   return (
-    <main className="px-6 py-6 space-y-6 max-w-[1400px] mx-auto">
-      {/* ── Page Title & Global Actions ── */}
-      <div className="flex items-start justify-between flex-wrap gap-4">
+    <div className="flex flex-col h-full">
+      {/* ── Top bar ──────────────────────────────────────────────── */}
+      <header className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-6 py-4 flex items-center justify-between bg-white dark:bg-[#0d0d0f]">
         <div>
-          <p className="text-[11px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-1">
-            Production Management
+          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-0.5">
+            Main · Overview
           </p>
-          <h1 className="text-2xl font-bold text-[#242424] dark:text-zinc-100 tracking-tight">
-            Factory Floor Overview
+          <h1 className="text-lg font-bold text-[#242424] dark:text-zinc-100 tracking-tight">
+            Factory Floor Status
           </h1>
-          <p className="text-xs text-[#9A9A9A] dark:text-zinc-500 mt-0.5">
-            Real-time garment line throughput, WIP load distribution, and alert tracking
-          </p>
         </div>
-
-        {/* Global Live Status Pill */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <Link
             href="/worker-reallocation"
-            className={`inline-flex items-center gap-2 px-3 py-1.5 border transition-colors text-xs font-semibold ${
+            className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 border transition-colors ${
               bottleneckCount > 0
-                ? "bg-[#FDFBF8] dark:bg-amber-950/20 text-[#A77329] border-[#EACFA9] hover:bg-[#F4E5D1]"
-                : "bg-[#E6F1EC] dark:bg-[#0A321E]/20 text-[#1A7C4B] border-[#B9D7C8] hover:bg-[#D0E4DA]"
+                ? "text-[#A77329] dark:text-[#E1BA82] bg-[#FDFBF8] dark:bg-amber-950/20 border-[#EACFA9] dark:border-amber-800/40 hover:bg-[#F4E5D1] dark:hover:bg-amber-900/40"
+                : "text-[#1A7C4B] dark:text-[#47966F] bg-[#E6F1EC] dark:bg-[#0A321E]/20 border-[#B9D7C8] dark:border-[#104A2D] hover:bg-[#D0E4DA] dark:hover:bg-[#0A321E]/40"
             }`}
           >
             <span
-              className={`w-2 h-2 ${
+              className={`w-1.5 h-1.5 ${
                 bottleneckCount > 0 ? "bg-[#CE8E33] animate-pulse" : "bg-[#1A7C4B]"
               }`}
               aria-hidden="true"
             />
             {bottleneckCount > 0
-              ? `${bottleneckCount} Bottleneck Line${bottleneckCount > 1 ? "s" : ""} — Reallocate →`
-              : "All Lines On Target →"}
+              ? `${bottleneckCount} bottleneck${bottleneckCount > 1 ? "s" : ""} — Reallocate →`
+              : "All lines on target →"}
           </Link>
         </div>
-      </div>
+      </header>
 
-      {/* Error banner if API fails */}
-      {stationsError && <ErrorBanner message={stationsError} />}
+      {/* ── Main body ────────────────────────────────────────────── */}
+      <main className="flex-1 overflow-y-auto bg-[#F8F8F8] dark:bg-[#0a0a0c]">
+        {/* Error banners */}
+        {stationsError && (
+          <div className="px-6 py-2">
+            <div
+              role="alert"
+              className="flex items-center gap-2 border-l-2 border-l-[#CE8E33] border border-[#F4E5D1] dark:border-amber-800/30 bg-[#FDFBF8] dark:bg-amber-950/10 px-3 py-2 text-xs text-[#A77329] dark:text-[#E1BA82]"
+            >
+              <span aria-hidden="true">⚠</span> {stationsError}
+            </div>
+          </div>
+        )}
 
-      {/* ── Summary Key Performance Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1: Total WIP */}
-        <div className="bg-white dark:bg-[#111113] border border-[#EAEAEA] dark:border-zinc-800 p-5 flex flex-col justify-between">
-          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
-            Total WIP Queue
-          </p>
-          <p className="text-3xl font-bold font-mono tabular-nums text-[#242424] dark:text-zinc-100 my-2">
-            {loading ? "—" : totalWip.toLocaleString()}
-            <span className="text-xs font-normal text-[#9A9A9A] dark:text-zinc-500 ml-1.5">
-              units
-            </span>
-          </p>
-          <p className="text-[11px] text-[#9A9A9A] dark:text-zinc-600">
-            across {stations.length} active stations
-          </p>
-        </div>
-
-        {/* Metric 2: Active Lines */}
-        <div className="bg-white dark:bg-[#111113] border border-[#EAEAEA] dark:border-zinc-800 p-5 flex flex-col justify-between">
-          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
-            Operating Lines
-          </p>
-          <p className="text-3xl font-bold font-mono tabular-nums text-[#242424] dark:text-zinc-100 my-2">
-            {loading ? "—" : `${activeLines} / ${stations.length}`}
-          </p>
-          <p className="text-[11px] text-[#1A7C4B] dark:text-[#47966F]">
-            {stations.length - activeLines > 0
-              ? `${stations.length - activeLines} line in maintenance`
-              : "100% lines operating"}
-          </p>
-        </div>
-
-        {/* Metric 3: Factory Efficiency Rate */}
-        <div className="bg-white dark:bg-[#111113] border border-[#EAEAEA] dark:border-zinc-800 p-5 flex flex-col justify-between">
-          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
-            Factory Efficiency Rate
-          </p>
-          <p className="text-3xl font-bold font-mono tabular-nums text-[#1A7C4B] dark:text-[#47966F] my-2">
-            {loading ? "—" : `${avgEfficiency.toFixed(1)}%`}
-          </p>
-          <p className="text-[11px] text-[#9A9A9A] dark:text-zinc-600">
-            vs 100% target standard
-          </p>
-        </div>
-
-        {/* Metric 4: Bottleneck Lines */}
-        <div
-          className={`bg-white dark:bg-[#111113] border p-5 flex flex-col justify-between ${
-            bottleneckCount > 0
-              ? "border-[#EACFA9] dark:border-amber-900/60 bg-[#FDFBF8]/50 dark:bg-amber-950/10"
-              : "border-[#EAEAEA] dark:border-zinc-800"
-          }`}
+        {/* ── KPI row ─────────────────────────────────────────── */}
+        <section
+          aria-label="Overview metrics"
+          className="border-b border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113] flex flex-col sm:flex-row"
         >
-          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
-            Active Bottlenecks
+          {loading ? (
+            [1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="flex-1 border-b sm:border-b-0 sm:border-r border-[#EAEAEA] dark:border-zinc-800 last:border-b-0 sm:last:border-r-0 px-5 py-4"
+              >
+                <div className="h-2 w-20 bg-[#F1F1F1] dark:bg-zinc-800 animate-pulse mb-3" />
+                <div className="h-7 w-16 bg-[#F1F1F1] dark:bg-zinc-800 animate-pulse mb-2" />
+                <div className="h-2 w-24 bg-[#F1F1F1] dark:bg-zinc-800 animate-pulse" />
+              </div>
+            ))
+          ) : (
+            <>
+              <KpiTile
+                label="Total WIP Queue"
+                value={
+                  <>
+                    {totalWip.toLocaleString()}
+                    <span className="text-base font-normal text-[#9A9A9A] dark:text-zinc-600 ml-1">
+                      u
+                    </span>
+                  </>
+                }
+                sub={`across ${stations.length} active stations`}
+                accent="none"
+              />
+              <KpiTile
+                label="Operating Lines"
+                value={`${activeLines} / ${stations.length}`}
+                sub={
+                  stations.length - activeLines > 0
+                    ? `${stations.length - activeLines} offline/maintenance`
+                    : "100% lines operating"
+                }
+                accent="none"
+              />
+              <KpiTile
+                label="Factory Efficiency"
+                value={`${avgEfficiency.toFixed(1)}%`}
+                sub="vs 100% target standard"
+                accent={avgEfficiency >= 90 ? "green" : avgEfficiency >= 75 ? "none" : "amber"}
+              />
+              <KpiTile
+                label="Active Bottlenecks"
+                value={bottleneckCount.toString()}
+                sub={bottleneckCount > 0 ? "Requires rebalancing" : "Optimal flow maintained"}
+                accent={bottleneckCount > 0 ? "amber" : "green"}
+              />
+            </>
+          )}
+        </section>
+
+        {/* ── Notifications Panel ─────────────────────────────── */}
+        <section
+          aria-label="Alerts and notifications"
+          className="border-b border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113]"
+        >
+          <OverviewNotificationPanel stations={stations} />
+        </section>
+
+        {/* ── Analytics Visualizations ────────────────────────── */}
+        <section
+          aria-label="Production analytics"
+          className="border-b border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113]"
+        >
+          <OverviewAnalytics stations={stations} />
+        </section>
+
+        {/* ── Station Table ───────────────────────────────────── */}
+        <section
+          aria-label="Station status table"
+          className="bg-white dark:bg-[#111113]"
+        >
+          <OverviewStationTable stations={stations} />
+        </section>
+
+        {/* ── Footer ─────────────────────────────────────────── */}
+        <footer className="px-5 py-3 border-t border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113]">
+          <p className="text-[11px] text-[#C6C6C6] dark:text-zinc-700">
+            Opsis · Factory Floor Administration v1.0 · Snapshots update in real time
           </p>
-          <p
-            className={`text-3xl font-bold font-mono tabular-nums my-2 ${
-              bottleneckCount > 0 ? "text-[#CE8E33]" : "text-[#1A7C4B] dark:text-[#47966F]"
-            }`}
-          >
-            {loading ? "—" : bottleneckCount}
-          </p>
-          <p
-            className={`text-[11px] ${
-              bottleneckCount > 0 ? "text-[#A77329] font-medium" : "text-[#9A9A9A]"
-            }`}
-          >
-            {bottleneckCount > 0 ? "Requires rebalancing" : "Optimal flow maintained"}
-          </p>
-        </div>
-      </div>
-
-      {/* ── Factory Notifications & Alerts Panel ── */}
-      <OverviewNotificationPanel stations={stations} />
-
-      {/* ── New Visual Analytics & Visualizations ── */}
-      <OverviewAnalytics stations={stations} />
-
-      {/* ── Redesigned Station Floor Table ── */}
-      <OverviewStationTable stations={stations} />
-
-      {/* ── Footer ── */}
-      <footer className="pt-2">
-        <p className="text-center text-[11px] text-[#C6C6C6] dark:text-zinc-700">
-          Opsis · Factory Floor Administration v1.0 · Snapshots update in real time
-        </p>
-      </footer>
-    </main>
+        </footer>
+      </main>
+    </div>
   );
 }

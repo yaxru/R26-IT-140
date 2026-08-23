@@ -35,7 +35,7 @@ export function OverviewStationTable({ stations }: OverviewStationTableProps) {
   ).length;
 
   return (
-    <div className="bg-white dark:bg-[#111113] border border-[#EAEAEA] dark:border-zinc-800">
+    <div className="bg-white dark:bg-[#111113]">
       {/* Table Header & Controls */}
       <div className="px-5 py-4 border-b border-[#EAEAEA] dark:border-zinc-800 flex items-center justify-between flex-wrap gap-3">
         <div>
