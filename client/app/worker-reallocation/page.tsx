@@ -58,7 +58,7 @@ export default function WorkerReallocationPage() {
   // ── Load the full workforce skill matrix once on mount ────────────────
   useEffect(() => {
     (async () => {
-      const headers = await getAuthHeaders();
+      const headers = await getAuthHeaders(supabase);
       fetch(`${API_BASE}/skill-matrix`, { headers })
         .then((res) => {
           if (!res.ok)
@@ -77,7 +77,7 @@ export default function WorkerReallocationPage() {
 
   const fetchRecommendation = useCallback(async (bottleneck: Bottleneck) => {
     try {
-      const headers = await getAuthHeaders();
+      const headers = await getAuthHeaders(supabase);
       const res = await fetch(`${API_BASE}/recommend`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...headers },
@@ -130,7 +130,7 @@ export default function WorkerReallocationPage() {
     if (!recommendation || !activeBottleneck) return;
     setAccepting(true);
     try {
-      const headers = await getAuthHeaders();
+      const headers = await getAuthHeaders(supabase);
       const rawMoves =
         recommendation.moves && recommendation.moves.length > 0
           ? recommendation.moves

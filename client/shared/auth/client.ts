@@ -3,8 +3,6 @@
  * Use in Next.js client components to interact with Supabase Auth
  */
 
-"use client";
-
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AuthHeaders, AuthSession, AuthUser } from "./types";
 
