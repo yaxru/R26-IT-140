@@ -34,6 +34,11 @@ export default function WorkforcePage() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [previewData, setPreviewData] = useState<ParsedWorker[]>([]);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<
+    "idle" | "validating" | "uploading" | "complete"
+  >("idle");
 
   // ──────────────────────────────────────────────────────────────────────
   // Parse CSV file
@@ -77,6 +82,8 @@ export default function WorkforcePage() {
 
       setError(null);
       setImportResult(null);
+      setUploadProgress("validating");
+      setSelectedFile(file.name);
 
       try {
         const text = await file.text();
@@ -85,16 +92,19 @@ export default function WorkforcePage() {
         if (workers.length > 100) {
           setError(`Too many workers: ${workers.length}. Maximum is 100.`);
           setPreviewData([]);
+          setUploadProgress("idle");
           return;
         }
 
         setPreviewData(workers);
         setShowImportModal(true);
+        setUploadProgress("idle");
       } catch (err) {
         setError(
           `Failed to parse CSV: ${err instanceof Error ? err.message : "Unknown error"}`,
         );
         setPreviewData([]);
+        setUploadProgress("idle");
       }
     },
     [],
@@ -107,6 +117,7 @@ export default function WorkforcePage() {
     if (previewData.length === 0) return;
 
     setImporting(true);
+    setUploadProgress("uploading");
     setError(null);
 
     try {
@@ -151,13 +162,14 @@ export default function WorkforcePage() {
       setImportResult(result);
       setPreviewData([]);
       setShowImportModal(false);
+      setUploadProgress("complete");
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     } catch (err) {
-      setError(
-        `Import failed: ${err instanceof Error ? err.message : "Unknown error"}`,
-      );
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      setError(`Import failed: ${errorMessage}`);
+      setUploadProgress("idle");
     } finally {
       setImporting(false);
     }
@@ -223,16 +235,46 @@ export default function WorkforcePage() {
       {/* Import Section */}
       <div className="bg-white dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800/60 p-6">
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
-          Import Workers
+          Import Workers from CSV
         </h2>
 
         <div className="space-y-4">
           <p className="text-xs text-zinc-600 dark:text-zinc-400">
             Upload a CSV file with columns:{" "}
-            <code className="font-mono">firstName, workerId, lineId</code>
+            <code className="bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded font-mono text-[10px]">
+              firstName, workerId, lineId
+            </code>
           </p>
 
-          <div className="flex gap-3">
+          {/* Drag and Drop Area */}
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              const file = e.dataTransfer.files?.[0];
+              if (file && file.name.endsWith(".csv")) {
+                const input = fileInputRef.current;
+                if (input) {
+                  const dt = new DataTransfer();
+                  dt.items.add(file);
+                  input.files = dt.files;
+                  handleFileSelect({
+                    target: input,
+                  } as React.ChangeEvent<HTMLInputElement>);
+                }
+              }
+            }}
+            className={`border-2 border-dashed rounded p-8 text-center transition-colors ${
+              isDragging
+                ? "border-emerald-500 bg-emerald-500/5"
+                : "border-zinc-300 dark:border-zinc-700 hover:border-emerald-500/50"
+            }`}
+          >
             <input
               ref={fileInputRef}
               type="file"
@@ -240,18 +282,68 @@ export default function WorkforcePage() {
               onChange={handleFileSelect}
               className="hidden"
             />
+
+            <div className="flex flex-col items-center gap-3">
+              <svg
+                className="w-8 h-8 text-zinc-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+
+              <div>
+                <p className="font-semibold text-zinc-900 dark:text-zinc-100">
+                  Drag and drop your CSV file here
+                </p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                  or click to browse
+                </p>
+              </div>
+
+              {selectedFile && (
+                <p className="text-xs font-mono text-emerald-600 dark:text-emerald-400 mt-2">
+                  ✓ {selectedFile}
+                </p>
+              )}
+
+              {uploadProgress === "validating" && (
+                <p className="text-xs text-blue-600 dark:text-blue-400 animate-pulse">
+                  Validating CSV...
+                </p>
+              )}
+
+              {uploadProgress === "uploading" && (
+                <p className="text-xs text-blue-600 dark:text-blue-400 animate-pulse">
+                  Creating worker accounts...
+                </p>
+              )}
+            </div>
+
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors"
+              className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded transition-colors"
             >
               Select CSV File
             </button>
-            {previewData.length > 0 && (
-              <p className="text-xs text-zinc-500 self-center">
-                {previewData.length} worker(s) ready to import
-              </p>
-            )}
           </div>
+
+          {previewData.length > 0 && !showImportModal && (
+            <div className="bg-blue-500/10 border border-blue-500/30 p-3 rounded text-sm">
+              <p className="text-blue-600 dark:text-blue-400 font-medium">
+                ✓ {previewData.length} worker(s) ready to import
+              </p>
+              <p className="text-xs text-blue-500 mt-1">
+                Click "Select CSV File" again to review or import
+              </p>
+            </div>
+          )}
 
           {/* Import Summary */}
           {importResult && (
@@ -326,46 +418,137 @@ export default function WorkforcePage() {
 
       {/* Import Preview Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-700 p-6 max-w-2xl max-h-96 overflow-y-auto">
-            <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
-              Confirm Import
-            </h3>
-
-            <div className="bg-zinc-100 dark:bg-zinc-800 p-4 mb-6 max-h-48 overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-zinc-300 dark:border-zinc-700">
-                    <th className="text-left p-2">First Name</th>
-                    <th className="text-left p-2">Worker ID</th>
-                    <th className="text-left p-2">Line ID</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-300 dark:divide-zinc-700">
-                  {previewData.map((w, idx) => (
-                    <tr key={idx}>
-                      <td className="p-2">{w.firstName}</td>
-                      <td className="p-2 font-mono">{w.workerId}</td>
-                      <td className="p-2 font-mono">{w.lineId}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800/60 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white dark:bg-[#111113] border-b border-zinc-200 dark:border-zinc-800/60 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                    Review & Confirm Import
+                  </h3>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
+                    {previewData.length} worker
+                    {previewData.length !== 1 ? "s" : ""} ready to be created
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowImportModal(false)}
+                  className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
-            <div className="flex gap-3 justify-end">
+            {/* Modal Content */}
+            <div className="p-6 space-y-6">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-blue-500/10 border border-blue-500/30 p-3 rounded">
+                  <p className="text-[10px] font-mono text-blue-600 dark:text-blue-400 uppercase mb-1">
+                    To Import
+                  </p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    {previewData.length}
+                  </p>
+                </div>
+                <div className="bg-emerald-500/10 border border-emerald-500/30 p-3 rounded">
+                  <p className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 uppercase mb-1">
+                    Expected
+                  </p>
+                  <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                    ✓
+                  </p>
+                </div>
+                <div className="bg-zinc-500/10 border border-zinc-500/30 p-3 rounded">
+                  <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 uppercase mb-1">
+                    Status
+                  </p>
+                  <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                    Ready
+                  </p>
+                </div>
+              </div>
+
+              {/* Preview Table */}
+              <div>
+                <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 uppercase mb-3">
+                  Preview
+                </p>
+                <div className="bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800/60 rounded overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-800/30">
+                        <th className="text-left p-3 font-semibold text-zinc-700 dark:text-zinc-300 w-32">
+                          First Name
+                        </th>
+                        <th className="text-left p-3 font-semibold text-zinc-700 dark:text-zinc-300 w-24">
+                          Worker ID
+                        </th>
+                        <th className="text-left p-3 font-semibold text-zinc-700 dark:text-zinc-300">
+                          Line ID
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800/60">
+                      {previewData.map((w, idx) => (
+                        <tr
+                          key={idx}
+                          className="hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition-colors"
+                        >
+                          <td className="p-3 text-zinc-900 dark:text-zinc-100">
+                            {w.firstName}
+                          </td>
+                          <td className="p-3 font-mono text-blue-600 dark:text-blue-400">
+                            {w.workerId}
+                          </td>
+                          <td className="p-3 font-mono text-zinc-600 dark:text-zinc-400">
+                            {w.lineId}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Warning */}
+              <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded">
+                <p className="text-xs text-yellow-700 dark:text-yellow-400">
+                  ⚠️ After importing, worker credentials will be generated and
+                  ready for distribution. Ensure all information is correct
+                  before proceeding.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="sticky bottom-0 bg-white dark:bg-[#111113] border-t border-zinc-200 dark:border-zinc-800/60 p-6 flex gap-3 justify-end">
               <button
                 onClick={() => setShowImportModal(false)}
-                className="px-4 py-2 bg-zinc-600 hover:bg-zinc-700 text-white text-sm font-medium transition-colors"
+                disabled={importing}
+                className="px-4 py-2 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 disabled:opacity-50 text-zinc-900 dark:text-zinc-100 text-sm font-medium transition-colors rounded"
               >
                 Cancel
               </button>
               <button
                 onClick={handleImportWorkers}
                 disabled={importing}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-600/50 text-white text-sm font-medium transition-colors"
+                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-600/50 disabled:opacity-50 text-white text-sm font-medium transition-colors rounded flex items-center gap-2"
               >
-                {importing ? "Importing..." : "Import Workers"}
+                {importing ? (
+                  <>
+                    <span className="animate-spin">◌</span>
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <span>✓</span>
+                    Import {previewData.length} Worker
+                    {previewData.length !== 1 ? "s" : ""}
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -373,11 +556,32 @@ export default function WorkforcePage() {
       )}
 
       {/* Help Section */}
-      <div className="bg-blue-500/5 border border-blue-500/30 p-4 text-xs text-blue-400">
-        <p className="font-mono uppercase mb-2">CSV Format</p>
-        <p className="font-mono">firstName, workerId, lineId</p>
-        <p className="mt-2">Example:</p>
-        <p className="font-mono">Yasiru, 4092, LINE-A</p>
+      <div className="bg-blue-500/5 border border-blue-500/30 p-6 rounded">
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs font-mono text-blue-600 dark:text-blue-400 uppercase font-bold mb-2">
+              📋 CSV Format Required
+            </p>
+            <p className="text-xs text-zinc-700 dark:text-zinc-300 font-mono bg-zinc-100 dark:bg-zinc-800 p-2 rounded">
+              firstName, workerId, lineId
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 font-semibold mb-2">
+              Example:
+            </p>
+            <div className="space-y-1 font-mono text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 p-2 rounded">
+              <p>Yasiru, 4092, LINE-A</p>
+              <p>Praveen, 4093, LINE-B</p>
+              <p>Lakshan, 4094, LINE-A</p>
+            </div>
+          </div>
+          <div>
+            <p className="text-xs text-blue-600 dark:text-blue-400">
+              ℹ️ Maximum 100 workers per import. Worker IDs must be 4 digits.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
