@@ -10,6 +10,7 @@ import type { ChartPoint } from "./components/EfficiencyChart";
 import { StationFlowDiagram } from "./components/StationFlowDiagram";
 import { RankedBarList } from "./components/RankedBarList";
 import { createClient } from "@/lib/supabase/client";
+import { getAuthHeaders } from "@/shared/auth";
 
 // Chart: one snapshot per hour, only during working hours
 const MAX_CHART_POINTS = 24; // up to 24-hour history
@@ -27,15 +28,6 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 // ---------------------------------------------------------------------------
 export default function Home() {
   const supabase = createClient();
-
-  const getAuthHeaders = async (): Promise<Record<string, string>> => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    return session?.access_token
-      ? { Authorization: `Bearer ${session.access_token}` }
-      : {};
-  };
   const [bottlenecks, setBottlenecks] = useState<Bottleneck[]>([]);
   const [bottlenecksError, setBottlenecksError] = useState<string | null>(null);
   const [chartHistory, setChartHistory] = useState<ChartPoint[]>([]);
@@ -43,7 +35,7 @@ export default function Home() {
   // ── Load stations once on mount ──────────────────────────────────────────
   useEffect(() => {
     (async () => {
-      const headers = await getAuthHeaders();
+      const headers = await getAuthHeaders(supabase);
       fetch(`${API_BASE}/stations`, { headers })
         .then((res) => {
           if (!res.ok)
@@ -67,7 +59,7 @@ export default function Home() {
     const takeSnapshot = async () => {
       const h = new Date().getHours();
       if (h < WORK_START_HOUR || h >= WORK_END_HOUR) return;
-      const headers = await getAuthHeaders().catch(() => ({}));
+      const headers = await getAuthHeaders(supabase).catch(() => ({}));
       const res = await fetch(`${API_BASE}/stations`, { headers }).catch(
         () => null,
       );

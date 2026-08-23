@@ -33,14 +33,6 @@ export async function middleware(request: NextRequest) {
 
   const isLoginPage = request.nextUrl.pathname.startsWith("/login");
 
-  // The risk_analyze module (Employee + Floor Manager/Supervisor login and
-  // dashboards) has its own, separate JWT-based auth system — it is NOT
-  // gated by Supabase Auth. See services/risk_analyze/README.md.
-  const isRiskAnalyze = request.nextUrl.pathname.startsWith("/risk-analyze");
-  if (isRiskAnalyze) {
-    return supabaseResponse;
-  }
-
   if (!user && !isLoginPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";

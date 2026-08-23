@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "./ThemeProvider";
+import { signOut } from "@/shared/auth";
 
 function LogoutIcon() {
   return (
@@ -74,7 +75,7 @@ export function Header({
 
   const handleLogout = async () => {
     const supabase = createClient();
-    await supabase.auth.signOut();
+    await signOut(supabase);
     router.push("/login");
     router.refresh();
   };

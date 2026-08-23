@@ -6,6 +6,7 @@ import { Heatmap } from "../components/Heatmap";
 import { SegmentedBar } from "../components/SegmentedBar";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { createClient } from "@/lib/supabase/client";
+import { getAuthHeaders } from "@/shared/auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const WIP_CAPACITY = 60; // matches the cap used on the Worker Reallocation cards

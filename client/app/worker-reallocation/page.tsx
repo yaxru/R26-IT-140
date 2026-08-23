@@ -9,21 +9,13 @@ import { StationSelector } from "../components/StationSelector";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { StationWorkersGrid } from "../components/StationWorkersGrid";
 import { createClient } from "@/lib/supabase/client";
+import { getAuthHeaders } from "@/shared/auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const RECOMMEND_INTERVAL_MS = 3_600_000; // auto-refresh recommendations every 1 hour
 
 export default function WorkerReallocationPage() {
   const supabase = createClient();
-
-  const getAuthHeaders = async (): Promise<Record<string, string>> => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    return session?.access_token
-      ? { Authorization: `Bearer ${session.access_token}` }
-      : {};
-  };
 
   const [bottlenecks, setBottlenecks] = useState<Bottleneck[]>([]);
   const [bottlenecksError, setBottlenecksError] = useState<string | null>(null);
@@ -43,7 +35,7 @@ export default function WorkerReallocationPage() {
   // ── Load stations once on mount ──────────────────────────────────────────
   useEffect(() => {
     (async () => {
-      const headers = await getAuthHeaders();
+      const headers = await getAuthHeaders(supabase);
       fetch(`${API_BASE}/stations`, { headers })
         .then((res) => {
           if (!res.ok)
@@ -66,7 +58,7 @@ export default function WorkerReallocationPage() {
   // ── Load the full workforce skill matrix once on mount ────────────────
   useEffect(() => {
     (async () => {
-      const headers = await getAuthHeaders();
+      const headers = await getAuthHeaders(supabase);
       fetch(`${API_BASE}/skill-matrix`, { headers })
         .then((res) => {
           if (!res.ok)
@@ -85,7 +77,7 @@ export default function WorkerReallocationPage() {
 
   const fetchRecommendation = useCallback(async (bottleneck: Bottleneck) => {
     try {
-      const headers = await getAuthHeaders();
+      const headers = await getAuthHeaders(supabase);
       const res = await fetch(`${API_BASE}/recommend`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...headers },
@@ -138,7 +130,7 @@ export default function WorkerReallocationPage() {
     if (!recommendation || !activeBottleneck) return;
     setAccepting(true);
     try {
-      const headers = await getAuthHeaders();
+      const headers = await getAuthHeaders(supabase);
       const rawMoves =
         recommendation.moves && recommendation.moves.length > 0
           ? recommendation.moves

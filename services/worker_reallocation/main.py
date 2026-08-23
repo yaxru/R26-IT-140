@@ -346,7 +346,7 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
     op_station_map: dict[str, Optional[str]] = {}
     try:
         ops_resp = (
-            supabase.table("operators")
+            supabase.table("operator_productivity")
             .select("operator_id, current_station")
             .in_("operator_id", [c["operator_id"] for c in candidates_raw])
             .execute()
@@ -657,7 +657,7 @@ async def accept_move(request: AcceptMoveRequest, _: dict = Depends(require_auth
 
         # 1. Update the operator's current station
         try:
-            supabase.table("operators").update(
+            supabase.table("operator_productivity").update(
                 {"current_station": move.to_station}
             ).eq("operator_id", move.operator_id).execute()
         except Exception as exc:

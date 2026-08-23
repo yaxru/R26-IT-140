@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { signInWithPassword } from "@/shared/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,20 +18,10 @@ export default function LoginPage() {
     setLoading(true);
 
     const supabase = createClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const errorMsg = await signInWithPassword(supabase, email, password);
 
-    if (authError) {
-      // Supabase returns 400 "Email not confirmed" when email confirmation
-      // is enabled in the project. Disable it under:
-      // Auth → Providers → Email → toggle off "Confirm email"
-      const msg =
-        authError.message === "Email not confirmed"
-          ? "Your account email is not confirmed. Ask your admin to disable email confirmation in Supabase Auth settings, or confirm the email."
-          : authError.message;
-      setError(msg);
+    if (errorMsg) {
+      setError(errorMsg);
       setLoading(false);
       return;
     }
@@ -118,13 +108,6 @@ export default function LoginPage() {
 
         <p className="text-center text-[10px] font-mono text-zinc-400 dark:text-zinc-700 mt-4">
           Contact your admin to get access.
-        </p>
-
-        <p className="text-center text-[10px] font-mono text-zinc-400 dark:text-zinc-700 mt-2">
-          Employee or floor manager?{" "}
-          <Link href="/risk-analyze" className="text-emerald-600 dark:text-emerald-500 hover:underline">
-            Digital Job Card login →
-          </Link>
         </p>
       </div>
     </div>
