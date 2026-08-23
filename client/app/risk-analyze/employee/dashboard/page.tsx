@@ -9,6 +9,12 @@ import EfficiencyGauge from "@/app/risk-analyze/components/EfficiencyGauge";
 
 const PROCESS_SECONDS = 20;
 const LOCK_SECONDS = 20;
+const DEFAULT_SMV = 8;
+const DEFAULT_MANPOWER = 1;
+const DEFAULT_OPERATOR_SKILL = "B";
+const SAVED_OUTPUTS_KEY = "risk-analyze.saved-outputs";
+const DAILY_TARGET = 1500;
+const SHIFT_LENGTH_HOURS = 8;
 
 const DOWNTIME_REASONS = [
   "Mechanical Failure",
@@ -21,9 +27,21 @@ const DOWNTIME_REASONS = [
 
 type Stage = "idle" | "processing" | "result" | "locked";
 
+const DEMO_EMPLOYEE = {
+  token: "",
+  user: {
+    id: 1,
+    name: "Demo Employee",
+    role: "labor" as const,
+    employee_code: "DEMO",
+    submission_count: 0,
+    is_flagged: false,
+  },
+};
+
 export default function EmployeeDashboard() {
   const router = useRouter();
-  const session = useMemo(() => getEmployeeSession(), []);
+  const session = useMemo(() => getEmployeeSession() ?? DEMO_EMPLOYEE, []);
 
   const [ready, setReady] = useState(false);
   const [stage, setStage] = useState<Stage>("idle");
@@ -34,14 +52,12 @@ export default function EmployeeDashboard() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isFlagged, setIsFlagged] = useState(session?.user.is_flagged ?? false);
   const [recentEntries, setRecentEntries] = useState<LaborEntry[]>([]);
+  const [savedOutputs, setSavedOutputs] = useState<string[]>([]);
 
   // form fields
   const [output, setOutput] = useState("");
-  const [smv, setSmv] = useState("8");
-  const [manpower, setManpower] = useState("1");
   const [workingMinutes, setWorkingMinutes] = useState("60");
   const [shift, setShift] = useState("day");
-  const [operatorSkill, setOperatorSkill] = useState("B");
   const [machineStatus, setMachineStatus] = useState("ok");
   const [downtimeReason, setDowntimeReason] = useState("");
 
@@ -73,9 +89,9 @@ export default function EmployeeDashboard() {
 
   // ---------------- Auth guard + initial load ----------------
   useEffect(() => {
-    if (!session) {
-      router.replace("/risk-analyze/employee/login");
-      return;
+    const storedOutputs = localStorage.getItem(SAVED_OUTPUTS_KEY);
+    if (storedOutputs) {
+      setSavedOutputs(JSON.parse(storedOutputs));
     }
 
     (async () => {
@@ -125,13 +141,11 @@ export default function EmployeeDashboard() {
   // ---------------- Live efficiency preview ----------------
   const previewEfficiency = useMemo(() => {
     const o = parseFloat(output);
-    const s = parseFloat(smv);
-    const m = parseFloat(manpower);
     const w = parseFloat(workingMinutes);
-    if (!o || !s || !m || !w) return null;
-    const eff = (o * s) / (m * w) * 100;
+    if (!o || !w) return null;
+    const eff = (o * DEFAULT_SMV) / (DEFAULT_MANPOWER * w) * 100;
     return Number.isFinite(eff) ? eff : null;
-  }, [output, smv, manpower, workingMinutes]);
+  }, [output, workingMinutes]);
 
   const requiresDowntimeReason = previewEfficiency !== null && previewEfficiency < 60;
 
@@ -182,14 +196,18 @@ export default function EmployeeDashboard() {
     setError(null);
     if (stage !== "idle" || !session) return;
 
-    if (!output || !smv || !manpower || !workingMinutes) {
-      setError("Fill in output, SMV, manpower and working minutes.");
+    if (!output || !workingMinutes) {
+      setError("Fill in output and working minutes.");
       return;
     }
     if (requiresDowntimeReason && !downtimeReason) {
       setError("Efficiency is looking low for this entry — pick a downtime reason before submitting.");
       return;
     }
+
+    const nextSavedOutputs = [output, ...savedOutputs].slice(0, 5);
+    setSavedOutputs(nextSavedOutputs);
+    localStorage.setItem(SAVED_OUTPUTS_KEY, JSON.stringify(nextSavedOutputs));
 
     setStage("processing");
     setProcessingLeft(PROCESS_SECONDS);
@@ -214,12 +232,12 @@ export default function EmployeeDashboard() {
       const res = await api.post<SubmitResponse>("/laborers", {
         laborers_id: session.user.id,
         output: Number(output),
-        smv: Number(smv),
-        manpower: Number(manpower),
+        smv: DEFAULT_SMV,
+        manpower: DEFAULT_MANPOWER,
         working_minutes: Number(workingMinutes),
         date: new Date().toISOString().slice(0, 10),
         shift,
-        operator_skill: operatorSkill,
+        operator_skill: DEFAULT_OPERATOR_SKILL,
         machine_status: machineStatus,
         downtime_reason: downtimeReason || undefined,
       });
@@ -246,6 +264,7 @@ export default function EmployeeDashboard() {
   }
 
   const { user } = session;
+  const shiftHour = Math.min(savedOutputs.length + 1, SHIFT_LENGTH_HOURS);
 
   return (
     <main className="min-h-screen px-5 py-10 md:py-14">
@@ -262,6 +281,17 @@ export default function EmployeeDashboard() {
             Log out
           </button>
         </header>
+
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="panel px-4 py-3">
+            <div className="eyebrow text-[var(--ink-muted)] mb-1">Daily target</div>
+            <div className="mono text-lg text-white">{DAILY_TARGET.toLocaleString()} pcs</div>
+          </div>
+          <div className="panel px-4 py-3">
+            <div className="eyebrow text-[var(--ink-muted)] mb-1">Shift hour</div>
+            <div className="mono text-lg text-white">{shiftHour} / {SHIFT_LENGTH_HOURS}</div>
+          </div>
+        </div>
 
         {isFlagged && (
           <div className="mb-6 panel-raised border-l-4 border-l-[var(--red)] px-5 py-4 flex gap-3 items-start">
@@ -309,27 +339,6 @@ export default function EmployeeDashboard() {
                           required
                         />
                       </Field>
-                      <Field label="SMV">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className="job-input"
-                          value={smv}
-                          onChange={(e) => setSmv(e.target.value)}
-                          required
-                        />
-                      </Field>
-                      <Field label="Manpower">
-                        <input
-                          type="number"
-                          min="1"
-                          className="job-input"
-                          value={manpower}
-                          onChange={(e) => setManpower(e.target.value)}
-                          required
-                        />
-                      </Field>
                       <Field label="Working minutes">
                         <input
                           type="number"
@@ -344,17 +353,6 @@ export default function EmployeeDashboard() {
                         <select className="job-input" value={shift} onChange={(e) => setShift(e.target.value)}>
                           <option value="day">Day</option>
                           <option value="night">Night</option>
-                        </select>
-                      </Field>
-                      <Field label="Your skill grade">
-                        <select
-                          className="job-input"
-                          value={operatorSkill}
-                          onChange={(e) => setOperatorSkill(e.target.value)}
-                        >
-                          <option value="A">A</option>
-                          <option value="B">B</option>
-                          <option value="C">C</option>
                         </select>
                       </Field>
                       <Field label="Machine status" full>
@@ -413,6 +411,30 @@ export default function EmployeeDashboard() {
                       Submit hourly log
                     </button>
                   </form>
+
+                  <div className="mt-6 border-t border-[var(--card-line)] pt-5">
+                    <div className="eyebrow text-[var(--card-muted)] mb-3">Saved outputs</div>
+                    {savedOutputs.length === 0 ? (
+                      <p className="text-sm text-[var(--card-muted)]">No outputs saved yet.</p>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {savedOutputs.map((savedOutput, index) => (
+                          <div
+                            key={`${savedOutput}-${index}`}
+                            className="flex items-center justify-between gap-3 border-b border-[var(--card-line)] pb-2 last:border-b-0 last:pb-0"
+                          >
+                            <div>
+                              <div className="mono text-sm font-semibold">{Number(savedOutput).toFixed(0)} pcs</div>
+                              <div className="text-xs text-[var(--card-muted)]">
+                                Saved locally
+                              </div>
+                            </div>
+                            <span className="tag tag-medium">PENDING</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
 
