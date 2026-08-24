@@ -37,6 +37,7 @@ ehthumbs.db
 .env
 .env.*
 !.env.example
+services/risk_analyze/env
 
 # ============================================================
 # Logs
