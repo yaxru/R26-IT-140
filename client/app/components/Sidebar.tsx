@@ -2,388 +2,211 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
+import {
+  LayoutDashboard,
+  Map,
+  Activity,
+  Layers,
+  ArrowRightLeft,
+  Users,
+  Shirt,
+  LineChart,
+  Package,
+  Wrench,
+  Settings,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
 
-// ── Icons ─────────────────────────────────────────────────────────────────
+const iconProps = { size: 16, strokeWidth: 1.8 };
 
-function OverviewIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" />
-    </svg>
-  );
-}
-
-function FloorMapIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18" />
-    </svg>
-  );
-}
-
-function LiveMonitoringIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-    </svg>
-  );
-}
-
-function ProductionLinesIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polygon points="12 2 2 7 12 12 22 7 12 2" />
-      <polyline points="2 17 12 22 22 17" />
-      <polyline points="2 12 12 17 22 12" />
-    </svg>
-  );
-}
-
-function WorkforceIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
-
-function StyleManagementIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-      <path d="M4.93 4.93a10 10 0 0 0 0 14.14" />
-    </svg>
-  );
-}
-
-function ReportsIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="18" y1="20" x2="18" y2="10" />
-      <line x1="12" y1="20" x2="12" y2="4" />
-      <line x1="6" y1="20" x2="6" y2="14" />
-    </svg>
-  );
-}
-
-function InventoryIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-      <polyline points="9 22 9 12 15 12 15 22" />
-    </svg>
-  );
-}
-
-function MaintenanceIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-    </svg>
-  );
-}
-
-function SettingsIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  );
-}
-
-function ChevronLeftIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="15 18 9 12 15 6" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="9 18 15 12 9 6" />
-    </svg>
-  );
-}
-
-function WorkerReallocationIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M17 3l4 4-4 4" />
-      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-      <path d="M7 21l-4-4 4-4" />
-      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-    </svg>
-  );
-}
-
-// ── Nav data ──────────────────────────────────────────────────────────────
+const COLLAPSED_W = 56;   // px — icon-only
+const EXPANDED_W  = 228;  // px — full labels
 
 const NAV_SECTIONS = [
   {
-    label: "Main Menu",
+    label: "Main",
     items: [
-      { label: "Overview", href: "/", icon: <OverviewIcon /> },
-      { label: "Floor Map", href: "/floor-map", icon: <FloorMapIcon /> },
-      {
-        label: "Live Monitoring",
-        href: "/live-monitoring",
-        icon: <LiveMonitoringIcon />,
-      },
-      {
-        label: "Production Lines",
-        href: "/production-lines",
-        icon: <ProductionLinesIcon />,
-      },
+      { label: "Overview",           href: "/",                   icon: <LayoutDashboard  {...iconProps} /> },
+      { label: "Floor Map",          href: "/floor-map",          icon: <Map              {...iconProps} /> },
+      { label: "Live Monitoring",    href: "/live-monitoring",    icon: <Activity         {...iconProps} /> },
+      { label: "Production Lines",   href: "/production-lines",   icon: <Layers           {...iconProps} /> },
     ],
   },
   {
     label: "Management",
     items: [
-      {
-        label: "Worker Reallocation",
-        href: "/worker-reallocation",
-        icon: <WorkerReallocationIcon />,
-      },
-      { label: "Workforce", href: "/workforce", icon: <WorkforceIcon /> },
-      {
-        label: "Style Management",
-        href: "/style-management",
-        icon: <StyleManagementIcon />,
-      },
-      { label: "Reports & Analytics", href: "/reports", icon: <ReportsIcon /> },
+      { label: "Worker Reallocation", href: "/worker-reallocation", icon: <ArrowRightLeft {...iconProps} /> },
+      { label: "Workforce",           href: "/workforce",           icon: <Users          {...iconProps} /> },
+      { label: "Style Management",    href: "/style-management",    icon: <Shirt          {...iconProps} /> },
+      { label: "Reports & Analytics", href: "/risk-analyze",        icon: <LineChart      {...iconProps} /> },
     ],
   },
   {
-    label: "Support & System",
+    label: "System",
     items: [
-      { label: "Inventory", href: "/inventory", icon: <InventoryIcon /> },
-      { label: "Maintenance", href: "/maintenance", icon: <MaintenanceIcon /> },
-      { label: "Settings", href: "/settings", icon: <SettingsIcon /> },
+      { label: "Inventory",   href: "/inventory",   icon: <Package  {...iconProps} /> },
+      { label: "Maintenance", href: "/maintenance",  icon: <Wrench   {...iconProps} /> },
+      { label: "Settings",    href: "/settings",     icon: <Settings {...iconProps} /> },
     ],
   },
 ];
 
-// ── Component ─────────────────────────────────────────────────────────────
-
 interface SidebarProps {
-  collapsed: boolean;
+  /** true = sidebar is pinned open and pushes content */
+  pinned: boolean;
+  /** called when user clicks the pin/collapse toggle at the bottom */
+  onToggle: () => void;
 }
 
-export function Sidebar({ collapsed }: SidebarProps) {
+export function Sidebar({ pinned, onToggle }: SidebarProps) {
   const pathname = usePathname();
+  const [hovered, setHovered] = useState(false);
+
+  // Expand visually when pinned OR when hovered
+  const isExpanded = pinned || hovered;
+
+  // When not pinned and hovering, sidebar floats as overlay → higher z-index
+  const isOverlay = !pinned && hovered;
 
   return (
     <aside
-      className={`flex flex-col shrink-0 h-screen bg-[#111113] border-r border-zinc-800/60 transition-all duration-200 ${
-        collapsed ? "w-14" : "w-55"
-      }`}
+      onMouseEnter={() => { if (!pinned) setHovered(true); }}
+      onMouseLeave={() => { if (!pinned) setHovered(false); }}
+      aria-label="Main navigation"
+      style={{
+        width: isExpanded ? EXPANDED_W : COLLAPSED_W,
+        transition: "width 280ms cubic-bezier(0.4, 0, 0.2, 1)",
+      }}
+      className={`
+        fixed top-13 left-0 bottom-0 flex flex-col
+        border-r border-[#EAEAEA] dark:border-zinc-800
+        bg-[#fafafa] dark:bg-[#111113]
+        overflow-hidden
+        ${isOverlay ? "z-30" : "z-20"}
+      `}
     >
-      {/* Logo — sharp edges, same SF gradient as GlobalHeader */}
-      <div
-        className={`flex items-center gap-3 h-14 border-b border-zinc-800/60 shrink-0 ${
-          collapsed ? "justify-center px-0" : "px-4"
-        }`}
-      >
-        <div className="shrink-0 flex items-center justify-center w-8 h-8 bg-linear-to-br from-emerald-400 to-teal-500">
-          <span className="text-white text-[11px] font-black tracking-tight">
-            SF
-          </span>
-        </div>
-        {!collapsed && (
-          <div className="flex flex-col leading-none min-w-0">
-            <span className="text-sm font-semibold text-zinc-100 tracking-tight">
-              StitchFlow
-            </span>
-            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mt-0.5">
-              v1.0
-            </span>
-          </div>
-        )}
-      </div>
+      {/* Inner container is always full expanded width so content never reflows */}
+      <div style={{ width: EXPANDED_W }} className="flex flex-col h-full">
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 px-2 space-y-4">
-        {NAV_SECTIONS.map((section) => (
-          <div key={section.label}>
-            {!collapsed && (
-              <p className="px-2 mb-1 text-[10px] font-mono tracking-widest uppercase text-zinc-500">
-                {section.label}
-              </p>
-            )}
-            <ul className="space-y-0.5">
-              {section.items.map((item) => {
-                const isActive =
-                  item.href === "/"
-                    ? pathname === "/"
-                    : pathname.startsWith(item.href);
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      title={collapsed ? item.label : undefined}
-                      className={`flex items-center gap-2.5 px-2 py-2 text-sm transition-colors ${
-                        collapsed ? "justify-center" : ""
-                      } ${
-                        isActive
-                          ? "bg-zinc-800 text-zinc-100"
-                          : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
-                      }`}
-                    >
-                      <span className="shrink-0">{item.icon}</span>
-                      {!collapsed && (
-                        <span className="truncate">{item.label}</span>
-                      )}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
-      </nav>
+        {/* ── Nav ────────────────────────────────────────── */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-3 space-y-5">
+          {NAV_SECTIONS.map((section) => (
+            <div key={section.label}>
+              {/* Section label */}
+              <div
+                className="h-5 mb-1 px-2 flex items-center overflow-hidden"
+                aria-hidden={!isExpanded}
+              >
+                <p
+                  className={`
+                    text-[10px] font-semibold text-[#9A9A9A] dark:text-zinc-500
+                    uppercase tracking-widest whitespace-nowrap
+                    transition-opacity duration-200
+                    ${isExpanded ? "opacity-100" : "opacity-0"}
+                  `}
+                >
+                  {section.label}
+                </p>
+              </div>
 
-      {/* User profile */}
-      <div
-        className={`shrink-0 border-t border-zinc-800/60 p-3 ${collapsed ? "flex justify-center" : ""}`}
-      >
-        <div className={`flex items-center gap-2.5 ${collapsed ? "" : ""}`}>
-          <div className="shrink-0 w-8 h-8 bg-emerald-700 flex items-center justify-center text-xs font-semibold text-white">
-            FM
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-zinc-200 truncate">
-                Floor Manager
-              </p>
-              <p className="text-[10px] text-zinc-500 truncate">
-                manager@stichflow.io
-              </p>
+              <ul className="space-y-0.5" role="list">
+                {section.items.map((item) => {
+                  const isActive =
+                    item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        title={!isExpanded ? item.label : undefined}
+                        aria-current={isActive ? "page" : undefined}
+                        className={`
+                          group flex items-center gap-3 px-2.5 py-2 text-[13px] font-medium
+                          border-l-2 transition-colors duration-100
+                          focus-visible:outline-2 focus-visible:outline-offset-[-2px]
+                          focus-visible:outline-[#1A7C4B]
+                          ${isActive
+                            ? "border-l-[#1A7C4B] bg-[#E6F1EC] dark:bg-[#0A321E]/40 text-[#1A7C4B] dark:text-[#47966F]"
+                            : "border-l-transparent text-[#5F5F5F] dark:text-zinc-400 hover:bg-[#F8F8F8] dark:hover:bg-zinc-800/60 hover:text-[#242424] dark:hover:text-zinc-200"
+                          }
+                        `}
+                      >
+                        {/* Icon — always visible */}
+                        <span
+                          className={`
+                            shrink-0 flex items-center justify-center w-4 h-4
+                            ${isActive
+                              ? "text-[#1A7C4B] dark:text-[#47966F]"
+                              : "text-[#9A9A9A] dark:text-zinc-500 group-hover:text-[#424242] dark:group-hover:text-zinc-300"
+                            }
+                          `}
+                        >
+                          {item.icon}
+                        </span>
+
+                        {/* Label — smooth opacity fade */}
+                        <span
+                          style={{
+                            transition: "opacity 200ms cubic-bezier(0.4,0,0.2,1), transform 200ms cubic-bezier(0.4,0,0.2,1)",
+                          }}
+                          className={`
+                            whitespace-nowrap overflow-hidden
+                            ${isExpanded
+                              ? "opacity-100 translate-x-0 pointer-events-auto"
+                              : "opacity-0 -translate-x-1 pointer-events-none w-0"
+                            }
+                          `}
+                        >
+                          {item.label}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-          )}
+          ))}
+        </nav>
+
+        {/* ── Bottom: pin / collapse toggle ───────────────── */}
+        <div className="shrink-0 border-t border-[#EAEAEA] dark:border-zinc-800">
+          <button
+            onClick={onToggle}
+            aria-label={pinned ? "Collapse sidebar" : "Pin sidebar open"}
+            title={pinned ? "Collapse sidebar" : "Pin sidebar open"}
+            className={`
+              w-full flex items-center gap-3 px-2.5 py-3
+              text-[#9A9A9A] dark:text-zinc-500
+              hover:text-[#424242] dark:hover:text-zinc-300
+              hover:bg-[#F8F8F8] dark:hover:bg-zinc-800/60
+              transition-colors duration-100 text-[13px] font-medium
+            `}
+          >
+            <span className="shrink-0 flex items-center justify-center w-4 h-4">
+              {pinned
+                ? <PanelLeftClose size={16} strokeWidth={1.8} />
+                : <PanelLeftOpen  size={16} strokeWidth={1.8} />
+              }
+            </span>
+            <span
+              style={{
+                transition: "opacity 200ms cubic-bezier(0.4,0,0.2,1), transform 200ms cubic-bezier(0.4,0,0.2,1)",
+              }}
+              className={`
+                whitespace-nowrap overflow-hidden
+                ${isExpanded
+                  ? "opacity-100 translate-x-0 pointer-events-auto"
+                  : "opacity-0 -translate-x-1 pointer-events-none w-0"
+                }
+              `}
+            >
+              {pinned ? "Collapse sidebar" : "Pin sidebar open"}
+            </span>
+          </button>
         </div>
+
       </div>
     </aside>
   );
