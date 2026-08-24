@@ -69,8 +69,6 @@ export default function RiskAnalyzePage() {
 
   useEffect(() => {
     loadAll();
-    const interval = setInterval(loadAll, 15000);
-    return () => clearInterval(interval);
   }, [loadAll]);
 
   const flaggedIds = useMemo(
