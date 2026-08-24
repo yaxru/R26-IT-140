@@ -273,7 +273,7 @@ const NAV_SECTIONS = [
         href: "/style-management",
         icon: <StyleManagementIcon />,
       },
-      { label: "Reports & Analytics", href: "/risk-analyze", icon: <ReportsIcon /> },
+      { label: "Reports & Analytics", href: "/reports", icon: <ReportsIcon /> },
     ],
   },
   {
