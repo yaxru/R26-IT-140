@@ -31,37 +31,46 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-[#0d0d0f] flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
+    <div
+      className="min-h-screen bg-cover bg-center flex items-center justify-center px-4"
+      style={{ backgroundImage: "url('/img/login.webp')" }}
+    >
+      {/* Dark tint overlay for better readability if background is bright */}
+      <div className="absolute inset-0 bg-[#000000]/30 pointer-events-none" />
+
+      <div className="w-full max-w-sm relative z-10">
+        
+
+        {/* Card */}
+        <div className="bg-[#05190F]/60 backdrop-blur-md border border-white/10 p-7">
+
         {/* Brand */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="flex items-center justify-center w-9 h-9 bg-linear-to-br from-emerald-400 to-teal-500">
-            <span className="text-white text-[12px] font-black tracking-tight">
-              SF
+        <div className="flex items-center gap-3 border-b border-white/20 pb-4">
+          <div className="flex items-center justify-center w-9 h-9 bg-[#1A7C4B] border border-[#47966F]">
+            <span className="text-white text-xs font-black tracking-tight">
+              OP
             </span>
           </div>
           <div className="flex flex-col leading-none">
-            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight">
-              StitchFlow
+            <span className="text-sm font-bold text-white tracking-tight">
+              Opsis
             </span>
-            <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-600 uppercase tracking-widest mt-0.5">
-              Production Engine v1.0
+            <span className="text-[10px] font-mono text-white/70 uppercase tracking-widest mt-0.5">
+              Production OS v1.0
             </span>
           </div>
         </div>
 
-        {/* Card */}
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 shadow-sm">
-          <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
+          <h1 className="text-lg font-bold text-white mb-1 mt-4">
             Supervisor Login
           </h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-500 font-mono mb-6">
+          <p className="text-xs text-white/60 font-mono mb-6">
             Access is restricted to authorised supervisors only.
           </p>
 
           <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-1">
-              <label className="block text-[11px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-mono text-white/80 uppercase tracking-wider">
                 Email
               </label>
               <input
@@ -70,13 +79,13 @@ export default function LoginPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-600 transition-colors"
+                className="w-full px-3 py-2 text-sm bg-black/40 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:border-[#1A7C4B] focus:bg-black/60 transition-colors"
                 placeholder="supervisor@factory.com"
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="block text-[11px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-mono text-white/80 uppercase tracking-wider">
                 Password
               </label>
               <input
@@ -85,13 +94,13 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-600 transition-colors"
+                className="w-full px-3 py-2 text-sm bg-black/40 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:border-[#1A7C4B] focus:bg-black/60 transition-colors"
                 placeholder="••••••••"
               />
             </div>
 
             {error && (
-              <div className="px-3 py-2 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/60 text-orange-600 dark:text-orange-400 text-xs font-mono">
+              <div className="px-3 py-2 bg-[#CE8E33]/20 border border-[#CE8E33]/50 text-[#F4E5D1] text-xs font-mono">
                 {error}
               </div>
             )}
@@ -99,16 +108,18 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 text-[11px] font-mono tracking-widest uppercase bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-500/50 text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
+              className="w-full py-2.5 mt-2 text-[11px] font-bold font-mono tracking-widest uppercase bg-[#1A7C4B] hover:bg-[#15633C] border border-[#15633C] disabled:opacity-50 text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
             >
               {loading ? "Signing in…" : "Sign In"}
             </button>
           </form>
+
+          <p className="text-center text-[10px] font-mono text-white/50 mt-6 tracking-wide">
+          Contact your administrator to request access.
+        </p>
         </div>
 
-        <p className="text-center text-[10px] font-mono text-zinc-400 dark:text-zinc-700 mt-4">
-          Contact your admin to get access.
-        </p>
+        
       </div>
     </div>
   );
