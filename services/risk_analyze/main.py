@@ -114,7 +114,7 @@ async def submit_job_card(body: LaborerDataCreate, current_user: dict = Depends(
         "operator_id": body.operator_id,
         "output": body.output,
         "smv": body.smv,
-        "working_minutes": body.working_minutes,
+        "working_minutes": int(body.working_minutes),
         "efficiency": round(efficiency, 2),
         "status": entry_status,
         "date": body.date,
