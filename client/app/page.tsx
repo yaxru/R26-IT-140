@@ -1,64 +1,280 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import type { Bottleneck } from "./types";
+import { ErrorBanner } from "./components/ErrorBanner";
+import { OverviewNotificationPanel } from "./components/OverviewNotificationPanel";
+import { OverviewAnalytics } from "./components/OverviewAnalytics";
+import { OverviewStationTable } from "./components/OverviewStationTable";
+import { createClient } from "@/lib/supabase/client";
+import { getAuthHeaders } from "@/shared/auth";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+// ─── KPI Stat ─────────────────────────────────────────────────────────────────
+
+function KpiTile({
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  label: string;
+  value: string | React.ReactNode;
+  sub?: string;
+  accent?: "green" | "amber" | "none";
+}) {
+  const valueColor =
+    accent === "green"
+      ? "text-[#1A7C4B] dark:text-[#47966F]"
+      : accent === "amber"
+        ? "text-[#CE8E33] dark:text-[#D7A45A]"
+        : "text-[#242424] dark:text-zinc-100";
+
+  return (
+    <div className="flex-1 border-b sm:border-b-0 sm:border-r border-[#EAEAEA] dark:border-zinc-800 last:border-b-0 sm:last:border-r-0 px-5 py-4 flex flex-col justify-center">
+      <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-1">
+        {label}
+      </p>
+      <p
+        className={`text-2xl font-bold tabular-nums leading-none ${valueColor}`}
+      >
+        {value}
+      </p>
+      {sub && (
+        <p className="text-[11px] text-[#9A9A9A] dark:text-zinc-600 mt-1">
+          {sub}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function Home() {
+  const supabase = createClient();
+  const [stations, setStations] = useState<Bottleneck[]>([]);
+  const [stationsError, setStationsError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Load stations on mount
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const headers = await getAuthHeaders(supabase);
+      fetch(`${API_BASE}/stations`, { headers })
+        .then((res) => {
+          if (!res.ok)
+            throw new Error(`Failed to load stations (${res.status})`);
+          return res.json();
+        })
+        .then((data: Bottleneck[]) => {
+          setStations(data);
+        })
+        .catch((e) =>
+          setStationsError(
+            e instanceof Error ? e.message : "Could not load stations data",
+          ),
+        )
+        .finally(() => setLoading(false));
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Key Derived Summary Metrics ──
+  const totalWip = stations.reduce((s, b) => s + b.wip, 0);
+  const activeLines = stations.filter(
+    (b) => b.actual_productivity !== null && b.actual_productivity > 0,
+  ).length;
+  const bottleneckCount = stations.filter((b) => b.is_bottleneck).length;
+
+  const validStations = stations.filter(
+    (b) =>
+      b.targeted_productivity !== null &&
+      b.actual_productivity !== null &&
+      b.targeted_productivity > 0,
+  );
+
+  const avgEfficiency =
+    validStations.length > 0
+      ? validStations.reduce(
+          (sum, b) =>
+            sum + (b.actual_productivity! / b.targeted_productivity!) * 100,
+          0,
+        ) / validStations.length
+      : 0;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="flex flex-col h-full">
+      {/* ── Top bar ──────────────────────────────────────────────── */}
+      <header className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-6 py-4 flex items-center justify-between bg-white dark:bg-[#0d0d0f]">
+        <div>
+          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-0.5">
+            Main · Overview
           </p>
+          <h1 className="text-lg font-bold text-[#242424] dark:text-zinc-100 tracking-tight">
+            Factory Floor Status
+          </h1>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        <div className="flex items-center gap-4">
+          <Link
+            href="/worker-reallocation"
+            className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 border transition-colors ${
+              bottleneckCount > 0
+                ? "text-[#A77329] dark:text-[#E1BA82] bg-[#FDFBF8] dark:bg-amber-950/20 border-[#EACFA9] dark:border-amber-800/40 hover:bg-[#F4E5D1] dark:hover:bg-amber-900/40"
+                : "text-[#1A7C4B] dark:text-[#47966F] bg-[#E6F1EC] dark:bg-[#0A321E]/20 border-[#B9D7C8] dark:border-[#104A2D] hover:bg-[#D0E4DA] dark:hover:bg-[#0A321E]/40"
+            }`}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+            <span
+              className={`w-1.5 h-1.5 ${
+                bottleneckCount > 0
+                  ? "bg-[#CE8E33] animate-pulse"
+                  : "bg-[#1A7C4B]"
+              }`}
+              aria-hidden="true"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            {bottleneckCount > 0
+              ? `${bottleneckCount} bottleneck${bottleneckCount > 1 ? "s" : ""} - Reallocate →`
+              : "All lines on target →"}
+          </Link>
         </div>
+      </header>
+
+      {/* ── Main body ────────────────────────────────────────────── */}
+      <main className="flex-1 overflow-y-auto bg-[#F8F8F8] dark:bg-[#0a0a0c]">
+        {/* Error banners */}
+        {stationsError && (
+          <div className="px-6 py-2">
+            <div
+              role="alert"
+              className="flex items-center gap-2 border-l-2 border-l-[#CE8E33] border border-[#F4E5D1] dark:border-amber-800/30 bg-[#FDFBF8] dark:bg-amber-950/10 px-3 py-2 text-xs text-[#A77329] dark:text-[#E1BA82]"
+            >
+              <span aria-hidden="true">⚠</span> {stationsError}
+            </div>
+          </div>
+        )}
+
+        {/* ── KPI & Notifications Strip ── */}
+        <section
+          aria-label="Overview metrics and alerts"
+          className="border-b border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113] flex flex-col lg:flex-row"
+        >
+          {/* Left: 2x2 KPI Grid */}
+          <div className="lg:w-1/2 grid grid-cols-2 grid-rows-2 border-b lg:border-b-0 lg:border-r border-[#EAEAEA] dark:border-zinc-800">
+            {loading ? (
+              [1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className={`flex flex-col justify-center px-5 py-6 ${
+                    i === 1
+                      ? "border-b border-r border-[#EAEAEA] dark:border-zinc-800"
+                      : i === 2
+                        ? "border-b border-[#EAEAEA] dark:border-zinc-800"
+                        : i === 3
+                          ? "border-r border-[#EAEAEA] dark:border-zinc-800"
+                          : ""
+                  }`}
+                >
+                  <div className="h-2 w-20 bg-[#F1F1F1] dark:bg-zinc-800 animate-pulse mb-3" />
+                  <div className="h-7 w-16 bg-[#F1F1F1] dark:bg-zinc-800 animate-pulse mb-2" />
+                  <div className="h-2 w-24 bg-[#F1F1F1] dark:bg-zinc-800 animate-pulse" />
+                </div>
+              ))
+            ) : (
+              <>
+                <div className="border-b border-r border-[#EAEAEA] dark:border-zinc-800 flex flex-col justify-center px-6 py-5">
+                  <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-1">
+                    Total WIP Queue
+                  </p>
+                  <p className="text-3xl font-bold tabular-nums leading-none text-[#242424] dark:text-zinc-100">
+                    {totalWip.toLocaleString()}
+                    <span className="text-base font-normal text-[#9A9A9A] dark:text-zinc-600 ml-1">
+                      u
+                    </span>
+                  </p>
+                  <p className="text-[11px] text-[#9A9A9A] dark:text-zinc-600 mt-1.5">
+                    across {stations.length} active stations
+                  </p>
+                </div>
+
+                <div className="border-b border-[#EAEAEA] dark:border-zinc-800 flex flex-col justify-center px-6 py-5">
+                  <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-1">
+                    Operating Lines
+                  </p>
+                  <p className="text-3xl font-bold tabular-nums leading-none text-[#242424] dark:text-zinc-100">
+                    {activeLines} / {stations.length}
+                  </p>
+                  <p className="text-[11px] text-[#9A9A9A] dark:text-zinc-600 mt-1.5">
+                    {stations.length - activeLines > 0
+                      ? `${stations.length - activeLines} offline/maintenance`
+                      : "100% lines operating"}
+                  </p>
+                </div>
+
+                <div className="border-r border-[#EAEAEA] dark:border-zinc-800 flex flex-col justify-center px-6 py-5">
+                  <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-1">
+                    Factory Efficiency
+                  </p>
+                  <p
+                    className={`text-3xl font-bold tabular-nums leading-none ${avgEfficiency >= 90 ? "text-[#1A7C4B] dark:text-[#47966F]" : avgEfficiency >= 75 ? "text-[#242424] dark:text-zinc-100" : "text-[#CE8E33]"}`}
+                  >
+                    {avgEfficiency.toFixed(1)}%
+                  </p>
+                  <p className="text-[11px] text-[#9A9A9A] dark:text-zinc-600 mt-1.5">
+                    vs 100% target standard
+                  </p>
+                </div>
+
+                <div className="flex flex-col justify-center px-6 py-5">
+                  <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-1">
+                    Active Bottlenecks
+                  </p>
+                  <p
+                    className={`text-3xl font-bold tabular-nums leading-none ${bottleneckCount > 0 ? "text-[#CE8E33] dark:text-[#D7A45A]" : "text-[#1A7C4B] dark:text-[#47966F]"}`}
+                  >
+                    {bottleneckCount.toString()}
+                  </p>
+                  <p className="text-[11px] text-[#9A9A9A] dark:text-zinc-600 mt-1.5">
+                    {bottleneckCount > 0
+                      ? "Requires rebalancing"
+                      : "Optimal flow maintained"}
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Right: Notifications */}
+          <div className="lg:w-1/2">
+            <OverviewNotificationPanel stations={stations} />
+          </div>
+        </section>
+
+        {/* ── Analytics Visualizations ────────────────────────── */}
+        <section
+          aria-label="Production analytics"
+          className="border-b border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113]"
+        >
+          <OverviewAnalytics stations={stations} />
+        </section>
+
+        {/* ── Station Table ───────────────────────────────────── */}
+        <section
+          aria-label="Station status table"
+          className="bg-white dark:bg-[#111113]"
+        >
+          <OverviewStationTable stations={stations} />
+        </section>
+
+        {/* ── Footer ─────────────────────────────────────────── */}
+        <footer className="px-5 py-3 border-t border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113]">
+          <p className="text-[11px] text-[#C6C6C6] dark:text-zinc-700">
+            Opsis · Factory Floor Administration v1.0 · Snapshots update in real
+            time
+          </p>
+        </footer>
       </main>
     </div>
   );
