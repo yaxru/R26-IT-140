@@ -117,7 +117,7 @@ export default function RiskAnalyzePage() {
         trend: computeTrend(sorted),
         latestStatus: latest.status as "HIGH" | "MEDIUM" | "LOW",
         riskLevel: latest.risk_level as "LOW" | "MEDIUM" | "HIGH" | null,
-        isOutlier: latest.is_outlier,
+        isOutlier: latest.is_outlier ?? false,
         isFlagged: flaggedIds.has(operatorId),
         lastSubmittedAt: `${latest.date}T${latest.time}`,
         recentEntries: sorted,

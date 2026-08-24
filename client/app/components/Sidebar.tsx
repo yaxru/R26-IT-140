@@ -125,7 +125,7 @@ export function Sidebar({ pinned, onToggle }: SidebarProps) {
                         className={`
                           group flex items-center gap-3 px-2.5 py-2 text-[13px] font-medium
                           border-l-2 transition-colors duration-100
-                          focus-visible:outline-2 focus-visible:outline-offset-[-2px]
+                          focus-visible:outline-2 focus-visible:-outline-offset-2
                           focus-visible:outline-[#1A7C4B]
                           ${isActive
                             ? "border-l-[#1A7C4B] bg-[#E6F1EC] dark:bg-[#0A321E]/40 text-[#1A7C4B] dark:text-[#47966F]"
