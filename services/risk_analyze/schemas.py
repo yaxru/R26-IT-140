@@ -92,3 +92,52 @@ class UpdateLaberRequest(BaseModel):
     age: Optional[int] = None
     role: Optional[Role] = None
     password: Optional[str] = None
+
+
+# --------------------------- Reports & analytics ---------------------------
+
+class ProductionLine(BaseModel):
+    id: int
+    line_code: str
+    line_name: str
+    target_output: Optional[float] = None
+    is_active: bool = True
+    created_at: str
+
+
+class OperatorPerformanceReport(BaseModel):
+    operator_id: int
+    operator_name: str
+    employee_code: Optional[str] = None
+    submissions: int
+    total_output: float
+    average_efficiency: Optional[float] = None
+    average_risk_score: Optional[float] = None
+    high_risk_entries: int
+    last_submission_date: Optional[str] = None
+    is_flagged: bool
+
+
+class LinePerformanceReport(BaseModel):
+    line_code: str
+    line_name: str
+    total_logs: int
+    total_output: float
+    average_efficiency: Optional[float] = None
+    average_risk_score: Optional[float] = None
+    low_efficiency_logs: int
+    high_risk_logs: int
+    active_operators: int
+
+
+class DailyProductionAnalytics(BaseModel):
+    date: str
+    line_code: str
+    line_name: str
+    total_logs: int
+    total_output: float
+    average_efficiency: Optional[float] = None
+    predicted_efficiency: Optional[float] = None
+    average_risk_score: Optional[float] = None
+    high_risk_logs: int
+    low_efficiency_logs: int
