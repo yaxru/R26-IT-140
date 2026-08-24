@@ -1,5 +1,3 @@
-import "./risk-analyze.css";
-
 // This module (Employee + Floor Manager / Supervisor login and dashboards
 // for Real-Time Risk Detection) has its own theme and its own auth system
 // (JWT issued by services/risk_analyze — see lib/risk-analyze/session.ts),
@@ -10,5 +8,5 @@ export default function RiskAnalyzeLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <div className="risk-analyze-scope">{children}</div>;
+  return <div >{children}</div>;
 }

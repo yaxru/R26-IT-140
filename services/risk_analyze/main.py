@@ -12,7 +12,7 @@ from predictive import predict
 load_dotenv()
 
 SUPABASE_URL: str = os.environ["SUPABASE_URL"]
-SUPABASE_KEY: str = os.environ["SUPABASE_SERVICE_ROLE_KEY"] # Bypass RLS for inserts
+SUPABASE_KEY: str = os.environ["SUPABASE_KEY"] # Bypass RLS for inserts
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ---------------------------------------------------------------------------
@@ -129,22 +129,30 @@ async def submit_job_card(body: LaborerDataCreate, current_user: dict = Depends(
     res = supabase.table("laborers_data").insert(insert_row).execute()
     entry = res.data[0]
 
-    # 5. Check "First 3 Submissions" Rule dynamically
+    # 5. Check "First 3 Submissions" Rule dynamically using the NEW flags table
     count_res = supabase.table("laborers_data").select("id", count="exact").eq("operator_id", body.operator_id).execute()
     submission_count = count_res.count or 1
 
-    op_res = supabase.table("operators").select("is_flagged, name, worker_id").eq("id", body.operator_id).single().execute()
+    op_res = supabase.table("operators").select("name, worker_id").eq("id", body.operator_id).single().execute()
     operator = op_res.data
 
+    # Fetch current flag state from the operator_flags table
+    flag_res = supabase.table("operator_flags").select("is_flagged").eq("operator_id", body.operator_id).execute()
+    is_flagged = flag_res.data[0]["is_flagged"] if flag_res.data else False
+
     flagged_now = False
-    if submission_count <= 3 and efficiency < LOW_EFFICIENCY_THRESHOLD and not operator.get("is_flagged"):
+    if submission_count <= 3 and efficiency < LOW_EFFICIENCY_THRESHOLD and not is_flagged:
         reason = f"Low efficiency ({efficiency:.1f}%) on submission #{submission_count} of their first 3."
         
-        supabase.table("operators").update({
+        # UPSERT into the dedicated flags table
+        supabase.table("operator_flags").upsert({
+            "operator_id": body.operator_id,
             "is_flagged": True, 
             "flagged_at": datetime.utcnow().isoformat(), 
-            "flag_reason": reason
-        }).eq("id", body.operator_id).execute()
+            "flag_reason": reason,
+            "updated_at": datetime.utcnow().isoformat()
+        }).execute()
+        
         flagged_now = True
 
         supabase.table("notifications").insert([
@@ -159,6 +167,12 @@ async def submit_job_card(body: LaborerDataCreate, current_user: dict = Depends(
         "flagged_now": flagged_now,
         "submission_count": submission_count
     }
+
+# NEW ENDPOINT: Replaces the old /labers fetch for the frontend
+@app.get("/operators")
+async def get_operators(current_user: dict = Depends(require_auth)):
+    res = supabase.table("operators").select("id, name, worker_id").execute()
+    return res.data
 
 @app.get("/laborers")
 async def get_all_entries(current_user: dict = Depends(require_auth)):
@@ -196,12 +210,28 @@ async def get_analysis(operator_id: str, current_user: dict = Depends(require_au
         "history": history,
     }
 
+# UPDATED: Fetch flags from the new table and join operator details
 @app.get("/flags")
 async def get_flags(current_user: dict = Depends(require_auth)):
-    res = supabase.table("operators").select("id, name, worker_id, is_flagged, flagged_at, flag_reason").eq("is_flagged", True).order("flagged_at", desc=True).execute()
-    return res.data
+    res = supabase.table("operator_flags").select("operator_id, is_flagged, flagged_at, flag_reason, operators(name, worker_id)").eq("is_flagged", True).order("flagged_at", desc=True).execute()
+    
+    # Flatten the data so the frontend receives a clean object
+    rows = []
+    for row in res.data:
+        op = row.pop("operators", None) or {}
+        row["id"] = row.pop("operator_id") # Map UUID to 'id' for the frontend
+        row["name"] = op.get("name")
+        row["employee_code"] = op.get("worker_id")
+        rows.append(row)
+    return rows
 
+# UPDATED: Clear flags from the new table
 @app.put("/flags/{operator_id}/clear")
 async def clear_flag(operator_id: str, current_user: dict = Depends(require_auth)):
-    res = supabase.table("operators").update({"is_flagged": False, "flagged_at": None, "flag_reason": None}).eq("id", operator_id).execute()
+    res = supabase.table("operator_flags").update({
+        "is_flagged": False, 
+        "flagged_at": None, 
+        "flag_reason": None,
+        "updated_at": datetime.utcnow().isoformat()
+    }).eq("operator_id", operator_id).execute()
     return res.data[0] if res.data else None
