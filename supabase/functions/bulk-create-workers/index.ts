@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { createClient } from "@supabase/supabase-js";
 
 // ============================================================================
 // Types
@@ -7,8 +7,10 @@ interface WorkerRecord {
   firstName: string;
   workerId: string;
   lineId: string;
-  phoneNumber?: string; // Added from the updated CSV
-  contactEmail?: string; // Added from the updated CSV
+  phoneNumber?: string;
+  contactEmail?: string;
+  primarySkill: string; // NEW
+  proficiencyGrade: string; // NEW
 }
 
 interface BulkCreateRequest {
@@ -24,6 +26,8 @@ interface WorkerAccountCreated {
   plainTextPin: string;
   contactEmail?: string;
   phoneNumber?: string;
+  primarySkill: string;
+  proficiencyGrade: string;
 }
 
 interface WorkerCreationError {
@@ -65,6 +69,15 @@ function validateWorkerRecord(
   if (!/^\d{4}$/.test(worker.workerId))
     return `Record ${index}: workerId must be 4 digits`;
   if (!worker.lineId) return `Record ${index}: Missing lineId`;
+  if (!worker.primarySkill) return `Record ${index}: Missing primarySkill`;
+
+  if (!worker.proficiencyGrade)
+    return `Record ${index}: Missing proficiencyGrade`;
+  const grade = worker.proficiencyGrade.toUpperCase().trim();
+  if (!["A", "B", "C"].includes(grade)) {
+    return `Record ${index}: proficiencyGrade must be exactly A, B, or C`;
+  }
+
   return null;
 }
 
@@ -91,10 +104,9 @@ async function verifyToken(
 }
 
 // ============================================================================
-// Main Handler (Using modern Deno.serve)
+// Main Handler
 // ============================================================================
 Deno.serve(async (req: Request) => {
-  // CRITICAL FIX: Added apikey and x-client-info to allowed headers
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -191,8 +203,10 @@ Deno.serve(async (req: Request) => {
     for (const worker of validWorkers) {
       const email = constructEmail(worker.firstName, worker.workerId);
       const plainTextPin = generatePin();
+      const grade = worker.proficiencyGrade.toUpperCase().trim();
 
       try {
+        // 1. Create Auth Account
         const { data: authData, error: authError } =
           await supabase.auth.admin.createUser({
             email,
@@ -210,7 +224,7 @@ Deno.serve(async (req: Request) => {
         const userId = authData?.user?.id;
         if (!userId) throw new Error("No user ID returned");
 
-        // CRITICAL FIX: Inserting phone number and contact email from the CSV
+        // 2. Insert into Operators table
         const { error: dbError } = await supabase.from("operators").insert({
           id: userId,
           internal_email: email,
@@ -219,8 +233,31 @@ Deno.serve(async (req: Request) => {
           phone_number: worker.phoneNumber || null,
           contact_email: worker.contactEmail || null,
         });
-
         if (dbError) throw new Error(`DB insert failed: ${dbError.message}`);
+
+        // 3. NEW: Auto-assign Line Productivity Status
+        const { error: prodError } = await supabase
+          .from("operator_productivity")
+          .insert({
+            operator_id: userId,
+            current_line_id: worker.lineId,
+            productivity_level: 0.0,
+          });
+        if (prodError)
+          throw new Error(
+            `Productivity assignment failed: ${prodError.message}`,
+          );
+
+        // 4. NEW: Auto-assign Primary Skill
+        const { error: skillError } = await supabase
+          .from("skill_matrix")
+          .insert({
+            operator_id: userId,
+            machine_type: worker.primarySkill,
+            proficiency_grade: grade,
+          });
+        if (skillError)
+          throw new Error(`Skill assignment failed: ${skillError.message}`);
 
         createdWorkers.push({
           id: userId,
@@ -231,6 +268,8 @@ Deno.serve(async (req: Request) => {
           plainTextPin,
           contactEmail: worker.contactEmail,
           phoneNumber: worker.phoneNumber,
+          primarySkill: worker.primarySkill,
+          proficiencyGrade: grade,
         });
       } catch (error) {
         validationErrors.push({ ...worker, reason: error.message });
