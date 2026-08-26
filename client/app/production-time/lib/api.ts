@@ -1,3 +1,6 @@
+import { createClient } from "@/lib/supabase/client";
+import { getAuthHeaders } from "@/shared/auth/client";
+
 export type PredictionRequest = {
   department: string;
   team: number;
@@ -51,6 +54,8 @@ export type PredictionHistoryItem = {
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_TIME_PREDICTION_API_URL ?? "http://127.0.0.1:8002";
 
+const supabase = createClient();
+
 async function readError(response: Response): Promise<string> {
   try {
     const body = (await response.json()) as { detail?: string };
@@ -63,8 +68,10 @@ async function readError(response: Response): Promise<string> {
 }
 
 export async function checkHealth(): Promise<HealthResponse> {
+  const headers = await getAuthHeaders(supabase);
   const response = await fetch(`${API_BASE_URL}/health`, {
     cache: "no-store",
+    headers: { ...headers },
   });
 
   if (!response.ok) {
@@ -77,9 +84,13 @@ export async function checkHealth(): Promise<HealthResponse> {
 export async function predictBatch(
   payload: PredictionRequest,
 ): Promise<PredictionResponse> {
+  const headers = await getAuthHeaders(supabase);
   const response = await fetch(`${API_BASE_URL}/predict`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...headers,
+    },
     body: JSON.stringify(payload),
   });
 
@@ -93,8 +104,10 @@ export async function predictBatch(
 export async function fetchPredictionHistory(
   limit = 20,
 ): Promise<PredictionHistoryItem[]> {
+  const headers = await getAuthHeaders(supabase);
   const response = await fetch(`${API_BASE_URL}/history?limit=${limit}`, {
     cache: "no-store",
+    headers: { ...headers },
   });
 
   if (!response.ok) {

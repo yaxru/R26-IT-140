@@ -124,6 +124,16 @@ class SkillMatrixOut(BaseModel):
     proficiency_grade: str
     efficiency_pct: float
 
+# --- NEW: Models for Supervisor Line Setup ---
+class StationSetup(BaseModel):
+    station_id: str = Field(..., example="Station-01")
+    sequence_order: int = Field(default=1, example=1)
+    required_skill: str = Field(..., example="single_needle")
+
+class LineLayoutRequest(BaseModel):
+    line_id: str = Field(..., example="Line-A")
+    stations: list[StationSetup]
+
 # ---------------------------------------------------------------------------
 # Dynamic Config Fetcher
 # ---------------------------------------------------------------------------
@@ -145,6 +155,44 @@ def get_algorithm_config():
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "service": "StitchFlow Profitability Engine V2"}
+
+# --- NEW: Endpoint for Supervisor Line Setup ---
+@app.post("/line-layout", response_model=dict)
+async def setup_line_layout(request: LineLayoutRequest, _: dict = Depends(require_auth)):
+    """
+    Allows supervisors to configure the physical sequence and skill requirements
+    for a specific production line before a batch starts.
+    """
+    errors = []
+    upsert_data = []
+
+    for station in request.stations:
+        upsert_data.append({
+            "station_id": station.station_id,
+            "line_id": request.line_id,
+            "sequence_order": station.sequence_order,
+            "required_skill": station.required_skill,
+            "wip": 0,
+            "actual_productivity": 0.0,
+            "targeted_productivity": 0.85 
+        })
+
+    try:
+        supabase.table("production_status").upsert(
+            upsert_data, 
+            on_conflict="station_id"
+        ).execute()
+    except Exception as exc:
+        errors.append(f"Failed to update line layout: {exc}")
+
+    if errors:
+        raise HTTPException(status_code=503, detail="; ".join(errors))
+
+    return {
+        "status": "success", 
+        "message": f"Successfully configured {len(request.stations)} stations for {request.line_id}.",
+        "updated_stations": [s.station_id for s in request.stations]
+    }
 
 @app.get("/stations", response_model=list[StationOut])
 async def get_stations(_: dict = Depends(require_auth)):
