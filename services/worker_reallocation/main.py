@@ -134,6 +134,15 @@ class LineLayoutRequest(BaseModel):
     line_id: str = Field(..., example="Line-A")
     stations: list[StationSetup]
 
+
+class WorkerAssignment(BaseModel):
+    operator_id: str
+    station_id: Optional[str] = Field(None, description="Null means returned to the unassigned pool")
+
+class BatchAssignmentRequest(BaseModel):
+    line_id: str
+    assignments: list[WorkerAssignment]
+
 # ---------------------------------------------------------------------------
 # Dynamic Config Fetcher
 # ---------------------------------------------------------------------------
@@ -571,3 +580,33 @@ async def accept_move(request: AcceptMoveRequest, _: dict = Depends(require_auth
     if errors:
         raise HTTPException(status_code=503, detail="; ".join(errors))
     return {"status": "ok", "updated": len(request.moves)}
+
+
+
+@app.post("/assign-workers", response_model=dict)
+async def assign_workers_to_stations(request: BatchAssignmentRequest, _: dict = Depends(require_auth)):
+    """
+    Executes a bulk update from the drag-and-drop UI to map workers to physical stations.
+    """
+    errors = []
+
+    # Iterate and update each operator's station assignment
+    for assignment in request.assignments:
+        try:
+            supabase.table("operator_productivity").update({
+                "current_station": assignment.station_id,
+                "current_line_id": request.line_id 
+            }).eq("operator_id", assignment.operator_id).execute()
+        except Exception as exc:
+            errors.append(f"Failed to update operator {assignment.operator_id}: {exc}")
+
+    if errors:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Partial failure during assignment: {'; '.join(errors)}"
+        )
+
+    return {
+        "status": "success",
+        "message": f"Successfully updated {len(request.assignments)} operator assignments on {request.line_id}."
+    }

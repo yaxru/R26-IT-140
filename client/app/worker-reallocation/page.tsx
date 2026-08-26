@@ -118,7 +118,7 @@ function StationList({
                     aria-label={`${b.station_id}, ${b.is_bottleneck ? "critical bottleneck" : "on target"}, WIP ${b.wip}`}
                     className={`
                       w-full text-left px-4 py-3 flex items-start gap-3 transition-colors duration-100
-                      focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#1A7C4B]
+                      focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#1A7C4B]
                       ${
                         isActive
                           ? "bg-[#F8F8F8] dark:bg-zinc-800/60 border-l-2 border-l-[#1A7C4B]"
@@ -302,7 +302,7 @@ function RecommendationPanel({
       </div>
 
       {/* Panel body — fixed min-height prevents layout shift */}
-      <div className="flex-1 px-5 py-4 min-h-[260px] flex flex-col">
+      <div className="flex-1 px-5 py-4 min-h-65 flex flex-col">
         {!isBottleneck ? (
           /* Healthy station */
           <div className="flex-1 flex flex-col items-center justify-center gap-2 py-8">

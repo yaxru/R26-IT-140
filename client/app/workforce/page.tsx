@@ -1060,7 +1060,7 @@ export default function WorkforcePage() {
       {editingWorker && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800 p-8 rounded-none shadow-2xl w-full max-w-md">
-            <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-6 uppercase tracking-wider text-sm border-b border-zinc-200 dark:border-zinc-800 pb-3">
+            <h3 className=" font-bold text-zinc-900 dark:text-zinc-100 mb-6 uppercase tracking-wider text-sm border-b border-zinc-200 dark:border-zinc-800 pb-3">
               Edit Worker Details
             </h3>
             <div className="space-y-5">
