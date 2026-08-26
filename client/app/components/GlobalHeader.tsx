@@ -46,9 +46,11 @@ export function GlobalHeader(_props: Record<string, never> = {}) {
 
   const [user, setUser] = useState<any>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   const currentTheme = themeData.theme || "system";
 
@@ -61,11 +63,11 @@ export function GlobalHeader(_props: Record<string, never> = {}) {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setIsProfileOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setIsNotifOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -90,20 +92,18 @@ export function GlobalHeader(_props: Record<string, never> = {}) {
   const initials = displayName.slice(0, 2).toUpperCase();
 
   return (
-    <header className="shrink-0 h-[52px] border-b border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113] flex items-center px-4 gap-4 z-30">
+    <header className="shrink-0 h-13 border-b border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113] flex items-center px-4 gap-4 z-30">
       {/* ── Logo + Branding ── */}
-      <div className="flex items-center gap-2.5 shrink-0 w-[228px]">
+      <div className="flex items-center gap-2.5 shrink-0 w-57">
         {/* Logo mark */}
-        <div className="w-7 h-7 bg-[#1A7C4B] flex items-center justify-center shrink-0">
-          <span className="text-white text-[11px] font-black tracking-tighter">
-            OP
-          </span>
+        <div className="w-8 h-8 flex items-center justify-center shrink-0">
+          <img src="/logo.webp" alt="Opsis Logo" className="w-full h-full object-contain" />
         </div>
         <div>
-          <p className="text-sm font-bold text-[#242424] dark:text-zinc-100 tracking-wide leading-none">
+          <p className="text-sm font-bold text-[#242424] dark:text-zinc-100 uppercase tracking-wide leading-none">
             Opsis
           </p>
-          <p className="text-[9px] font-medium text-[#9A9A9A] dark:text-zinc-500 tracking-widest uppercase leading-none mt-0.5">
+          <p className="text-[9px] font-medium text-[#9A9A9A] dark:text-zinc-500 tracking-widest  leading-none mt-0.5">
             Production OS
           </p>
         </div>
@@ -158,17 +158,47 @@ export function GlobalHeader(_props: Record<string, never> = {}) {
       {/* ── Right actions ── */}
       <div className="ml-auto flex items-center gap-1 shrink-0">
         {/* Notifications */}
-        <button
-          aria-label="Notifications"
-          className="relative w-8 h-8 flex items-center justify-center text-[#9A9A9A] dark:text-zinc-400 hover:text-[#333333] dark:hover:text-zinc-200 hover:bg-[#F1F1F1] dark:hover:bg-zinc-800 transition-colors"
-        >
-          <Bell size={16} strokeWidth={1.8} />
-          {/* Unread dot */}
-          <span
-            className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[#CE8E33] border border-white dark:border-[#111113]"
-            aria-hidden="true"
-          />
-        </button>
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={() => setIsNotifOpen((v) => !v)}
+            aria-label="Notifications"
+            aria-expanded={isNotifOpen}
+            className="relative w-8 h-8 flex items-center justify-center text-[#9A9A9A] dark:text-zinc-400 hover:text-[#333333] dark:hover:text-zinc-200 hover:bg-[#F1F1F1] dark:hover:bg-zinc-800 transition-colors"
+          >
+            <Bell size={16} strokeWidth={1.8} />
+            {/* Unread dot */}
+            <span
+              className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[#CE8E33] border border-white dark:border-[#111113]"
+              aria-hidden="true"
+            />
+          </button>
+
+          {isNotifOpen && (
+            <div className="absolute right-0 top-full mt-1 w-80 bg-white dark:bg-[#111113] border border-[#EAEAEA] dark:border-zinc-800 z-50 flex flex-col shadow-lg">
+              <div className="px-4 py-3 border-b border-[#EAEAEA] dark:border-zinc-800 flex justify-between items-center">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#5F5F5F] dark:text-zinc-400">Notifications</span>
+                <button className="text-[10px] text-[#1A7C4B] hover:underline uppercase tracking-widest font-mono">Mark all read</button>
+              </div>
+              <div className="flex-1 overflow-y-auto max-h-80 min-h-[150px]">
+                {/* Dummy notifications */}
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="px-4 py-3 border-b border-[#EAEAEA] dark:border-zinc-800 hover:bg-[#F8F8F8] dark:hover:bg-zinc-900/40 transition-colors cursor-pointer">
+                    <p className="text-xs font-bold text-[#242424] dark:text-zinc-100 mb-1">
+                      {i % 2 === 0 ? "Production Target Alert" : "Machine Maintenance"}
+                    </p>
+                    <p className="text-[11px] text-[#5F5F5F] dark:text-zinc-400 leading-snug">
+                      {i % 2 === 0 ? "Line 04 is currently 12% behind the hourly target. Review allocation." : "Scheduled maintenance for Sewing Machine SM-402 is due in 2 hours."}
+                    </p>
+                    <p className="text-[9px] font-mono text-[#9A9A9A] dark:text-zinc-500 mt-2 uppercase tracking-widest">{i * 10 + 2} mins ago</p>
+                  </div>
+                ))}
+              </div>
+              <div className="px-4 py-2 border-t border-[#EAEAEA] dark:border-zinc-800 text-center">
+                <button className="text-[10px] font-bold text-[#242424] dark:text-zinc-300 hover:text-[#1A7C4B] transition-colors uppercase tracking-widest w-full py-1">View all notifications</button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Profile */}
         <div className="relative ml-1" ref={dropdownRef}>
