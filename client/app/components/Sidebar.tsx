@@ -30,7 +30,7 @@ const NAV_SECTIONS = [
     items: [
       { label: "Overview",           href: "/",                   icon: <LayoutDashboard  {...iconProps} /> },
       { label: "Floor Map",          href: "/floor-map",          icon: <Map              {...iconProps} /> },
-      { label: "Live Monitoring",    href: "/live-monitoring",    icon: <Activity         {...iconProps} /> },
+      { label: "Production Time",    href: "/production-time",    icon: <Activity         {...iconProps} /> },
       { label: "Production Lines",   href: "/production-lines",   icon: <Layers           {...iconProps} /> },
     ],
   },
