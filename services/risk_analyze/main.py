@@ -42,7 +42,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "http://localhost:3001", # Add your new Job Card app port here
+        "http://localhost:3001", 
         "http://127.0.0.1:3001",
     ],
     allow_methods=["GET", "POST", "PUT", "DELETE"],
@@ -61,6 +61,8 @@ IMPOSSIBLE_MAX = float(os.environ.get("IMPOSSIBLE_MAX", "150"))
 # ---------------------------------------------------------------------------
 class LaborerDataCreate(BaseModel):
     operator_id: str = Field(..., description="UUID of the operator")
+    line_id: str = Field(..., description="Physical line ID")
+    station_id: str = Field(..., description="Physical station ID")
     output: float
     smv: float
     manpower: float = 1.0
@@ -95,12 +97,12 @@ async def submit_job_card(body: LaborerDataCreate, current_user: dict = Depends(
 
     # 3. Call Predictive Model
     prediction = predict(
-        target_output=body.output, # Using output as target base for mock
+        target_output=body.output, 
         working_minutes=body.working_minutes,
         operator_skill=body.operator_skill,
         shift=body.shift,
         machine_status=body.machine_status,
-        historical_avg_efficiency=None # Can fetch avg dynamically if needed
+        historical_avg_efficiency=None 
     )
 
     predicted_output = prediction["predicted_output"]
@@ -112,6 +114,8 @@ async def submit_job_card(body: LaborerDataCreate, current_user: dict = Depends(
     # 4. Insert into database
     insert_row = {
         "operator_id": body.operator_id,
+        "line_id": body.line_id,
+        "station_id": body.station_id,
         "output": body.output,
         "smv": body.smv,
         "working_minutes": int(body.working_minutes),
@@ -134,14 +138,23 @@ async def submit_job_card(body: LaborerDataCreate, current_user: dict = Depends(
     res = supabase.table("laborers_data").insert(insert_row).execute()
     entry = res.data[0]
 
-    # 5. Check "First 3 Submissions" Rule dynamically using the NEW flags table
+    # 5. Live update of actual productivity in production_status table
+    try:
+        # Convert efficiency (e.g., 85.5) to a decimal ratio (e.g., 0.855) for the line balancing engine
+        actual_prod_ratio = round(efficiency / 100, 4)
+        supabase.table("production_status").update({
+            "actual_productivity": actual_prod_ratio
+        }).eq("station_id", body.station_id).execute()
+    except Exception as e:
+        print(f"Warning: Failed to update live station productivity: {e}")
+
+    # 6. Check "First 3 Submissions" Rule
     count_res = supabase.table("laborers_data").select("id", count="exact").eq("operator_id", body.operator_id).execute()
     submission_count = count_res.count or 1
 
     op_res = supabase.table("operators").select("name, worker_id").eq("id", body.operator_id).single().execute()
     operator = op_res.data
 
-    # Fetch current flag state from the operator_flags table
     flag_res = supabase.table("operator_flags").select("is_flagged").eq("operator_id", body.operator_id).execute()
     is_flagged = flag_res.data[0]["is_flagged"] if flag_res.data else False
 
@@ -149,7 +162,6 @@ async def submit_job_card(body: LaborerDataCreate, current_user: dict = Depends(
     if submission_count <= 3 and efficiency < LOW_EFFICIENCY_THRESHOLD and not is_flagged:
         reason = f"Low efficiency ({efficiency:.1f}%) on submission #{submission_count} of their first 3."
         
-        # UPSERT into the dedicated flags table
         supabase.table("operator_flags").upsert({
             "operator_id": body.operator_id,
             "is_flagged": True, 
@@ -173,7 +185,6 @@ async def submit_job_card(body: LaborerDataCreate, current_user: dict = Depends(
         "submission_count": submission_count
     }
 
-# NEW ENDPOINT: Replaces the old /labers fetch for the frontend
 @app.get("/operators")
 async def get_operators(current_user: dict = Depends(require_auth)):
     res = supabase.table("operators").select("id, name, worker_id").execute()
@@ -183,7 +194,6 @@ async def get_operators(current_user: dict = Depends(require_auth)):
 async def get_all_entries(current_user: dict = Depends(require_auth)):
     res = supabase.table("laborers_data").select("*, operators(name, worker_id)").order("date", desc=True).order("time", desc=True).execute()
     
-    # Flatten response for frontend
     rows = []
     for row in res.data:
         op = row.pop("operators", None) or {}
@@ -215,22 +225,19 @@ async def get_analysis(operator_id: str, current_user: dict = Depends(require_au
         "history": history,
     }
 
-# UPDATED: Fetch flags from the new table and join operator details
 @app.get("/flags")
 async def get_flags(current_user: dict = Depends(require_auth)):
     res = supabase.table("operator_flags").select("operator_id, is_flagged, flagged_at, flag_reason, operators(name, worker_id)").eq("is_flagged", True).order("flagged_at", desc=True).execute()
     
-    # Flatten the data so the frontend receives a clean object
     rows = []
     for row in res.data:
         op = row.pop("operators", None) or {}
-        row["id"] = row.pop("operator_id") # Map UUID to 'id' for the frontend
+        row["id"] = row.pop("operator_id") 
         row["name"] = op.get("name")
         row["employee_code"] = op.get("worker_id")
         rows.append(row)
     return rows
 
-# UPDATED: Clear flags from the new table
 @app.put("/flags/{operator_id}/clear")
 async def clear_flag(operator_id: str, current_user: dict = Depends(require_auth)):
     res = supabase.table("operator_flags").update({
