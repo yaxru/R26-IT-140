@@ -111,7 +111,7 @@ async def submit_job_card(body: LaborerDataCreate, current_user: dict = Depends(
     risk_level = "HIGH" if risk_score >= 25 else "MEDIUM" if risk_score >= 10 else "LOW"
     is_outlier = risk_score >= 50
 
-    # 4. Insert into database
+    # 4. Insert into laborers_data (The granular ML log)
     insert_row = {
         "operator_id": body.operator_id,
         "line_id": body.line_id,
@@ -138,9 +138,51 @@ async def submit_job_card(body: LaborerDataCreate, current_user: dict = Depends(
     res = supabase.table("laborers_data").insert(insert_row).execute()
     entry = res.data[0]
 
-    # 5. Live update of actual productivity in production_status table
+    # 5. NEW: Insert into daily_inputs (The standard operational log)
     try:
-        # Convert efficiency (e.g., 85.5) to a decimal ratio (e.g., 0.855) for the line balancing engine
+        supabase.table("daily_inputs").insert({
+            "operator_id": body.operator_id,
+            "line_id": body.line_id,
+            "station_id": body.station_id,
+            "quantity_completed": int(body.output)
+        }).execute()
+    except Exception as e:
+        print(f"Warning: Failed to log daily_input: {e}")
+
+    # 6. NEW: Aggregate and Upsert operator_daily_history
+    try:
+        # Fetch all submissions for this worker today to calculate the daily average
+        todays_records = supabase.table("laborers_data").select("output, efficiency").eq("operator_id", body.operator_id).eq("date", body.date).execute()
+        
+        if todays_records.data:
+            total_output = sum(r["output"] for r in todays_records.data)
+            avg_eff = sum(r["efficiency"] for r in todays_records.data) / len(todays_records.data)
+            final_status = "HIGH" if avg_eff >= 85 else "MEDIUM" if avg_eff >= 60 else "LOW"
+            
+            # Check if a history record already exists for today
+            hist_res = supabase.table("operator_daily_history").select("id").eq("operator_id", body.operator_id).eq("date", body.date).execute()
+            
+            if hist_res.data:
+                # Update existing daily rollup
+                supabase.table("operator_daily_history").update({
+                    "total_output": total_output,
+                    "average_efficiency": round(avg_eff, 2),
+                    "final_status": final_status
+                }).eq("id", hist_res.data[0]["id"]).execute()
+            else:
+                # Create new daily rollup
+                supabase.table("operator_daily_history").insert({
+                    "operator_id": body.operator_id,
+                    "date": body.date,
+                    "total_output": total_output,
+                    "average_efficiency": round(avg_eff, 2),
+                    "final_status": final_status
+                }).execute()
+    except Exception as e:
+        print(f"Warning: Failed to update operator_daily_history: {e}")
+
+    # 7. Live update of actual productivity in production_status table
+    try:
         actual_prod_ratio = round(efficiency / 100, 4)
         supabase.table("production_status").update({
             "actual_productivity": actual_prod_ratio
@@ -148,7 +190,7 @@ async def submit_job_card(body: LaborerDataCreate, current_user: dict = Depends(
     except Exception as e:
         print(f"Warning: Failed to update live station productivity: {e}")
 
-    # 6. Check "First 3 Submissions" Rule
+    # 8. Check "First 3 Submissions" Rule (Flagging Logic)
     count_res = supabase.table("laborers_data").select("id", count="exact").eq("operator_id", body.operator_id).execute()
     submission_count = count_res.count or 1
 
