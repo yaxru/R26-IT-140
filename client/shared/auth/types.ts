@@ -26,6 +26,10 @@ export interface WorkerRecord {
   firstName: string;
   workerId: string; // 4-digit ID
   lineId: string;
+  phoneNumber?: string;
+  contactEmail?: string;
+  primarySkill: string;      // NEW: Required for Reallocation Engine
+  proficiencyGrade: string;  // NEW: A, B, or C
 }
 
 export interface BulkCreateWorkersResponse {
