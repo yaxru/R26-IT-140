@@ -48,3 +48,36 @@ export interface SkillMatrixEntry {
   proficiency_grade: string;
   efficiency_pct: number;
 }
+
+export interface FlaggedOperator {
+  operator_id: string;
+  current_station: string | null;
+  flag_reason: string;
+}
+
+export interface JobCardSubmitResponse {
+  entry: {
+    status: string;
+    efficiency: number;
+    downtime_reason?: string | null;
+  };
+  prediction: {
+    predicted_output: number;
+    efficiency_class: string;
+    batch_completion_time?: number | null;
+  };
+  risk: {
+    risk_level: string;
+    risk_score: number;
+    is_outlier: boolean;
+  };
+  flagged_now: boolean;
+  submission_count: number;
+}
+
+export interface RiskNotification {
+  id: number;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
