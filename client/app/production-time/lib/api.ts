@@ -49,7 +49,7 @@ export type PredictionHistoryItem = {
 };
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+  process.env.NEXT_PUBLIC_TIME_PREDICTION_API_URL ?? "http://127.0.0.1:8002";
 
 async function readError(response: Response): Promise<string> {
   try {
@@ -90,7 +90,9 @@ export async function predictBatch(
   return (await response.json()) as PredictionResponse;
 }
 
-export async function fetchPredictionHistory(limit = 20): Promise<PredictionHistoryItem[]> {
+export async function fetchPredictionHistory(
+  limit = 20,
+): Promise<PredictionHistoryItem[]> {
   const response = await fetch(`${API_BASE_URL}/history?limit=${limit}`, {
     cache: "no-store",
   });

@@ -7,7 +7,7 @@ FastAPI service for garment production productivity and completion-time predicti
 From this directory, install `requirements.txt` and run:
 
 ```bash
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8002
 ```
 
 Set `DATABASE_URL` using `.env.example` when PostgreSQL persistence is enabled.
