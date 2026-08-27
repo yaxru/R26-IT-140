@@ -9,8 +9,8 @@ interface WorkerRecord {
   lineId: string;
   phoneNumber?: string;
   contactEmail?: string;
-  primarySkill: string; // NEW
-  proficiencyGrade: string; // NEW
+  primarySkill: string;
+  proficiencyGrade: string;
 }
 
 interface BulkCreateRequest {
@@ -139,8 +139,9 @@ Deno.serve(async (req: Request) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl || !supabaseKey || !serviceRoleKey) {
       return new Response(JSON.stringify({ error: "Missing config" }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -149,7 +150,7 @@ Deno.serve(async (req: Request) => {
 
     try {
       await verifyToken(authHeader, supabaseUrl, supabaseKey);
-    } catch (error) {
+    } catch (error: any) {
       return new Response(
         JSON.stringify({ error: `Auth failed: ${error.message}` }),
         {
@@ -194,10 +195,29 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const supabase = createClient(
-      supabaseUrl,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    // Use the Service Role Key to bypass RLS for admin operations
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    
+    // ========================================================================
+    // 1. Automatically create missing Factory Lines from the CSV data
+    // ========================================================================
+    const uniqueLines = Array.from(new Set(validWorkers.map(w => w.lineId)));
+    if (uniqueLines.length > 0) {
+      const linePayloads = uniqueLines.map(line => ({
+        line_id: line,
+        ml_team_number: 1.0 // Default placeholder
+      }));
+      
+      const { error: lineError } = await supabase
+        .from("factory_lines")
+        .upsert(linePayloads, { onConflict: "line_id" });
+        
+      if (lineError) {
+        console.error("Failed to upsert factory lines:", lineError);
+      }
+    }
+    // ========================================================================
+
     const createdWorkers: WorkerAccountCreated[] = [];
 
     for (const worker of validWorkers) {
@@ -206,7 +226,7 @@ Deno.serve(async (req: Request) => {
       const grade = worker.proficiencyGrade.toUpperCase().trim();
 
       try {
-        // 1. Create Auth Account
+        // 2. Create Auth Account
         const { data: authData, error: authError } =
           await supabase.auth.admin.createUser({
             email,
@@ -224,7 +244,7 @@ Deno.serve(async (req: Request) => {
         const userId = authData?.user?.id;
         if (!userId) throw new Error("No user ID returned");
 
-        // 2. Insert into Operators table
+        // 3. Insert into Operators table
         const { error: dbError } = await supabase.from("operators").insert({
           id: userId,
           internal_email: email,
@@ -235,7 +255,7 @@ Deno.serve(async (req: Request) => {
         });
         if (dbError) throw new Error(`DB insert failed: ${dbError.message}`);
 
-        // 3. NEW: Auto-assign Line Productivity Status
+        // 4. Auto-assign Line Productivity Status
         const { error: prodError } = await supabase
           .from("operator_productivity")
           .insert({
@@ -244,11 +264,9 @@ Deno.serve(async (req: Request) => {
             productivity_level: 0.0,
           });
         if (prodError)
-          throw new Error(
-            `Productivity assignment failed: ${prodError.message}`,
-          );
+          throw new Error(`Productivity assignment failed: ${prodError.message}`);
 
-        // 4. NEW: Auto-assign Primary Skill
+        // 5. Auto-assign Primary Skill
         const { error: skillError } = await supabase
           .from("skill_matrix")
           .insert({
@@ -271,7 +289,7 @@ Deno.serve(async (req: Request) => {
           primarySkill: worker.primarySkill,
           proficiencyGrade: grade,
         });
-      } catch (error) {
+      } catch (error: any) {
         validationErrors.push({ ...worker, reason: error.message });
       }
     }
@@ -291,7 +309,7 @@ Deno.serve(async (req: Request) => {
         headers: { "Content-Type": "application/json", ...corsHeaders },
       },
     );
-  } catch (error) {
+  } catch (error: any) {
     return new Response(
       JSON.stringify({
         error: "Internal server error",
