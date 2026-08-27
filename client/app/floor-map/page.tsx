@@ -43,7 +43,6 @@ export default function UnifiedRoutingPage() {
   useEffect(() => {
     const fetchGlobals = async () => {
       try {
-        // Fetch unique lines from imported workers
         const { data: lineData } = await supabase
           .from("vw_line_assignments")
           .select("line_id");
@@ -55,7 +54,6 @@ export default function UnifiedRoutingPage() {
           if (uniqueLines.length > 0) setLineId(uniqueLines[0]);
         }
 
-        // Fetch unique skills from the skill matrix
         const { data: skillData } = await supabase
           .from("skill_matrix")
           .select("machine_type");
@@ -110,24 +108,50 @@ export default function UnifiedRoutingPage() {
   }, [lineId, supabase]);
 
   // --- Station Management ---
-  const handleAddStation = () => {
+const handleAddStation = () => {
     const nextNum = stations.length + 1;
     const defaultSkill = availableSkills.length > 0 ? availableSkills[0] : "";
     setStations([
       ...stations,
       {
         id: crypto.randomUUID(),
-        station_id: `Station-${nextNum.toString().padStart(2, "0")}`,
+        // Add the lineId prefix here
+        station_id: `${lineId}-St-${nextNum.toString().padStart(2, "0")}`, 
         required_skill: defaultSkill,
         sequence_order: nextNum,
       },
     ]);
   };
 
+  // NEW: Instantly create a station and move an entire skill group into it
+const handleCreateStationFromGroup = (skill: string, groupWorkers: Worker[]) => {
+    const nextNum = stations.length + 1;
+    // Add the lineId prefix here too
+    const newStationId = `${lineId}-St-${nextNum.toString().padStart(2, "0")}`;
+
+    setStations([
+      ...stations,
+      {
+        id: crypto.randomUUID(),
+        station_id: newStationId,
+        required_skill: skill,
+        sequence_order: nextNum,
+      },
+    ]);
+
+    setWorkers((prev) =>
+      prev.map((w) => {
+        if (groupWorkers.some((gw) => gw.operator_id === w.operator_id)) {
+          return { ...w, station_id: newStationId };
+        }
+        return w;
+      })
+    );
+  };
+
   const handleRemoveStation = (idToRemove: string) => {
     const stationToRemove = stations.find((s) => s.id === idToRemove);
     if (stationToRemove) {
-      // Kick worker back to pool if their station is deleted
       setWorkers((prev) =>
         prev.map((w) =>
           w.station_id === stationToRemove.station_id
@@ -170,18 +194,13 @@ export default function UnifiedRoutingPage() {
     e.preventDefault();
     if (!draggedWorkerId) return;
 
-    const existingWorker = workers.find(
-      (w) => w.station_id === targetStationId,
-    );
-
+    // CHANGED: Simply update the dragged worker to the new station without kicking anyone out
     setWorkers((prev) =>
-      prev.map((w) => {
-        if (w.operator_id === draggedWorkerId)
-          return { ...w, station_id: targetStationId };
-        if (existingWorker && w.operator_id === existingWorker.operator_id)
-          return { ...w, station_id: null };
-        return w;
-      }),
+      prev.map((w) =>
+        w.operator_id === draggedWorkerId
+          ? { ...w, station_id: targetStationId }
+          : w,
+      ),
     );
     setDraggedWorkerId(null);
   };
@@ -215,7 +234,6 @@ export default function UnifiedRoutingPage() {
       return;
     }
 
-    // Validate station IDs are filled
     if (stations.some((s) => !s.station_id.trim())) {
       setMessage({
         text: "All stations must have a valid ID/Name.",
@@ -238,7 +256,6 @@ export default function UnifiedRoutingPage() {
           }
         : { "Content-Type": "application/json" };
 
-      // 1. Post Layout
       const layoutPayload = {
         line_id: lineId,
         stations: stations.map((s, index) => ({
@@ -257,7 +274,6 @@ export default function UnifiedRoutingPage() {
       if (!layoutRes.ok)
         throw new Error("Failed to save physical line layout.");
 
-      // 2. Post Worker Assignments
       const assignmentPayload = {
         line_id: lineId,
         assignments: workers.map((w) => ({
@@ -363,7 +379,7 @@ export default function UnifiedRoutingPage() {
             disabled={isSaving}
             className="px-5 py-2 text-[11px] font-bold uppercase tracking-widest bg-[#1A7C4B] hover:bg-[#15633C] border border-[#15633C] text-white disabled:opacity-50 transition-colors whitespace-nowrap"
           >
-            {isSaving ? "Saving..." : "Save Floor Plan ↗"}
+            {isSaving ? `Saving ${lineId}...` : `Save ${lineId} Layout ↗`}
           </button>
         </div>
       </section>
@@ -405,12 +421,24 @@ export default function UnifiedRoutingPage() {
               ) : (
                 Object.entries(poolBySkill).map(([skill, skillWorkers]) => (
                   <div key={skill}>
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#242424] dark:text-zinc-200 border-b border-[#EAEAEA] dark:border-zinc-700 pb-2 mb-3">
-                      {skill}{" "}
-                      <span className="font-normal text-[#9A9A9A]">
-                        ({skillWorkers.length})
-                      </span>
-                    </h3>
+                    <div className="flex items-center justify-between border-b border-[#EAEAEA] dark:border-zinc-700 pb-2 mb-3">
+                      <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#242424] dark:text-zinc-200">
+                        {skill}{" "}
+                        <span className="font-normal text-[#9A9A9A]">
+                          ({skillWorkers.length})
+                        </span>
+                      </h3>
+                      {/* NEW: Quick Create Button */}
+                      <button
+                        onClick={() =>
+                          handleCreateStationFromGroup(skill, skillWorkers)
+                        }
+                        className="text-[9px] font-bold uppercase tracking-widest text-[#1A7C4B] hover:text-[#15633C] transition-colors"
+                        title={`Create station & add all ${skillWorkers.length} workers`}
+                      >
+                        + Auto Station
+                      </button>
+                    </div>
                     <div className="space-y-2">
                       {skillWorkers.map((worker) => (
                         <WorkerCard key={worker.operator_id} worker={worker} />
@@ -454,7 +482,8 @@ export default function UnifiedRoutingPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {stations.map((station, index) => {
-                    const assignedWorker = workers.find(
+                    // CHANGED: Filter ALL workers assigned to this station instead of just finding one
+                    const assignedWorkers = workers.filter(
                       (w) => w.station_id === station.station_id,
                     );
 
@@ -472,7 +501,7 @@ export default function UnifiedRoutingPage() {
                         }`}
                       >
                         {/* Station Config Header */}
-                        <div className="p-4 border-b border-[#EAEAEA] dark:border-zinc-800 bg-[#F8F8F8] dark:bg-zinc-900/40 relative">
+                        <div className="p-4 border-b border-[#EAEAEA] dark:border-zinc-800 bg-[#F8F8F8] dark:bg-zinc-900/40 relative shrink-0">
                           <div className="flex items-center gap-2 mb-3 pr-6">
                             <span className="text-[10px] font-mono text-[#9A9A9A] font-bold">
                               {String(index + 1).padStart(2, "0")}
@@ -523,40 +552,52 @@ export default function UnifiedRoutingPage() {
                           </button>
                         </div>
 
-                        {/* Drop Zone */}
-                        <div className="flex-1 p-4 flex flex-col justify-center min-h-[120px]">
-                          {assignedWorker ? (
-                            <div className="relative group/worker bg-[#E6F1EC] dark:bg-[#0A321E]/60 border border-[#1A7C4B]/20 p-4">
-                              <div className="flex justify-between items-start gap-2">
-                                <div>
-                                  <p className="text-sm font-bold text-[#15633C] dark:text-[#47966F]">
-                                    {assignedWorker.operator_name}
-                                  </p>
-                                  <p className="text-[10px] font-mono text-[#1A7C4B]/80 dark:text-[#47966F]/80 mt-1 uppercase tracking-widest">
-                                    {assignedWorker.worker_id} · Grade{" "}
-                                    {assignedWorker.proficiency_grade}
-                                  </p>
-                                </div>
-                                {assignedWorker.primary_skill !==
-                                  station.required_skill && (
-                                  <span
-                                    className="text-[9px] bg-[#FDFBF8] text-[#CE8E33] border border-[#CE8E33]/30 dark:bg-amber-950/40 dark:text-[#D7A45A] px-1.5 py-0.5 font-bold uppercase tracking-widest whitespace-nowrap"
-                                    title="Skill Mismatch"
+                        {/* Drop Zone (Now supports multiple workers) */}
+                        <div className="flex-1 p-3 flex flex-col gap-2 min-h-30 overflow-y-auto">
+                          {assignedWorkers.length > 0 ? (
+                            <>
+                              {assignedWorkers.map((assignedWorker) => (
+                                <div
+                                  key={assignedWorker.operator_id}
+                                  className="relative group/worker bg-[#E6F1EC] dark:bg-[#0A321E]/60 border border-[#1A7C4B]/20 p-3 shrink-0"
+                                >
+                                  <div className="flex justify-between items-start gap-2">
+                                    <div className="overflow-hidden">
+                                      <p className="text-sm font-bold text-[#15633C] dark:text-[#47966F] truncate">
+                                        {assignedWorker.operator_name}
+                                      </p>
+                                      <p className="text-[10px] font-mono text-[#1A7C4B]/80 dark:text-[#47966F]/80 mt-1 uppercase tracking-widest">
+                                        {assignedWorker.worker_id} · Grade{" "}
+                                        {assignedWorker.proficiency_grade}
+                                      </p>
+                                    </div>
+                                    {assignedWorker.primary_skill !==
+                                      station.required_skill && (
+                                      <span
+                                        className="text-[9px] bg-[#FDFBF8] text-[#CE8E33] border border-[#CE8E33]/30 dark:bg-amber-950/40 dark:text-[#D7A45A] px-1.5 py-0.5 font-bold uppercase tracking-widest whitespace-nowrap"
+                                        title="Skill Mismatch"
+                                      >
+                                        Mismatch
+                                      </span>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={() =>
+                                      handleUnassign(assignedWorker.operator_id)
+                                    }
+                                    className="absolute top-2 right-2 text-[#1A7C4B]/50 hover:text-[#CE8E33] opacity-0 group-hover/worker:opacity-100 transition-opacity"
+                                    title="Unassign"
                                   >
-                                    Mismatch
-                                  </span>
-                                )}
+                                    ✕
+                                  </button>
+                                </div>
+                              ))}
+
+                              {/* Visual cue that you can still drop more */}
+                              <div className="text-center py-2 text-[9px] font-mono text-[#9A9A9A] uppercase tracking-widest border border-dashed border-transparent hover:border-[#C6C6C6] dark:hover:border-zinc-700 transition-colors">
+                                Drop more here
                               </div>
-                              <button
-                                onClick={() =>
-                                  handleUnassign(assignedWorker.operator_id)
-                                }
-                                className="absolute top-2 right-2 text-[#1A7C4B]/50 hover:text-[#CE8E33] opacity-0 group-hover/worker:opacity-100 transition-opacity"
-                                title="Unassign"
-                              >
-                                ✕
-                              </button>
-                            </div>
+                            </>
                           ) : (
                             <div className="h-full flex items-center justify-center border border-dashed border-[#C6C6C6] dark:border-zinc-700 bg-[#F8F8F8] dark:bg-zinc-800/20 text-[10px] font-mono text-[#9A9A9A] uppercase tracking-widest py-8">
                               Drop Worker Here
