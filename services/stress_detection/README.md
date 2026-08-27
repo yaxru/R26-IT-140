@@ -4,17 +4,12 @@ Flask backend for the Stress Detection component of R26-IT-140.
 Triggered by Component 2 via a secure-link token; no separate login exists
 inside this component.
 
-## Setup
+## Setup terminal
 
-1. `pip install -r requirements.txt`
-2. Copy `.env.example` to `.env` and fill in your Supabase project's
-   service-role key and the shared `SECURE_LINK_SECRET` (coordinate this
-   value with whoever owns Component 2).
-3. Place `stress_model.pkl` and `scaler.pkl` (see `TESTING.ipynb`) inside
-   `models/`.
-4. Run the schema in `schema.sql` against your Supabase project (SQL editor
-   or `supabase db push`).
-5. `python main.py`
+1. `python -m venv venv`
+2. `source venv/bin/activate`      # Windows: `venv\Scripts\activate`
+3. `pip install -r requirements.txt`
+4. `python app.py`
 
 ## Model
 
