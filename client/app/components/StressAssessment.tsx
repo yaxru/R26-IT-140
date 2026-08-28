@@ -13,7 +13,13 @@ import PrecisionInflatorGame from "./PrecisionInflatorGame";
 import CompletionScreen from "./CompletionScreen";
 
 import * as api from "@/lib/stress/api";
-import { STEP_ORDER, StepId, SessionInfo, Pss10Answers, InflatorTrial } from "@/lib/stress/types";
+import {
+  STEP_ORDER,
+  StepId,
+  SessionInfo,
+  Pss10Answers,
+  InflatorTrial,
+} from "@/lib/stress/types";
 
 export default function StressAssessment() {
   const searchParams = useSearchParams();
@@ -30,14 +36,18 @@ export default function StressAssessment() {
 
   useEffect(() => {
     if (!token) {
-      setError("This link is missing a token. Please use the link sent to you.");
+      setError(
+        "This link is missing a token. Please use the link sent to you.",
+      );
       setLoading(false);
       return;
     }
     api
       .resolveSession(token)
       .then((s) => setSession(s))
-      .catch((e) => setError(e.message ?? "This link is invalid or has expired."))
+      .catch((e) =>
+        setError(e.message ?? "This link is invalid or has expired."),
+      )
       .finally(() => setLoading(false));
   }, [token]);
 
@@ -54,7 +64,11 @@ export default function StressAssessment() {
     try {
       return await fn();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong. Please try again.");
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Something went wrong. Please try again.",
+      );
       return null;
     } finally {
       setBusy(false);
@@ -63,7 +77,9 @@ export default function StressAssessment() {
 
   async function handleBaseline(pressures: number[]) {
     if (!session) return;
-    const ok = await guard(() => api.submitBaseline(session.session_id, pressures));
+    const ok = await guard(() =>
+      api.submitBaseline(session.session_id, pressures),
+    );
     if (ok) transitionTo("pss10");
   }
 
@@ -76,7 +92,7 @@ export default function StressAssessment() {
   async function handleGame1(pressures: number[], responseTimeMs: number) {
     if (!session) return;
     const ok = await guard(() =>
-      api.submitGame1(session.session_id, pressures, responseTimeMs)
+      api.submitGame1(session.session_id, pressures, responseTimeMs),
     );
     if (ok) transitionTo("game2");
   }
@@ -108,8 +124,8 @@ export default function StressAssessment() {
       )}
 
       {/* The key prop forces React to unmount and remount, triggering the CSS fade-in animation */}
-      <div 
-        key={fadeKey} 
+      <div
+        key={fadeKey}
         className={`w-full max-w-md transition-opacity duration-500 ease-in-out ${busy ? "opacity-50 pointer-events-none" : "opacity-100"} animate-[fadeIn_0.8s_ease-in-out]`}
       >
         {step === "welcome" && (
@@ -168,17 +184,11 @@ export default function StressAssessment() {
           <IceBreakerScreen onComplete={handleBaseline} />
         )}
 
-        {step === "pss10" && (
-          <Pss10Questionnaire onComplete={handlePss10} />
-        )}
+        {step === "pss10" && <Pss10Questionnaire onComplete={handlePss10} />}
 
-        {step === "game1" && (
-          <EggCrackerGame onComplete={handleGame1} />
-        )}
+        {step === "game1" && <EggCrackerGame onComplete={handleGame1} />}
 
-        {step === "game2" && (
-          <PrecisionInflatorGame onComplete={handleGame2} />
-        )}
+        {step === "game2" && <PrecisionInflatorGame onComplete={handleGame2} />}
 
         {step === "complete" && <CompletionScreen />}
       </div>
