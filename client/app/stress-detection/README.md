@@ -1,0 +1,1 @@
+stress doittection folder ekata
