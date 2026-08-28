@@ -1,1 +1,0 @@
-dasun[text](README.md) methna model
