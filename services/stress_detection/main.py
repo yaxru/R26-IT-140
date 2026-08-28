@@ -147,6 +147,32 @@ def get_session_row(session_id: str) -> dict | None:
 
 
 # ---------------------------------------------------------------------------
+# Link Generation for Supervisor Dashboard
+# ---------------------------------------------------------------------------
+@app.route("/api/stress-detection/dev/token", methods=["GET"])
+def dev_generate_token():
+    worker_id = request.args.get("worker_id", "EMP-UNKNOWN")
+    worker_name = request.args.get("worker_name", "Unknown Worker")
+    expires_in = 7200 # 2 hours
+    
+    payload = {
+        "worker_id": worker_id,
+        "worker_name": worker_name,
+        "exp": int(datetime.now(timezone.utc).timestamp()) + expires_in,
+    }
+    
+    token = jwt.encode(payload, SECURE_LINK_SECRET, algorithm="HS256")
+    
+    # We send back the exact URL the worker needs to click
+    frontend_url = os.environ.get("FRONTEND_BASE_URL", "http://localhost:3000/assessment")
+    
+    return jsonify({
+        "token": token,
+        "test_url": f"{frontend_url}?token={token}",
+    })
+
+
+# ---------------------------------------------------------------------------
 # Routes — Worker flow (token-authenticated, no login screen)
 # ---------------------------------------------------------------------------
 
