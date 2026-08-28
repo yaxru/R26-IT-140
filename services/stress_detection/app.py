@@ -177,7 +177,7 @@ def require_hr_auth(fn):
 
 
 # ---------------------------------------------------------------------------
-# Scoring helpers
+# Scoring helpers with pss 10
 # ---------------------------------------------------------------------------
 
 def score_pss10(answers: dict) -> tuple[int, str]:
