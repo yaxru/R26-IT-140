@@ -10,11 +10,13 @@ export type PredictionRequest = {
   over_time: number;
   smv: number;
   machine_breakdown_minutes: number;
+  line_id?: string;
 };
 
 export type PredictionResponse = {
   history_id: number | null;
   history_saved: boolean;
+  targets_updated: boolean;
   predicted_productivity: number;
   efficiency_level: string;
   delay_prediction: string;
