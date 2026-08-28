@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import type { Bottleneck, RecommendResponse, SkillMatrixEntry } from "../types";
-import { StationWorkersGrid } from "../components/StationWorkersGrid";
-import { RankedBarList } from "../components/RankedBarList";
-import { SegmentedBar } from "../components/SegmentedBar";
-import { HoverTooltip } from "../components/HoverTooltip";
+import { StationWorkersGrid } from "@/components/StationWorkersGrid";
+import { RankedBarList } from "@/components/RankedBarList";
+import { SegmentedBar } from "@/components/SegmentedBar";
+import { HoverTooltip } from "@/components/HoverTooltip";
 import { createClient } from "@/lib/supabase/client";
 import { getAuthHeaders } from "@/shared/auth";
 

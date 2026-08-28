@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import StressAssessment from "../../components/StressAssessment";
+import StressAssessment from "@/components/StressAssessment";
 
 export default function Page() {
   return (

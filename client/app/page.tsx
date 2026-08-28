@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Bottleneck } from "./types";
-import { ErrorBanner } from "./components/ErrorBanner";
-import { OverviewNotificationPanel } from "./components/OverviewNotificationPanel";
-import { OverviewAnalytics } from "./components/OverviewAnalytics";
-import { OverviewStationTable } from "./components/OverviewStationTable";
+import { OverviewNotificationPanel } from "@/components/OverviewNotificationPanel";
+import { OverviewAnalytics } from "@/components/OverviewAnalytics";
+import { OverviewStationTable } from "@/components/OverviewStationTable";
 import { createClient } from "@/lib/supabase/client";
 import { getAuthHeaders } from "@/shared/auth";
 
