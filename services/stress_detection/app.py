@@ -116,7 +116,7 @@ def handle_unexpected_error(e):
 
 
 # ---------------------------------------------------------------------------
-# Auth helpers
+# Auth helper new changed
 # ---------------------------------------------------------------------------
 
 class InvalidLinkError(Exception):
