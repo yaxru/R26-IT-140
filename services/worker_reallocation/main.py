@@ -1,5 +1,6 @@
 import math
 import os
+import datetime
 from enum import Enum
 from typing import Optional
 
@@ -124,7 +125,6 @@ class SkillMatrixOut(BaseModel):
     proficiency_grade: str
     efficiency_pct: float
 
-# --- NEW: Models for Supervisor Line Setup ---
 class StationSetup(BaseModel):
     station_id: str = Field(..., example="Station-01")
     sequence_order: int = Field(default=1, example=1)
@@ -134,7 +134,6 @@ class LineLayoutRequest(BaseModel):
     line_id: str = Field(..., example="Line-A")
     stations: list[StationSetup]
 
-
 class WorkerAssignment(BaseModel):
     operator_id: str
     station_id: Optional[str] = Field(None, description="Null means returned to the unassigned pool")
@@ -143,6 +142,18 @@ class BatchAssignmentRequest(BaseModel):
     line_id: str
     assignments: list[WorkerAssignment]
 
+
+class AcceptMoveItem(BaseModel):
+    operator_id: str
+    from_station: Optional[str]
+    to_station: str
+    machine_type: str
+    proficiency_grade: str
+
+class AcceptMoveRequest(BaseModel):
+    moves: list[AcceptMoveItem]
+
+    
 # ---------------------------------------------------------------------------
 # Dynamic Config Fetcher
 # ---------------------------------------------------------------------------
@@ -165,13 +176,8 @@ def get_algorithm_config():
 async def health_check():
     return {"status": "ok", "service": "StitchFlow Profitability Engine V2"}
 
-# --- NEW: Endpoint for Supervisor Line Setup ---
 @app.post("/line-layout", response_model=dict)
 async def setup_line_layout(request: LineLayoutRequest, _: dict = Depends(require_auth)):
-    """
-    Allows supervisors to configure the physical sequence and skill requirements
-    for a specific production line before a batch starts.
-    """
     errors = []
     upsert_data = []
 
@@ -264,7 +270,6 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
 
     remaining_gap = max(0.0, targeted - actual_prod) if use_dynamic else 0.0
 
-    # 1. Fetch candidates
     try:
         sm_response = (
             supabase.table("skill_matrix")
@@ -284,7 +289,6 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
 
     candidate_ids = [c["operator_id"] for c in candidates_raw]
 
-    # 2. Batch-Fetch Historical Stochastic Variance
     hist_resp = (
         supabase.table("laborers_data")
         .select("operator_id, efficiency")
@@ -302,12 +306,11 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
         if len(hist_map[op]) < 5: 
             hist_map[op].append(float(row["efficiency"]))
 
-    # Convert rolling averages to 0.0 - 1.0 ratios
     personal_efficiency = {
-        op: (sum(effs) / len(effs)) / 100.0 for op, effs in hist_map.items() if effs
+        op: (sum(effs) / len(effs)) / 100.0 if sum(effs)/len(effs) > 1.5 else (sum(effs) / len(effs))
+        for op, effs in hist_map.items() if effs
     }
 
-    # 3. Fetch current stations
     op_station_map = {}
     try:
         ops_resp = supabase.table("operator_productivity").select("operator_id, current_station").in_("operator_id", candidate_ids).execute()
@@ -317,7 +320,6 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
 
     candidates = [{**c, "current_station": op_station_map.get(c["operator_id"])} for c in candidates_raw]
 
-    # Calculate Workers Needed
     best_grade = candidates[0]["proficiency_grade"].upper()
     if use_dynamic and remaining_gap > 0:
         best_boost = targeted * per_worker_fraction * baseline_eff.get(best_grade, 1.0)
@@ -325,7 +327,6 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
     else:
         workers_needed = 1
 
-    # 4. Select profitable workers using Stochastic Variance
     gap_left = remaining_gap
     selected = []
     used_ids = set()
@@ -344,7 +345,6 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
         if from_station == request.bottleneck_station:
             continue
 
-        # Use true historical efficiency if available, otherwise fallback
         actual_eff = personal_efficiency.get(op_id, baseline_eff.get(grade, 0.85))
 
         if use_dynamic:
@@ -373,9 +373,6 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
         if use_dynamic:
             gap_left = max(0.0, gap_left - per_worker_boost)
 
-    # ------------------------------------------------------------------
-    # No profitable move found
-    # ------------------------------------------------------------------
     if not selected:
         fc = candidates[0]
         fg = fc["proficiency_grade"].upper()
@@ -405,9 +402,6 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
             proficiency_grade=fc["proficiency_grade"], cost_of_move=cost, expected_production_gain=gain, net_profit=profit,
         )
 
-    # ------------------------------------------------------------------
-    # 5. Cascade check 
-    # ------------------------------------------------------------------
     donor_ids = list({m["from_station"] for m in selected if m["from_station"]})
     donor_data = {}
     if donor_ids:
@@ -519,16 +513,6 @@ async def upsert_skill(entry: SkillMatrixEntry, _: dict = Depends(require_auth))
         raise HTTPException(status_code=503, detail=f"Database write failed: {exc}")
     return {"status": "ok", "data": result.data}
 
-class AcceptMoveItem(BaseModel):
-    operator_id: str
-    from_station: Optional[str]
-    to_station: str
-    machine_type: str
-    proficiency_grade: str
-
-class AcceptMoveRequest(BaseModel):
-    moves: list[AcceptMoveItem]
-
 @app.post("/accept-move", response_model=dict)
 async def accept_move(request: AcceptMoveRequest, _: dict = Depends(require_auth)):
     config = get_algorithm_config()
@@ -581,16 +565,10 @@ async def accept_move(request: AcceptMoveRequest, _: dict = Depends(require_auth
         raise HTTPException(status_code=503, detail="; ".join(errors))
     return {"status": "ok", "updated": len(request.moves)}
 
-
-
 @app.post("/assign-workers", response_model=dict)
 async def assign_workers_to_stations(request: BatchAssignmentRequest, _: dict = Depends(require_auth)):
-    """
-    Executes a bulk update from the drag-and-drop UI to map workers to physical stations.
-    """
     errors = []
 
-    # Iterate and update each operator's station assignment
     for assignment in request.assignments:
         try:
             supabase.table("operator_productivity").update({
@@ -610,3 +588,84 @@ async def assign_workers_to_stations(request: BatchAssignmentRequest, _: dict = 
         "status": "success",
         "message": f"Successfully updated {len(request.assignments)} operator assignments on {request.line_id}."
     }
+
+# ---------------------------------------------------------------------------
+# NEW: Automated Skill Grading Endpoint
+# ---------------------------------------------------------------------------
+@app.post("/trigger-regrade", response_model=dict)
+async def trigger_regrade(_: dict = Depends(require_auth)):
+    """
+    Analyzes the last 14 days of operator performance from laborers_data
+    and automatically adjusts their A/B/C skill grade in the matrix.
+    """
+    try:
+        fourteen_days_ago = (datetime.datetime.now() - datetime.timedelta(days=14)).date().isoformat()
+        
+        # 1. Fetch recent performance data
+        ld_resp = supabase.table("laborers_data").select("operator_id, station_id, efficiency").gte("date", fourteen_days_ago).execute()
+        
+        # 2. Fetch station definitions to map physical stations to machine skills
+        st_resp = supabase.table("production_status").select("station_id, required_skill").execute()
+        
+        if not ld_resp.data:
+            return {"status": "ok", "message": "No recent efficiency data found to process.", "updated_records": 0}
+            
+        station_skill_map = {row["station_id"]: row["required_skill"] for row in st_resp.data}
+        
+        # 3. Aggregate efficiency scores per operator per machine type
+        agg_data = {}
+        for row in ld_resp.data:
+            op_id = row["operator_id"]
+            st_id = row["station_id"]
+            eff = float(row["efficiency"])
+            
+            if st_id not in station_skill_map:
+                continue
+                
+            machine_type = station_skill_map[st_id]
+            key = (op_id, machine_type)
+            
+            if key not in agg_data:
+                agg_data[key] = []
+            agg_data[key].append(eff)
+            
+        # 4. Calculate averages and assign new grades
+        success_count = 0
+        for (op_id, machine_type), effs in agg_data.items():
+            avg_eff = sum(effs) / len(effs)
+            
+            # Normalize percentage (handling both 0.85 and 85.0 formats)
+            normalized_eff = avg_eff if avg_eff <= 1.5 else avg_eff / 100.0
+            
+            if normalized_eff >= 0.85:
+                new_grade = "A"
+            elif normalized_eff >= 0.70:
+                new_grade = "B"
+            else:
+                new_grade = "C"
+                
+            # 5. Safely update or insert into the skill matrix
+            try:
+                update_res = supabase.table("skill_matrix").update({
+                    "proficiency_grade": new_grade
+                }).eq("operator_id", op_id).eq("machine_type", machine_type).execute()
+                
+                if not update_res.data:
+                    supabase.table("skill_matrix").insert({
+                        "operator_id": op_id,
+                        "machine_type": machine_type,
+                        "proficiency_grade": new_grade
+                    }).execute()
+                    
+                success_count += 1
+            except Exception as e:
+                print(f"Error updating matrix for {op_id}: {e}")
+            
+        return {
+            "status": "success", 
+            "message": "Dynamic skill grades successfully recalculated.", 
+            "updated_records": success_count
+        }
+        
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to recalculate grades: {exc}")

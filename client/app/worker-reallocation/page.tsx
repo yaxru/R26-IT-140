@@ -230,7 +230,7 @@ function KpiTile({
 
 // ─── Recommendation Panel ─────────────────────────────────────────────────────
 
-function RecommendationPanel({
+export function RecommendationPanel({
   recommendation,
   loading,
   accepted,
@@ -250,9 +250,9 @@ function RecommendationPanel({
   onAccept: () => void;
 }) {
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Panel header */}
-      <div className="flex items-center justify-between border-b border-[#EAEAEA] dark:border-zinc-800 px-5 py-3">
+      <div className="shrink-0 flex items-center justify-between border-b border-[#EAEAEA] dark:border-zinc-800 px-5 py-3">
         <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
           Move Recommendation
         </p>
@@ -301,8 +301,8 @@ function RecommendationPanel({
         </div>
       </div>
 
-      {/* Panel body — fixed min-height prevents layout shift */}
-      <div className="flex-1 px-5 py-4 min-h-65 flex flex-col">
+      {/* Panel body */}
+      <div className="flex-1 px-5 py-4 overflow-y-auto flex flex-col min-h-0">
         {!isBottleneck ? (
           /* Healthy station */
           <div className="flex-1 flex flex-col items-center justify-center gap-2 py-8">
@@ -571,15 +571,15 @@ function ProfitabilityPanel({
   const barColor = score > 8 ? "#1A7C4B" : score > 0 ? "#D7A45A" : "#CE8E33";
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="border-b border-[#EAEAEA] dark:border-zinc-800 px-5 py-3">
+      <div className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-5 py-3">
         <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
           Profitability · Cost breakdown
         </p>
       </div>
 
-      <div className="flex-1 px-5 py-4 flex flex-col gap-5">
+      <div className="flex-1 px-5 py-4 flex flex-col gap-5 overflow-y-auto min-h-0">
         {/* Big score */}
         <div>
           <p
@@ -841,7 +841,7 @@ export default function WorkerReallocationPage() {
   const bottleneckCount = bottlenecks.filter((b) => b.is_bottleneck).length;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 h-full min-h-0 overflow-hidden">
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <header className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-6 py-4 flex items-center justify-between bg-white dark:bg-[#0d0d0f]">
         <div>
@@ -917,11 +917,12 @@ export default function WorkerReallocationPage() {
         />
 
         {/* Right: Station detail — scrollable */}
-        <main className="flex-1 overflow-y-auto bg-[#F8F8F8] dark:bg-[#0a0a0c]">
+        <main className="flex-1 flex flex-col min-h-0 bg-[#F8F8F8] dark:bg-[#0a0a0c]">
+          {" "}
           {/* ── KPI row ─────────────────────────────────────────── */}
           <section
             aria-label="Station key metrics"
-            className="border-b border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113] flex"
+            className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113] flex"
           >
             {activeBottleneck ? (
               <>
@@ -967,14 +968,13 @@ export default function WorkerReallocationPage() {
               ))
             )}
           </section>
-
           {/* ── Recommendation + Profitability ─────────────────── */}
           <section
             aria-label="Move recommendation and profitability"
-            className="grid grid-cols-1 lg:grid-cols-2 border-b border-[#EAEAEA] dark:border-zinc-800"
+            className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[2fr_1fr] border-b border-[#EAEAEA] dark:border-zinc-800"
           >
             {/* Recommendation */}
-            <div className="border-r border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113]">
+            <div className="border-r border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113] min-h-0 flex flex-col">
               <RecommendationPanel
                 recommendation={recommendation}
                 loading={loading}
@@ -993,17 +993,16 @@ export default function WorkerReallocationPage() {
             </div>
 
             {/* Profitability */}
-            <div className="bg-white dark:bg-[#111113]">
+            <div className="bg-white dark:bg-[#111113] min-h-0 flex flex-col">
               <ProfitabilityPanel recommendation={recommendation} />
             </div>
           </section>
-
           {/* ── Workforce efficiency heatmap ───────────────────── */}
           <section
             aria-labelledby="workforce-heading"
-            className="bg-white dark:bg-[#111113] border-b border-[#EAEAEA] dark:border-zinc-800"
+            className="shrink-0 h-[40%] min-h-0 flex flex-col bg-white dark:bg-[#111113] border-b border-[#EAEAEA] dark:border-zinc-800"
           >
-            <div className="border-b border-[#EAEAEA] dark:border-zinc-800 px-5 py-3 flex items-center justify-between">
+            <div className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-5 py-3 flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-0.5">
                   {activeBottleneck
@@ -1022,7 +1021,7 @@ export default function WorkerReallocationPage() {
               </p>
             </div>
 
-            <div className="px-5 py-4">
+            <div className="flex-1 overflow-y-auto px-5 py-4 min-h-0">
               {skillMatrixError && (
                 <div
                   role="alert"
@@ -1037,9 +1036,8 @@ export default function WorkerReallocationPage() {
               />
             </div>
           </section>
-
           {/* ── Footer ─────────────────────────────────────────── */}
-          <footer className="px-5 py-3">
+          <footer className="shrink-0 px-5 py-3">
             <p className="text-[11px] text-[#C6C6C6] dark:text-zinc-700">
               Opsis · Profitability Engine v1.0 · Recommendations refresh hourly
             </p>
