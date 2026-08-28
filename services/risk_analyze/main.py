@@ -44,6 +44,11 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://localhost:3001", 
         "http://127.0.0.1:3001",
+
+    
+        'https://admin.opsis.getmerge.co',
+        'https://portal.opsis.getmerge.co',
+        
     ],
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
