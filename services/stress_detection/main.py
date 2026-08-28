@@ -47,10 +47,10 @@ def require_env(name: str) -> str:
 
 
 SUPABASE_URL = require_env("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = require_env("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_KEY = require_env("SUPABASE_KEY")
 SECURE_LINK_SECRET = require_env("SECURE_LINK_SECRET")  # shared with Component 2
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 TABLE = "stress_assessments"
 
