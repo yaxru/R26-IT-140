@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
-import { InflatorTrial } from "@/lib/types";
+import { InflatorTrial } from "@/lib/stress/types";
 
 const TRIAL_DURATION_MS = 10000;
 const TOTAL_TRIALS = 3;
@@ -111,66 +110,77 @@ export default function PrecisionInflatorGame({
   const secondsLeft = Math.ceil(timeLeftMs / 1000);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="flex flex-col items-center gap-4 px-6 w-full"
-    >
+    <div className="flex flex-col items-center justify-center gap-8 px-6 w-full h-full animate-in fade-in duration-500">
       <div className="text-center">
-        <span className="text-xs font-semibold tracking-wide text-lilac-500 uppercase">
-          Game 2 · Precision Inflator · Trial {trialIndex + 1}/{TOTAL_TRIALS}
+        <span className="text-xs font-medium tracking-widest text-slate-400 uppercase">
+          Game 2 · Precision Inflator · Trial {trialIndex + 1} of {TOTAL_TRIALS}
         </span>
-        <h2 className="text-lg font-semibold text-lilac-900 mt-1">
+        <h2 className="text-xl font-medium text-slate-700 mt-2">
           Hold steady inside the ring
         </h2>
       </div>
 
       <div className="relative w-64 h-64 flex items-center justify-center">
+        {/* Outer boundary */}
         <div
-          className="absolute rounded-full border-4 border-coral-500/70"
-          style={{ width: `${RING_MAX * 220}px`, height: `${RING_MAX * 220}px` }}
+          className={`absolute rounded-full border-[3px] transition-colors duration-300 ${
+            burst
+              ? "border-rose-400/80"
+              : inTarget
+                ? "border-indigo-300"
+                : "border-slate-300/80"
+          }`}
+          style={{
+            width: `${RING_MAX * 220}px`,
+            height: `${RING_MAX * 220}px`,
+          }}
         />
+        {/* Inner boundary */}
         <div
-          className="absolute rounded-full border-2 border-dashed border-coral-300"
-          style={{ width: `${RING_MIN * 220}px`, height: `${RING_MIN * 220}px` }}
+          className={`absolute rounded-full border-2 border-dashed transition-colors duration-300 ${
+            burst
+              ? "border-rose-300/50"
+              : inTarget
+                ? "border-indigo-300/70"
+                : "border-slate-300/60"
+          }`}
+          style={{
+            width: `${RING_MIN * 220}px`,
+            height: `${RING_MIN * 220}px`,
+          }}
         />
 
-        <motion.div
+        <div
           onPointerDown={handlePointer}
           onPointerMove={handlePointer}
           onPointerUp={release}
           onPointerLeave={release}
-          animate={{ scale: burst ? 0 : balloonScale }}
-          transition={{ type: "spring", stiffness: 220, damping: 18 }}
-          className={`tap-target no-select w-24 h-24 rounded-full cursor-pointer shadow-soft ${
+          className={`select-none w-24 h-24 rounded-full cursor-pointer shadow-md transition-all duration-[50ms] ease-out flex items-center justify-center text-4xl touch-none ${
             inTarget
-              ? "bg-gradient-to-br from-mint-300 to-mint-500"
-              : "bg-gradient-to-br from-lilac-300 to-lilac-500"
+              ? "bg-gradient-to-br from-indigo-300 to-indigo-500 shadow-indigo-200"
+              : "bg-gradient-to-br from-slate-200 to-slate-400"
           }`}
-        />
-
-        {burst && (
-          <motion.span
-            initial={{ scale: 0.5, opacity: 1 }}
-            animate={{ scale: 1.6, opacity: 0 }}
-            transition={{ duration: 0.4 }}
-            className="absolute text-5xl"
-          >
-            💥
-          </motion.span>
-        )}
+          style={{
+            transform: `scale(${burst ? 0 : balloonScale})`,
+            opacity: burst ? 0 : 1,
+          }}
+        >
+          {burst && (
+            <span className="absolute animate-[ping_0.4s_ease-out_forwards] text-5xl">
+              💥
+            </span>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-4 text-sm text-lilac-600 font-medium">
-        <span>⏱ {secondsLeft}s</span>
-        <span>{inTarget ? "🎯 On target!" : "Adjust pressure"}</span>
+      <div className="text-center mt-4">
+        <p className="text-3xl font-light text-slate-700 tabular-nums font-mono">
+          {secondsLeft}s
+        </p>
+        <p className="text-xs text-slate-400 mt-1 font-medium tracking-wide uppercase">
+          remaining
+        </p>
       </div>
-
-      <p className="text-xs text-lilac-400 text-center max-w-xs">
-        Press and hold anywhere below the ring. Too hard pops the balloon, too
-        light won't reach it.
-      </p>
-    </motion.div>
+    </div>
   );
 }

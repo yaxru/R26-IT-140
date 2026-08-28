@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
 
 import ProgressBar from "./ProgressBar";
 import WelcomeScreen from "./WelcomeScreen";
@@ -26,6 +25,9 @@ export default function StressAssessment() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // A simple toggle to trigger CSS re-renders for smooth transitions
+  const [fadeKey, setFadeKey] = useState(0);
+
   useEffect(() => {
     if (!token) {
       setError("This link is missing a token. Please use the link sent to you.");
@@ -42,6 +44,11 @@ export default function StressAssessment() {
   const stepIndex = STEP_ORDER.indexOf(step);
   const progress = (stepIndex / (STEP_ORDER.length - 1)) * 100;
 
+  const transitionTo = (nextStep: StepId) => {
+    setFadeKey((prev) => prev + 1);
+    setStep(nextStep);
+  };
+
   async function guard<T>(fn: () => Promise<T>) {
     setBusy(true);
     try {
@@ -57,13 +64,13 @@ export default function StressAssessment() {
   async function handleBaseline(pressures: number[]) {
     if (!session) return;
     const ok = await guard(() => api.submitBaseline(session.session_id, pressures));
-    if (ok) setStep("pss10");
+    if (ok) transitionTo("pss10");
   }
 
   async function handlePss10(answers: Pss10Answers) {
     if (!session) return;
     const ok = await guard(() => api.submitPss10(session.session_id, answers));
-    if (ok) setStep("game1");
+    if (ok) transitionTo("game1");
   }
 
   async function handleGame1(pressures: number[], responseTimeMs: number) {
@@ -71,7 +78,7 @@ export default function StressAssessment() {
     const ok = await guard(() =>
       api.submitGame1(session.session_id, pressures, responseTimeMs)
     );
-    if (ok) setStep("game2");
+    if (ok) transitionTo("game2");
   }
 
   async function handleGame2(trials: InflatorTrial[]) {
@@ -79,7 +86,7 @@ export default function StressAssessment() {
     const ok = await guard(() => api.submitGame2(session.session_id, trials));
     if (!ok) return;
     await guard(() => api.predict(session.session_id));
-    setStep("complete");
+    transitionTo("complete");
   }
 
   if (loading) {
@@ -91,91 +98,89 @@ export default function StressAssessment() {
   }
 
   return (
-    <div className="min-h-dvh flex items-center justify-center py-10">
+    <div className="min-h-dvh flex items-center justify-center py-10 bg-[#FAFAFA] text-[#242424] transition-colors duration-700 ease-in-out">
       <ProgressBar progress={progress} />
 
       {error && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-coral-500 text-white text-sm px-4 py-2 rounded-xl shadow-soft z-50">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-red-500 text-white text-sm px-4 py-2 rounded-xl shadow-sm z-50 animate-pulse">
           {error}
         </div>
       )}
 
-      <div className={busy ? "opacity-60 pointer-events-none" : ""}>
-        <AnimatePresence mode="wait">
-          {step === "welcome" && (
-            <WelcomeScreen
-              key="welcome"
-              workerName={session?.worker_name ?? ""}
-              onBegin={() => setStep("instructions-pss10")}
-            />
-          )}
+      {/* The key prop forces React to unmount and remount, triggering the CSS fade-in animation */}
+      <div 
+        key={fadeKey} 
+        className={`w-full max-w-md transition-opacity duration-500 ease-in-out ${busy ? "opacity-50 pointer-events-none" : "opacity-100"} animate-[fadeIn_0.8s_ease-in-out]`}
+      >
+        {step === "welcome" && (
+          <WelcomeScreen
+            workerName={session?.worker_name ?? ""}
+            onBegin={() => transitionTo("instructions-pss10")}
+          />
+        )}
 
-          {step === "instructions-pss10" && (
-            <InstructionScreen
-              key="instructions-pss10"
-              step="Before we start · 1 of 3"
-              emoji="📝"
-              title="About the questions"
-              bullets={[
-                "10 quick questions about how you've felt this past month.",
-                "Options range from Never to Very Often.",
-                "Fully confidential — no impact on your work record.",
-              ]}
-              actionLabel="Next"
-              onNext={() => setStep("instructions-game1")}
-            />
-          )}
+        {step === "instructions-pss10" && (
+          <InstructionScreen
+            step="Before we start · 1 of 3"
+            emoji="📝"
+            title="About the questions"
+            bullets={[
+              "10 quick questions about how you've felt this past month.",
+              "Options range from Never to Very Often.",
+              "Fully confidential — no impact on your work record.",
+            ]}
+            actionLabel="Next"
+            onNext={() => transitionTo("instructions-game1")}
+          />
+        )}
 
-          {step === "instructions-game1" && (
-            <InstructionScreen
-              key="instructions-game1"
-              step="Before we start · 2 of 3"
-              emoji="🥚"
-              title="Game 1 — Egg Cracker"
-              bullets={[
-                "Eggs will appear on screen.",
-                "Tap gently to crack them.",
-                "Tap too hard and the egg will burst — control your force.",
-              ]}
-              actionLabel="Next"
-              onNext={() => setStep("instructions-game2")}
-            />
-          )}
+        {step === "instructions-game1" && (
+          <InstructionScreen
+            step="Before we start · 2 of 3"
+            emoji="🥚"
+            title="Game 1 — Egg Cracker"
+            bullets={[
+              "Eggs will appear on screen.",
+              "Tap gently to crack them.",
+              "Tap too hard and the egg will burst — control your force.",
+            ]}
+            actionLabel="Next"
+            onNext={() => transitionTo("instructions-game2")}
+          />
+        )}
 
-          {step === "instructions-game2" && (
-            <InstructionScreen
-              key="instructions-game2"
-              step="Before we start · 3 of 3"
-              emoji="🎈"
-              title="Game 2 — Precision Inflator"
-              bullets={[
-                "Press & hold to inflate the balloon into the ring.",
-                "Too hard pops it, too light won't reach it.",
-                "3 short rounds, 10 seconds each.",
-              ]}
-              actionLabel="Let's Start"
-              onNext={() => setStep("icebreaker")}
-            />
-          )}
+        {step === "instructions-game2" && (
+          <InstructionScreen
+            step="Before we start · 3 of 3"
+            emoji="🎈"
+            title="Game 2 — Precision Inflator"
+            bullets={[
+              "Press & hold to inflate the balloon into the ring.",
+              "Too hard pops it, too light won't reach it.",
+              "3 short rounds, 10 seconds each.",
+            ]}
+            actionLabel="Let's Start"
+            onNext={() => transitionTo("icebreaker")}
+          />
+        )}
 
-          {step === "icebreaker" && (
-            <IceBreakerScreen key="icebreaker" onComplete={handleBaseline} />
-          )}
+        {step === "icebreaker" && (
+          <IceBreakerScreen onComplete={handleBaseline} />
+        )}
 
-          {step === "pss10" && (
-            <Pss10Questionnaire key="pss10" onComplete={handlePss10} />
-          )}
+        {step === "pss10" && (
+          <Pss10Questionnaire onComplete={handlePss10} />
+        )}
 
-          {step === "game1" && (
-            <EggCrackerGame key="game1" onComplete={handleGame1} />
-          )}
+        {step === "game1" && (
+          <EggCrackerGame onComplete={handleGame1} />
+        )}
 
-          {step === "game2" && (
-            <PrecisionInflatorGame key="game2" onComplete={handleGame2} />
-          )}
+        {step === "game2" && (
+          <PrecisionInflatorGame onComplete={handleGame2} />
+        )}
 
-          {step === "complete" && <CompletionScreen key="complete" />}
-        </AnimatePresence>
+        {step === "complete" && <CompletionScreen />}
       </div>
     </div>
   );
@@ -183,15 +188,9 @@ export default function StressAssessment() {
 
 function CenteredMessage({ emoji, text }: { emoji: string; text: string }) {
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center gap-4 px-6 text-center">
-      <motion.div
-        animate={{ rotate: [0, 8, -8, 0] }}
-        transition={{ duration: 2, repeat: Infinity }}
-        className="text-5xl"
-      >
-        {emoji}
-      </motion.div>
-      <p className="text-lilac-700 text-sm max-w-xs">{text}</p>
+    <div className="min-h-dvh flex flex-col items-center justify-center gap-4 px-6 text-center animate-[fadeIn_1s_ease-in-out]">
+      <div className="text-5xl animate-bounce">{emoji}</div>
+      <p className="text-gray-500 text-sm max-w-xs">{text}</p>
     </div>
   );
 }

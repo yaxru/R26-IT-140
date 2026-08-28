@@ -6,14 +6,13 @@ import { useState } from "react";
 import {
   LayoutDashboard,
   Map,
-  Activity,
-  Layers,
-  ArrowRightLeft,
   Users,
+  BrainCircuit,
+  ArrowRightLeft,
+  HeartPulse,
+  Layers,
   Shirt,
-  LineChart,
   Package,
-  Wrench,
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
@@ -21,42 +20,45 @@ import {
 
 const iconProps = { size: 16, strokeWidth: 1.8 };
 
-const COLLAPSED_W = 56;   // px — icon-only
-const EXPANDED_W  = 228;  // px — full labels
+const COLLAPSED_W = 56;
+const EXPANDED_W  = 228;
 
+// Reordered to match the strict chronological daily flow, isolating interventions.
 const NAV_SECTIONS = [
   {
-    label: "Main",
+    label: "Core Pipeline",
     items: [
-      { label: "Overview",           href: "/",                   icon: <LayoutDashboard  {...iconProps} /> },
-      { label: "Floor Map",          href: "/floor-map",          icon: <Map              {...iconProps} /> },
-      { label: "Production Time",    href: "/production-time",    icon: <Activity         {...iconProps} /> },
-      { label: "Production Lines",   href: "/production-lines",   icon: <Layers           {...iconProps} /> },
+      { label: "Overview",           href: "/",                   icon: <LayoutDashboard {...iconProps} /> },
+      { label: "Workforce",          href: "/workforce",          icon: <Users           {...iconProps} /> },
+      { label: "Floor Map",          href: "/floor-map",          icon: <Map             {...iconProps} /> },
+      { label: "Prediction & Risk",  href: "/risk-analyze",       icon: <BrainCircuit    {...iconProps} /> },
+      { label: "Worker Reallocation",href: "/worker-reallocation",icon: <ArrowRightLeft  {...iconProps} /> },
     ],
   },
   {
-    label: "Management",
+    label: "Tracking & Assets",
     items: [
-      { label: "Worker Reallocation", href: "/worker-reallocation", icon: <ArrowRightLeft {...iconProps} /> },
-      { label: "Workforce",           href: "/workforce",           icon: <Users          {...iconProps} /> },
-      { label: "Style Management",    href: "/style-management",    icon: <Shirt          {...iconProps} /> },
-      { label: "Reports & Analytics", href: "/risk-analyze",        icon: <LineChart      {...iconProps} /> },
+      { label: "Production Lines",   href: "/production-lines",   icon: <Layers          {...iconProps} /> },
+      { label: "Style Management",   href: "/style-management",   icon: <Shirt           {...iconProps} /> },
+      { label: "Inventory",          href: "/inventory",          icon: <Package         {...iconProps} /> },
+    ],
+  },
+  {
+    label: "Interventions",
+    items: [
+      { label: "Stress Monitoring",  href: "/management/stress-monitoring", icon: <HeartPulse {...iconProps} /> },
     ],
   },
   {
     label: "System",
     items: [
-      { label: "Inventory",   href: "/inventory",   icon: <Package  {...iconProps} /> },
-      { label: "Maintenance", href: "/maintenance",  icon: <Wrench   {...iconProps} /> },
-      { label: "Settings",    href: "/settings",     icon: <Settings {...iconProps} /> },
+      { label: "Settings",           href: "/settings",           icon: <Settings        {...iconProps} /> },
     ],
   },
 ];
 
 interface SidebarProps {
-  /** true = sidebar is pinned open and pushes content */
   pinned: boolean;
-  /** called when user clicks the pin/collapse toggle at the bottom */
   onToggle: () => void;
 }
 
@@ -64,10 +66,7 @@ export function Sidebar({ pinned, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const [hovered, setHovered] = useState(false);
 
-  // Expand visually when pinned OR when hovered
   const isExpanded = pinned || hovered;
-
-  // When not pinned and hovering, sidebar floats as overlay → higher z-index
   const isOverlay = !pinned && hovered;
 
   return (
@@ -87,14 +86,11 @@ export function Sidebar({ pinned, onToggle }: SidebarProps) {
         ${isOverlay ? "z-30" : "z-20"}
       `}
     >
-      {/* Inner container is always full expanded width so content never reflows */}
       <div style={{ width: EXPANDED_W }} className="flex flex-col h-full">
 
-        {/* ── Nav ────────────────────────────────────────── */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-3 space-y-5">
           {NAV_SECTIONS.map((section) => (
             <div key={section.label}>
-              {/* Section label */}
               <div
                 className="h-5 mb-1 px-2 flex items-center overflow-hidden"
                 aria-hidden={!isExpanded}
@@ -133,7 +129,6 @@ export function Sidebar({ pinned, onToggle }: SidebarProps) {
                           }
                         `}
                       >
-                        {/* Icon — always visible */}
                         <span
                           className={`
                             shrink-0 flex items-center justify-center w-4 h-4
@@ -146,7 +141,6 @@ export function Sidebar({ pinned, onToggle }: SidebarProps) {
                           {item.icon}
                         </span>
 
-                        {/* Label — smooth opacity fade */}
                         <span
                           style={{
                             transition: "opacity 200ms cubic-bezier(0.4,0,0.2,1), transform 200ms cubic-bezier(0.4,0,0.2,1)",
@@ -170,7 +164,6 @@ export function Sidebar({ pinned, onToggle }: SidebarProps) {
           ))}
         </nav>
 
-        {/* ── Bottom: pin / collapse toggle ───────────────── */}
         <div className="shrink-0 border-t border-[#EAEAEA] dark:border-zinc-800">
           <button
             onClick={onToggle}

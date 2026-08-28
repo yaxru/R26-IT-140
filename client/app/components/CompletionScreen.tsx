@@ -1,73 +1,66 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 
-const CONFETTI = Array.from({ length: 14 }, (_, i) => i);
+export default function CompletionScreen({
+  onRestart,
+}: {
+  onRestart?: () => void;
+}) {
+  const [show, setShow] = useState(false);
 
-export default function CompletionScreen() {
+  useEffect(() => {
+    const t = setTimeout(() => setShow(true), 500);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="relative flex flex-col items-center text-center gap-6 px-6 overflow-hidden"
-    >
-      {CONFETTI.map((i) => (
-        <motion.span
-          key={i}
-          initial={{
-            opacity: 0,
-            x: (Math.random() - 0.5) * 240,
-            y: -40,
-          }}
-          animate={{
-            opacity: [0, 1, 0],
-            y: 260,
-            rotate: 360,
-          }}
-          transition={{ duration: 2.4, delay: i * 0.08, ease: "easeOut" }}
-          className="absolute text-2xl select-none pointer-events-none"
-        >
-          {["🎉", "✨", "🌿", "💫"][i % 4]}
-        </motion.span>
-      ))}
+    <div className="flex flex-col items-center justify-center text-center gap-6 px-6 w-full h-full animate-in fade-in zoom-in-95 duration-700 ease-out">
+      <div className="w-32 h-32 rounded-full bg-gradient-to-br from-indigo-100 to-sky-100 shadow-sm flex items-center justify-center text-6xl animate-[bounce_3s_infinite_ease-in-out]">
+        🎉
+      </div>
 
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: "spring", stiffness: 200, damping: 12, delay: 0.15 }}
-        className="w-28 h-28 rounded-full bg-gradient-to-br from-mint-300 to-mint-500 shadow-soft flex items-center justify-center text-5xl"
-      >
-        ✅
-      </motion.div>
-
-      <div>
-        <h1 className="text-2xl font-semibold text-lilac-900">
-          All done — thank you!
-        </h1>
-        <p className="text-sm text-lilac-600 mt-2 max-w-sm">
-          You've completed all tasks. Your responses are private and won't
-          affect your work record.
+      <div className="mt-4">
+        <h1 className="text-2xl font-medium text-slate-700">All done!</h1>
+        <p className="text-slate-500 mt-2 max-w-sm leading-relaxed">
+          Thank you for checking in. Your responses have been recorded and your
+          profile is up to date.
         </p>
       </div>
 
-      <div className="bg-white/70 backdrop-blur rounded-3xl shadow-card px-6 py-5 w-full max-w-sm text-left space-y-2 text-sm text-lilac-700">
+      <div className="bg-white/80 backdrop-blur-sm rounded-[2rem] shadow-sm border border-slate-100 px-6 py-5 w-full max-w-sm text-left space-y-3 text-sm text-slate-600">
         <div className="flex justify-between">
           <span>Questions answered</span>
-          <span className="font-semibold">10/10</span>
+          <span className="font-semibold text-slate-800">10/10</span>
         </div>
         <div className="flex justify-between">
           <span>Games completed</span>
-          <span className="font-semibold">2/2</span>
+          <span className="font-semibold text-slate-800">2/2</span>
         </div>
         <div className="flex justify-between">
           <span>Data submitted</span>
-          <span className="font-semibold text-mint-700">Securely ✓</span>
+          <span className="font-semibold text-indigo-500">Securely ✓</span>
         </div>
       </div>
 
-      <p className="text-xs text-lilac-400">
+      <p className="text-xs text-slate-400 mt-4">
         You can return to your workstation now — no further action needed.
       </p>
-    </motion.div>
+
+      {onRestart && (
+        <div
+          className={`transition-all duration-700 transform ${
+            show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+          } mt-6`}
+        >
+          <button
+            onClick={onRestart}
+            className="select-none text-sm font-medium text-slate-400 hover:text-slate-600 transition-colors py-2 px-4 rounded-full hover:bg-slate-50"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

@@ -1,16 +1,39 @@
 "use client";
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { usePressureCapture } from "@/lib/usePressureCapture";
+import { useState, useEffect } from "react";
+import { usePressureCapture } from "@/lib/stress/usePressureCapture";
 
 const QUESTIONS: { key: string; label: string; options: string[] }[] = [
-  { key: "hobby", label: "What's a hobby you enjoy?", options: ["Sports", "Music", "Reading", "Gaming", "Cooking", "Other"] },
-  { key: "genre", label: "Favourite music genre?", options: ["Pop", "Rock", "Hip-Hop", "Baila", "Classical", "Other"] },
-  { key: "artist", label: "Favourite singer or band?", options: ["Local artist", "International", "Both", "Not sure"] },
-  { key: "food", label: "Favourite food?", options: ["Rice & Curry", "Kottu", "String Hoppers", "Fast Food", "Other"] },
-  { key: "show", label: "Favourite movie or show?", options: ["Action", "Comedy", "Drama", "Teledrama", "Other"] },
-  { key: "extra", label: "One more thing you like?", options: ["Traveling", "Sleeping", "Chatting", "Sports", "Other"] },
+  {
+    key: "hobby",
+    label: "What's a hobby you enjoy?",
+    options: ["Sports", "Music", "Reading", "Gaming", "Cooking", "Other"],
+  },
+  {
+    key: "genre",
+    label: "Favourite music genre?",
+    options: ["Pop", "Rock", "Hip-Hop", "Baila", "Classical", "Other"],
+  },
+  {
+    key: "artist",
+    label: "Favourite singer or band?",
+    options: ["Local artist", "International", "Both", "Not sure"],
+  },
+  {
+    key: "food",
+    label: "Favourite food?",
+    options: ["Rice & Curry", "Kottu", "String Hoppers", "Fast Food", "Other"],
+  },
+  {
+    key: "show",
+    label: "Favourite movie or show?",
+    options: ["Action", "Comedy", "Drama", "Teledrama", "Other"],
+  },
+  {
+    key: "extra",
+    label: "One more thing you like?",
+    options: ["Traveling", "Sleeping", "Chatting", "Sports", "Other"],
+  },
 ];
 
 export default function IceBreakerScreen({
@@ -20,65 +43,64 @@ export default function IceBreakerScreen({
 }) {
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<Record<string, string>>({});
+  const [isVisible, setIsVisible] = useState(true);
   const { record, getSamples } = usePressureCapture();
 
   const question = QUESTIONS[index];
   const isLast = index === QUESTIONS.length - 1;
 
+  useEffect(() => {
+    setIsVisible(true);
+  }, [index]);
+
   function choose(option: string) {
     setSelected((s) => ({ ...s, [question.key]: option }));
-    console.log("Selected:", { ...selected, [question.key]: option });
-    console.log("question:", question);
-    console.log("isLast:", isLast);
-    if (isLast) {
-      onComplete(getSamples());
-    } else {
-      setIndex((i) => i + 1);
-    }
+    setIsVisible(false);
+
+    setTimeout(() => {
+      if (isLast) {
+        onComplete(getSamples());
+      } else {
+        setIndex((i) => i + 1);
+      }
+    }, 250); // wait for fade out
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="flex flex-col items-center gap-6 px-6 w-full"
-    >
+    <div className="flex flex-col items-center justify-center gap-8 px-6 w-full h-full animate-in fade-in duration-500">
       <div className="text-center">
-        <span className="text-xs font-semibold tracking-wide text-lilac-500 uppercase">
-          Let's warm up · {index + 1}/{QUESTIONS.length}
+        <span className="text-xs font-medium tracking-widest text-slate-400 uppercase">
+          Let's warm up · {index + 1} of {QUESTIONS.length}
         </span>
-        <h2 className="text-lg font-semibold text-lilac-900 mt-2">
+        <h2 className="text-xl font-medium text-slate-700 mt-3 transition-opacity duration-300">
           {question.label}
         </h2>
       </div>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={question.key}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -12 }}
-          className="grid grid-cols-2 gap-3 w-full max-w-sm"
-        >
-          {question.options.map((opt) => (
-            <motion.button
+      <div
+        className={`grid grid-cols-2 gap-4 w-full max-w-sm transition-all duration-300 transform ${
+          isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
+        }`}
+      >
+        {question.options.map((opt) => {
+          const isSelected = selected[question.key] === opt;
+          return (
+            <button
               key={opt}
               onPointerDown={record}
               onPointerMove={record}
-              whileTap={{ scale: 0.94 }}
               onClick={() => choose(opt)}
-              className={`tap-target no-select rounded-2xl py-4 px-3 text-sm font-medium shadow-card transition-colors ${
-                selected[question.key] === opt
-                  ? "bg-lilac-500 text-white"
-                  : "bg-white/80 text-lilac-800"
+              className={`select-none rounded-3xl py-4 px-3 text-sm font-medium shadow-sm transition-all duration-200 active:scale-95 ${
+                isSelected
+                  ? "bg-indigo-400 text-white shadow-indigo-200"
+                  : "bg-white text-slate-600 hover:bg-slate-50 hover:shadow-md border border-slate-100"
               }`}
             >
               {opt}
-            </motion.button>
-          ))}
-        </motion.div>
-      </AnimatePresence>
-    </motion.div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

@@ -1,7 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
-
 export default function WelcomeScreen({
   workerName,
   onBegin,
@@ -10,47 +8,38 @@ export default function WelcomeScreen({
   onBegin: () => void;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -16 }}
-      transition={{ duration: 0.5 }}
-      className="flex flex-col items-center text-center gap-6 px-6"
-    >
-      <motion.div
-        animate={{ y: [0, -8, 0] }}
-        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-        className="w-28 h-28 rounded-full bg-gradient-to-br from-lilac-300 to-mint-300 shadow-soft flex items-center justify-center text-5xl"
-      >
+    <div className="flex flex-col items-center justify-center text-center gap-10 px-6 w-full h-full animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
+      <div className="w-28 h-28 rounded-full bg-gradient-to-br from-indigo-100 to-sky-100 shadow-sm flex items-center justify-center text-5xl animate-[bounce_3s_infinite_ease-in-out]">
         🌿
-      </motion.div>
+      </div>
 
       <div>
-        <p className="text-lilac-500 font-medium">Hi {workerName || "there"},</p>
-        <h1 className="text-2xl font-semibold text-lilac-900 mt-1">
+        <p className="text-slate-500 font-medium">
+          Hi {workerName || "there"},
+        </p>
+        <h1 className="text-2xl font-semibold text-slate-700 mt-2">
           Let's check in with you
         </h1>
       </div>
 
-      <div className="bg-white/70 backdrop-blur rounded-3xl shadow-card px-6 py-5 w-full max-w-sm">
-        <p className="text-sm text-lilac-700 leading-relaxed">
-          10 quick questions + 2 short games — about{" "}
-          <span className="font-semibold">7 minutes</span> in total.
+      <div className="bg-white/80 backdrop-blur-sm rounded-[2rem] shadow-sm border border-slate-100 px-6 py-6 w-full max-w-sm">
+        <p className="text-sm text-slate-600 leading-relaxed">
+          10 quick questions & 2 short games — about{" "}
+          <span className="font-medium text-slate-800">7 minutes</span> in
+          total.
         </p>
-        <div className="h-px bg-lilac-100 my-3" />
-        <p className="text-xs text-lilac-500 leading-relaxed">
+        <div className="h-px bg-slate-100 my-4" />
+        <p className="text-xs text-slate-400 leading-relaxed">
           🔒 Your answers are private and will never affect your work record.
         </p>
       </div>
 
-      <motion.button
-        whileTap={{ scale: 0.96 }}
-        whileHover={{ scale: 1.02 }}
+      <button
         onClick={onBegin}
-        className="tap-target no-select w-full max-w-sm bg-lilac-500 text-white font-semibold py-4 rounded-2xl shadow-soft"
+        className="select-none w-full max-w-sm bg-indigo-500 hover:bg-indigo-600 active:bg-indigo-700 text-white font-medium py-4 rounded-[2rem] shadow-sm transition-all duration-200 active:scale-95"
       >
         Let's Begin
-      </motion.button>
-    </motion.div>
+      </button>
+    </div>
   );
 }

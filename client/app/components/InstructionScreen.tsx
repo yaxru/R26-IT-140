@@ -1,7 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
-
 interface Props {
   step: string;
   emoji: string;
@@ -20,44 +18,39 @@ export default function InstructionScreen({
   onNext,
 }: Props) {
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 32 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -32 }}
-      transition={{ duration: 0.4 }}
-      className="flex flex-col items-center text-center gap-5 px-6"
-    >
-      <span className="text-xs font-semibold tracking-wide text-lilac-500 uppercase">
+    <div className="flex flex-col items-center justify-center text-center gap-6 px-6 w-full h-full animate-in fade-in slide-in-from-right-4 duration-500 ease-out">
+      <span className="text-xs font-medium tracking-widest text-slate-400 uppercase">
         {step}
       </span>
 
-      <div className="text-6xl animate-float">{emoji}</div>
+      <div className="text-6xl animate-[bounce_3s_infinite_ease-in-out]">
+        {emoji}
+      </div>
 
-      <h2 className="text-xl font-semibold text-lilac-900">{title}</h2>
+      <h2 className="text-xl font-medium text-slate-700">{title}</h2>
 
-      <ul className="bg-white/70 backdrop-blur rounded-3xl shadow-card px-6 py-5 w-full max-w-sm text-left space-y-3">
+      <ul className="bg-white/80 backdrop-blur-sm rounded-[2rem] shadow-sm border border-slate-100 px-6 py-6 w-full max-w-sm text-left space-y-4">
         {bullets.map((b, i) => (
-          <motion.li
+          <li
             key={i}
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 * i + 0.15 }}
-            className="flex gap-2 text-sm text-lilac-700"
+            className="flex gap-3 text-sm text-slate-600 leading-relaxed animate-in fade-in slide-in-from-left-2"
+            style={{
+              animationDelay: `${150 + i * 100}ms`,
+              animationFillMode: "both",
+            }}
           >
-            <span className="text-mint-500">•</span>
+            <span className="text-indigo-400 font-bold">•</span>
             <span>{b}</span>
-          </motion.li>
+          </li>
         ))}
       </ul>
 
-      <motion.button
-        whileTap={{ scale: 0.96 }}
-        whileHover={{ scale: 1.02 }}
+      <button
         onClick={onNext}
-        className="tap-target no-select w-full max-w-sm bg-lilac-500 text-white font-semibold py-4 rounded-2xl shadow-soft"
+        className="select-none w-full max-w-sm bg-indigo-500 hover:bg-indigo-600 active:bg-indigo-700 text-white font-medium py-4 rounded-[2rem] shadow-sm transition-all duration-200 active:scale-95"
       >
         {actionLabel}
-      </motion.button>
-    </motion.div>
+      </button>
+    </div>
   );
 }

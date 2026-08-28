@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Pss10Answers } from "@/lib/types";
+import { useState, useEffect } from "react";
+import { Pss10Answers } from "@/lib/stress/types";
 
 const OPTIONS = [
   { label: "Never", value: 0 },
@@ -32,65 +31,68 @@ export default function Pss10Questionnaire({
 }) {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Pss10Answers>({});
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    setIsVisible(true);
+  }, [index]);
 
   function choose(value: number) {
     const key = String(index + 1);
     const next = { ...answers, [key]: value };
     setAnswers(next);
-    if (index === QUESTIONS.length - 1) {
-      onComplete(next);
-    } else {
-      setIndex((i) => i + 1);
-    }
+    setIsVisible(false);
+
+    setTimeout(() => {
+      if (index === QUESTIONS.length - 1) {
+        onComplete(next);
+      } else {
+        setIndex((i) => i + 1);
+      }
+    }, 250); // match transition duration
   }
 
   const progress = ((index + 1) / QUESTIONS.length) * 100;
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="flex flex-col items-center gap-6 px-6 w-full"
-    >
-      <div className="w-full max-w-sm">
-        <div className="h-2 bg-lilac-100 rounded-full overflow-hidden">
-          <motion.div
-            className="h-full bg-mint-500"
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.3 }}
+    <div className="flex flex-col items-center justify-center gap-10 px-6 w-full h-full animate-in fade-in duration-500">
+      <div className="w-full max-w-sm text-center">
+        <span className="text-xs font-medium tracking-widest text-slate-400 uppercase">
+          Question {index + 1} of {QUESTIONS.length}
+        </span>
+        <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-indigo-300 transition-all duration-500 ease-out"
+            style={{ width: `${progress}%` }}
           />
         </div>
-        <p className="text-xs text-lilac-500 mt-2 text-center">
-          Question {index + 1} of {QUESTIONS.length}
-        </p>
       </div>
 
-      <AnimatePresence mode="wait">
-        <motion.h2
-          key={index}
-          initial={{ opacity: 0, x: 24 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -24 }}
-          className="text-lg font-semibold text-lilac-900 text-center max-w-sm min-h-[3.5rem]"
-        >
+      <div
+        className={`w-full max-w-sm min-h-[4rem] flex items-center justify-center transition-all duration-300 transform ${
+          isVisible ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
+        }`}
+      >
+        <h2 className="text-xl font-medium text-slate-700 text-center leading-snug">
           In the past month, how often have you {QUESTIONS[index]}
-        </motion.h2>
-      </AnimatePresence>
+        </h2>
+      </div>
 
-      <div className="flex flex-col gap-3 w-full max-w-sm">
+      <div
+        className={`flex flex-col gap-3 w-full max-w-sm transition-all duration-300 delay-75 transform ${
+          isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+        }`}
+      >
         {OPTIONS.map((opt) => (
-          <motion.button
+          <button
             key={opt.value}
-            whileTap={{ scale: 0.96 }}
-            whileHover={{ scale: 1.01 }}
             onClick={() => choose(opt.value)}
-            className="tap-target no-select bg-white/80 text-lilac-800 font-medium py-3.5 rounded-2xl shadow-card text-sm"
+            className="select-none bg-white text-slate-600 font-medium py-4 rounded-3xl shadow-sm border border-slate-100 text-sm transition-all duration-200 active:scale-95 hover:bg-slate-50 hover:shadow-md"
           >
             {opt.label}
-          </motion.button>
+          </button>
         ))}
       </div>
-    </motion.div>
+    </div>
   );
 }
