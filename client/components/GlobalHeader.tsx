@@ -94,7 +94,7 @@ export function GlobalHeader(_props: Record<string, never> = {}) {
   return (
     <header className="shrink-0 h-13 border-b border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113] flex items-center px-4 gap-4 z-30">
       {/* ── Logo + Branding ── */}
-      <div className="flex items-center gap-2.5 shrink-0 w-57">
+      <div className="flex items-center gap-2.5 shrink-0 w-53">
         {/* Logo mark */}
         <div className="w-8 h-8 flex items-center justify-center shrink-0">
           <img src="/logo.webp" alt="Opsis Logo" className="w-full h-full object-contain" />
