@@ -143,7 +143,7 @@ async def submit_job_card(body: LaborerDataCreate, current_user: dict = Depends(
     res = supabase.table("laborers_data").insert(insert_row).execute()
     entry = res.data[0]
 
-    # 5. NEW: Insert into daily_inputs (The standard operational log)
+    # 5. NEW: Insert into daily_inputs (The standard operational log )
     try:
         supabase.table("daily_inputs").insert({
             "operator_id": body.operator_id,

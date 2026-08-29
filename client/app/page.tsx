@@ -12,7 +12,7 @@ import { getAuthHeaders } from "@/shared/auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-// ─── KPI Stat ──────────────────────────────────────────────────────────────
+// ─── KPI Stat ────────────────────────────────────────────────────────────────
 
 function KpiTile({
   label,
