@@ -306,6 +306,11 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
         if len(hist_map[op]) < 5: 
             hist_map[op].append(float(row["efficiency"]))
 
+    candidates_raw = [c for c in candidates_raw if c["operator_id"] in hist_map]
+    
+    if not candidates_raw:
+        raise HTTPException(status_code=404, detail=f"No operators with actual production history found for '{request.required_skill}'.")
+
     personal_efficiency = {
         op: (sum(effs) / len(effs)) / 100.0 if sum(effs)/len(effs) > 1.5 else (sum(effs) / len(effs))
         for op, effs in hist_map.items() if effs

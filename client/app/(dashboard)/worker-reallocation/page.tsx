@@ -845,12 +845,15 @@ export default function WorkerReallocationPage() {
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <header className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-6 py-4 flex items-center justify-between bg-white dark:bg-[#0d0d0f]">
         <div>
-          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-0.5">
-            Management · Worker Reallocation
-          </p>
+          
           <h1 className="text-lg font-bold text-[#242424] dark:text-zinc-100 tracking-tight">
             Bottleneck &amp; Move Engine
           </h1>
+
+          {/* update this description */}
+          <p className="text-xs text-[#5F5F5F] dark:text-zinc-400 mt-2 max-w-sm leading-relaxed">
+            A concise view of the latest model signal, stored evidence and next supervisor action. 
+          </p>
         </div>
         <div className="flex items-center gap-4">
           {lastUpdated && (
