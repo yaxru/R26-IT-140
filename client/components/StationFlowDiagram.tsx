@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { Bottleneck } from "../types";
+import type { Bottleneck } from "@/app/(dashboard)/types";
 import { SankeyFlow, type SankeyNode, type SankeyLink } from "./SankeyFlow";
 
 interface StationFlowDiagramProps {

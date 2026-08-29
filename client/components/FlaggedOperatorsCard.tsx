@@ -1,4 +1,4 @@
-import type { FlaggedOperator } from "../types";
+import type { FlaggedOperator } from "@/app/(dashboard)/types";
 
 interface FlaggedOperatorsCardProps {
   operators: FlaggedOperator[];

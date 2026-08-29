@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { Bottleneck } from "../types";
+import type { Bottleneck } from "@/app/(dashboard)/types";
 
 interface OverviewStationTableProps {
   stations: Bottleneck[];

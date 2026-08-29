@@ -1,4 +1,4 @@
-import type { RecommendResponse } from "../types";
+import type { RecommendResponse } from "@/app/(dashboard)/types";
 import { SegmentedBar } from "./SegmentedBar";
 
 const NET_PROFIT_MIN = -15;

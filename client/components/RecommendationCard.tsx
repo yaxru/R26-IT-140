@@ -1,4 +1,4 @@
-import type { RecommendResponse, SingleMove } from "../types";
+import type { RecommendResponse, SingleMove } from "@/app/(dashboard)/types";
 import { RankedBarList } from "./RankedBarList";
 
 interface RecommendationCardProps {

@@ -1,5 +1,7 @@
 export interface SingleMove {
   operator_id: string;
+  operator_name?: string; // Added for UI
+  worker_pin?: string;    // Added for UI
   from_station: string | null;
   to_station: string;
   proficiency_grade: string;
@@ -25,6 +27,8 @@ export interface RecommendResponse {
   instruction: string;
   // Legacy single-worker fields (first worker in plan)
   operator_id: string;
+  operator_name?: string; // Added for UI
+  worker_pin?: string;    // Added for UI
   from_station: string | null;
   to_station: string;
   proficiency_grade: string;
@@ -40,10 +44,13 @@ export interface Bottleneck {
   is_bottleneck: boolean;
   targeted_productivity: number | null;
   actual_productivity: number | null;
+  line_id?: string; // Added to support your line-grouping in the sidebar
 }
 
 export interface SkillMatrixEntry {
   operator_id: string;
+  operator_name?: string; // Added for UI
+  worker_pin?: string;    // Added for UI
   machine_type: string;
   proficiency_grade: string;
   efficiency_pct: number;

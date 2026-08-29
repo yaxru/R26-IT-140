@@ -8,9 +8,14 @@ import { SegmentedBar } from "@/components/SegmentedBar";
 import { HoverTooltip } from "@/components/HoverTooltip";
 import { createClient } from "@/lib/supabase/client";
 import { getAuthHeaders } from "@/shared/auth";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const RECOMMEND_INTERVAL_MS = 3_600_000;
+
+// Shared custom scrollbar styling for the industrial aesthetic
+const SCROLLBAR =
+  "[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[#D4D4D4] dark:[&::-webkit-scrollbar-thumb]:bg-zinc-800 hover:[&::-webkit-scrollbar-thumb]:bg-[#C6C6C6] dark:hover:[&::-webkit-scrollbar-thumb]:bg-zinc-700";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -41,7 +46,7 @@ function GapBar({
   );
 }
 
-// ─── Station List (left panel) ────────────────────────────────────────────────
+// ─── Station List ─────────────────────────────────────────────────────────────
 
 function StationList({
   stations,
@@ -52,15 +57,32 @@ function StationList({
   active: Bottleneck | null;
   onSelect: (b: Bottleneck) => void;
 }) {
+  const [expandedLines, setExpandedLines] = useState<Record<string, boolean>>(
+    {},
+  );
   const criticalCount = stations.filter((s) => s.is_bottleneck).length;
+
+  const groupedStations = stations.reduce(
+    (acc, station) => {
+      // @ts-ignore
+      const lineId = station.line_id || "Unassigned";
+      if (!acc[lineId]) acc[lineId] = [];
+      acc[lineId].push(station);
+      return acc;
+    },
+    {} as Record<string, Bottleneck[]>,
+  );
+
+  const toggleLine = (lineId: string) => {
+    setExpandedLines((prev) => ({ ...prev, [lineId]: !prev[lineId] }));
+  };
 
   return (
     <aside
       aria-label="Production stations"
-      className="w-56 shrink-0 border-r border-[#EAEAEA] dark:border-zinc-800 flex flex-col self-stretch"
+      className="w-56 shrink-0 border-r border-[#EAEAEA] dark:border-zinc-800 flex flex-col self-stretch bg-white dark:bg-[#111113]"
     >
-      {/* Panel header */}
-      <div className="px-4 py-3 border-b border-[#EAEAEA] dark:border-zinc-800">
+      <div className="px-4 py-3 border-b border-[#EAEAEA] dark:border-zinc-800 shrink-0">
         <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-0.5">
           Stations
         </p>
@@ -84,8 +106,7 @@ function StationList({
         </p>
       </div>
 
-      {/* Station rows */}
-      <nav className="flex-1 overflow-y-auto">
+      <nav className={`flex-1 overflow-y-auto ${SCROLLBAR}`}>
         {stations.length === 0 ? (
           <div className="flex flex-col divide-y divide-[#F1F1F1] dark:divide-zinc-800/60">
             {[1, 2, 3, 4, 5].map((i) => (
@@ -95,80 +116,110 @@ function StationList({
                   <div className="h-3 w-20 bg-[#F1F1F1] dark:bg-zinc-800 animate-pulse mb-1.5" />
                   <div className="h-2 w-12 bg-[#F1F1F1] dark:bg-zinc-800 animate-pulse" />
                 </div>
-                <div className="h-3 w-5 bg-[#F1F1F1] dark:bg-zinc-800 animate-pulse" />
               </div>
             ))}
           </div>
         ) : (
-          <ul className="divide-y divide-[#F1F1F1] dark:divide-zinc-800/60">
-            {stations.map((b) => {
-              const isActive = active?.station_id === b.station_id;
-              const pct =
-                b.targeted_productivity && b.actual_productivity
-                  ? Math.round(
-                      (b.actual_productivity / b.targeted_productivity) * 100,
-                    )
-                  : null;
+          <div className="flex flex-col">
+            {Object.entries(groupedStations).map(([lineId, lineStations]) => {
+              const isExpanded = !!expandedLines[lineId];
+              const hasCritical = lineStations.some((s) => s.is_bottleneck);
 
               return (
-                <li key={b.station_id}>
+                <div
+                  key={lineId}
+                  className="border-b border-[#EAEAEA] dark:border-zinc-800/60 last:border-b-0"
+                >
                   <button
-                    onClick={() => onSelect(b)}
-                    aria-pressed={isActive}
-                    aria-label={`${b.station_id}, ${b.is_bottleneck ? "critical bottleneck" : "on target"}, WIP ${b.wip}`}
-                    className={`
-                      w-full text-left px-4 py-3 flex items-start gap-3 transition-colors duration-100
-                      focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#1A7C4B]
-                      ${
-                        isActive
-                          ? "bg-[#F8F8F8] dark:bg-zinc-800/60 border-l-2 border-l-[#1A7C4B]"
-                          : "border-l-2 border-l-transparent hover:bg-[#FDFEFE] dark:hover:bg-zinc-800/30"
-                      }
-                    `}
+                    onClick={() => toggleLine(lineId)}
+                    className="w-full flex items-center justify-between px-4 py-2.5 bg-[#F8F8F8] dark:bg-zinc-900 hover:bg-[#F1F1F1] dark:hover:bg-zinc-800 transition-colors"
                   >
-                    {/* Status dot */}
-                    <span
-                      aria-hidden="true"
-                      className={`mt-1.5 w-1.5 h-1.5 shrink-0 ${b.is_bottleneck ? "bg-[#CE8E33] animate-pulse" : "bg-[#1A7C4B]"}`}
-                    />
-
-                    {/* Station info */}
-                    <div className="flex-1 min-w-0">
-                      <p
-                        className={`text-xs font-semibold truncate ${isActive ? "text-[#242424] dark:text-zinc-100" : "text-[#424242] dark:text-zinc-300"}`}
-                      >
-                        {b.station_id}
-                      </p>
-                      <p className="text-[10px] text-[#9A9A9A] dark:text-zinc-600 truncate">
-                        {b.required_skill}
-                      </p>
-                      {pct !== null && (
-                        <div className="mt-1.5">
-                          <GapBar
-                            value={b.actual_productivity! * 100}
-                            max={100}
-                            color={b.is_bottleneck ? "#CE8E33" : "#1A7C4B"}
-                          />
-                        </div>
+                    <div className="flex items-center gap-2">
+                      {isExpanded ? (
+                        <ChevronDown size={14} className="text-[#9A9A9A]" />
+                      ) : (
+                        <ChevronRight size={14} className="text-[#9A9A9A]" />
                       )}
+                      <span className="text-xs font-bold text-[#242424] dark:text-zinc-200 uppercase tracking-wide">
+                        {lineId}
+                      </span>
                     </div>
-
-                    {/* WIP badge */}
-                    <span
-                      className={`mt-0.5 text-[10px] font-mono font-bold tabular-nums ${b.is_bottleneck ? "text-[#CE8E33]" : "text-[#9A9A9A] dark:text-zinc-500"}`}
-                    >
-                      {b.wip}
-                    </span>
+                    {hasCritical && (
+                      <span className="w-1.5 h-1.5  bg-[#CE8E33] animate-pulse" />
+                    )}
                   </button>
-                </li>
+
+                  {isExpanded && (
+                    <ul className="divide-y divide-[#F1F1F1] dark:divide-zinc-800/60 bg-white dark:bg-[#111113]">
+                      {lineStations.map((b) => {
+                        const isActive = active?.station_id === b.station_id;
+                        const pct =
+                          b.targeted_productivity && b.actual_productivity
+                            ? Math.round(
+                                (b.actual_productivity /
+                                  b.targeted_productivity) *
+                                  100,
+                              )
+                            : null;
+
+                        return (
+                          <li key={b.station_id}>
+                            <button
+                              onClick={() => onSelect(b)}
+                              aria-pressed={isActive}
+                              className={`
+                                w-full text-left px-4 py-3 flex items-start gap-3 transition-colors duration-100
+                                focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#1A7C4B]
+                                ${
+                                  isActive
+                                    ? "bg-[#F8F8F8] dark:bg-zinc-800/60 border-l-2 border-l-[#1A7C4B]"
+                                    : "border-l-2 border-l-transparent hover:bg-[#FDFEFE] dark:hover:bg-zinc-800/30"
+                                }
+                              `}
+                            >
+                              <span
+                                aria-hidden="true"
+                                className={`mt-1.5 w-1.5 h-1.5 shrink-0 ${b.is_bottleneck ? "bg-[#CE8E33] animate-pulse" : "bg-[#1A7C4B]"}`}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p
+                                  className={`text-xs font-semibold truncate ${isActive ? "text-[#242424] dark:text-zinc-100" : "text-[#424242] dark:text-zinc-300"}`}
+                                >
+                                  {b.station_id}
+                                </p>
+                                <p className="text-[10px] text-[#9A9A9A] dark:text-zinc-600 truncate">
+                                  {b.required_skill}
+                                </p>
+                                {pct !== null && (
+                                  <div className="mt-1.5">
+                                    <GapBar
+                                      value={b.actual_productivity! * 100}
+                                      max={100}
+                                      color={
+                                        b.is_bottleneck ? "#CE8E33" : "#1A7C4B"
+                                      }
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                              <span
+                                className={`mt-0.5 text-[10px] font-mono font-bold tabular-nums ${b.is_bottleneck ? "text-[#CE8E33]" : "text-[#9A9A9A] dark:text-zinc-500"}`}
+                              >
+                                {b.wip}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
               );
             })}
-          </ul>
+          </div>
         )}
       </nav>
-
-      {/* Legend */}
-      <div className="px-4 py-3 border-t border-[#EAEAEA] dark:border-zinc-800 flex flex-col gap-1.5">
+      <div className="px-4 py-3 border-t border-[#EAEAEA] dark:border-zinc-800 flex flex-col gap-1.5 bg-white dark:bg-[#111113]">
         <div className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 bg-[#1A7C4B] shrink-0" />
           <span className="text-[10px] text-[#9A9A9A] dark:text-zinc-600">
@@ -181,9 +232,6 @@ function StationList({
             Critical / bottleneck
           </span>
         </div>
-        <p className="text-[10px] text-[#C6C6C6] dark:text-zinc-700 mt-0.5">
-          Bar = actual productivity
-        </p>
       </div>
     </aside>
   );
@@ -233,26 +281,19 @@ function KpiTile({
 export function RecommendationPanel({
   recommendation,
   loading,
-  accepted,
-  accepting,
   isBottleneck,
   lastUpdated,
   onRefresh,
-  onAccept,
 }: {
   recommendation: RecommendResponse | null;
   loading: boolean;
-  accepted: boolean;
-  accepting: boolean;
   isBottleneck: boolean;
   lastUpdated: Date | null;
   onRefresh: () => void;
-  onAccept: () => void;
 }) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Panel header */}
-      <div className="shrink-0 flex items-center justify-between border-b border-[#EAEAEA] dark:border-zinc-800 px-5 py-3">
+      <div className="shrink-0 flex bg-white items-center justify-between border-b border-[#EAEAEA] dark:border-zinc-800 px-5 py-3 h-12">
         <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
           Move Recommendation
         </p>
@@ -265,10 +306,7 @@ export function RecommendationPanel({
               Computing…
             </span>
           ) : lastUpdated ? (
-            <time
-              dateTime={lastUpdated.toISOString()}
-              className="text-[10px] text-[#9A9A9A] dark:text-zinc-600 tabular-nums"
-            >
+            <time className="text-[10px] text-[#9A9A9A] dark:text-zinc-600 tabular-nums">
               {lastUpdated.toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -278,8 +316,7 @@ export function RecommendationPanel({
           <button
             onClick={onRefresh}
             disabled={loading || !isBottleneck}
-            aria-label="Refresh recommendation"
-            className="w-6 h-6 flex items-center justify-center text-[#9A9A9A] hover:text-[#242424] dark:hover:text-zinc-200 disabled:opacity-30 transition-colors cursor-pointer disabled:cursor-not-allowed hover:bg-[#F1F1F1] dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-[#1A7C4B]"
+            className="w-6 h-6 flex items-center justify-center text-[#9A9A9A] hover:text-[#242424] disabled:opacity-30 transition-colors cursor-pointer"
           >
             <svg
               width="12"
@@ -290,7 +327,6 @@ export function RecommendationPanel({
               strokeWidth="2"
               strokeLinecap="square"
               strokeLinejoin="miter"
-              aria-hidden="true"
             >
               <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
               <path d="M21 3v5h-5" />
@@ -301,10 +337,10 @@ export function RecommendationPanel({
         </div>
       </div>
 
-      {/* Panel body */}
-      <div className="flex-1 px-5 py-4 overflow-y-auto flex flex-col min-h-0">
+      <div
+        className={`flex-1 px-5 py-4 overflow-y-auto flex flex-col min-h-0 bg-white dark:bg-[#111113] ${SCROLLBAR}`}
+      >
         {!isBottleneck ? (
-          /* Healthy station */
           <div className="flex-1 flex flex-col items-center justify-center gap-2 py-8">
             <div className="w-8 h-8 border border-[#1A7C4B]/30 flex items-center justify-center bg-[#E6F1EC] dark:bg-[#0A321E]/30">
               <span className="text-[#1A7C4B] text-sm" aria-hidden="true">
@@ -319,7 +355,6 @@ export function RecommendationPanel({
             </p>
           </div>
         ) : loading && !recommendation ? (
-          /* Loading skeleton */
           <div className="flex-1 flex flex-col gap-3 py-2">
             {[100, 80, 100, 60, 100].map((w, i) => (
               <div
@@ -332,77 +367,38 @@ export function RecommendationPanel({
           </div>
         ) : recommendation ? (
           <div
-            className={`flex-1 flex flex-col gap-4 transition-opacity duration-300 ${accepted ? "opacity-40" : "opacity-100"}`}
+            className={`flex-1 flex flex-col gap-4 transition-opacity duration-300 opacity-100`}
           >
             {!recommendation.recommended ? (
-              /* No move justified */
               <>
                 <div
                   role="alert"
-                  className="flex items-center gap-2 px-3 py-2.5 bg-[#FDFBF8] dark:bg-amber-950/10 border-l-2 border-l-[#CE8E33] border border-[#F4E5D1] dark:border-amber-800/30"
+                  className="flex items-center gap-2 px-3 py-2.5 bg-[#FDFBF8] border-l-2 border-l-[#CE8E33] border border-[#F4E5D1]"
                 >
                   <span className="text-[#CE8E33] text-xs" aria-hidden="true">
                     ⚠
                   </span>
-                  <span className="text-xs font-semibold text-[#A77329] dark:text-[#E1BA82] uppercase tracking-wider">
+                  <span className="text-xs font-semibold text-[#A77329] uppercase tracking-wider">
                     No Move Recommended
                   </span>
                 </div>
                 <p className="text-xs text-[#5F5F5F] dark:text-zinc-400 leading-relaxed">
                   {recommendation.no_move_reason}
                 </p>
-                <div className="grid grid-cols-2 gap-2 opacity-60 mt-auto">
-                  {[
-                    {
-                      label: "Best Available",
-                      value: recommendation.operator_id,
-                    },
-                    { label: "Grade", value: recommendation.proficiency_grade },
-                    {
-                      label: "Gain",
-                      value: `${recommendation.expected_production_gain.toFixed(1)} min`,
-                    },
-                    {
-                      label: "Cost",
-                      value: `${recommendation.cost_of_move.toFixed(1)} min`,
-                    },
-                  ].map((item) => (
-                    <div
-                      key={item.label}
-                      className="bg-[#F8F8F8] dark:bg-zinc-900 border border-[#F1F1F1] dark:border-zinc-800/40 px-3 py-2"
-                    >
-                      <p className="text-[10px] text-[#9A9A9A] dark:text-zinc-600 uppercase tracking-wide mb-0.5">
-                        {item.label}
-                      </p>
-                      <p className="text-xs font-semibold text-[#333333] dark:text-zinc-200 truncate tabular-nums">
-                        {item.value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
               </>
             ) : (
-              /* Move plan */
               <>
-                {/* Coverage summary */}
                 <div>
                   <div className="flex justify-between text-[11px] mb-1.5">
                     <span className="text-[#9A9A9A] dark:text-zinc-500">
                       {recommendation.workers_found} of{" "}
                       {recommendation.workers_needed} workers needed
                     </span>
-                    <span className="font-semibold text-[#1A7C4B] dark:text-[#47966F] tabular-nums">
+                    <span className="font-semibold text-[#1A7C4B] tabular-nums">
                       {recommendation.gap_coverage_pct.toFixed(0)}% gap covered
                     </span>
                   </div>
-                  <div
-                    role="progressbar"
-                    aria-valuenow={Math.round(recommendation.gap_coverage_pct)}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label="Gap coverage"
-                    className="w-full h-1 bg-[#EAEAEA] dark:bg-zinc-800"
-                  >
+                  <div className="w-full h-1 bg-[#EAEAEA] dark:bg-zinc-800">
                     <div
                       className="h-full bg-[#1A7C4B] transition-[width] duration-500"
                       style={{ width: `${recommendation.gap_coverage_pct}%` }}
@@ -410,117 +406,115 @@ export function RecommendationPanel({
                   </div>
                 </div>
 
-                {/* Ranked bar chart for multi-worker */}
-                {recommendation.moves.length > 1 && (
-                  <div>
-                    <p className="text-[10px] font-medium text-[#9A9A9A] dark:text-zinc-600 uppercase tracking-wider mb-2">
-                      Ranked by contribution
-                    </p>
-                    <RankedBarList
-                      items={[...recommendation.moves]
-                        .sort((a, b) => b.net_profit - a.net_profit)
-                        .map((m) => ({
-                          id: m.operator_id,
-                          label: m.operator_id,
-                          sublabel: `Grade ${m.proficiency_grade}`,
-                          value: Math.max(m.net_profit, 0.01),
-                          displayValue: `${m.net_profit >= 0 ? "+" : ""}${m.net_profit.toFixed(1)}m`,
-                          accent: m.donor_cascade_risk ? "amber" : "emerald",
-                        }))}
-                    />
-                  </div>
-                )}
+                <div className="flex flex-col gap-3">
+                  {recommendation.moves.map((move, i) => {
+                    const gapMatch =
+                      move.donor_risk_detail?.match(/gap:\s*([\d.]+)%/);
+                    const projectedGap = gapMatch ? parseFloat(gapMatch[1]) : 0;
 
-                {/* Worker rows */}
-                <div className="flex flex-col divide-y divide-[#F1F1F1] dark:divide-zinc-800/50 border border-[#EAEAEA] dark:border-zinc-800">
-                  {recommendation.moves.map((move, i) => (
-                    <div
-                      key={move.operator_id}
-                      className={`px-3 py-2.5 text-[11px] ${move.donor_cascade_risk ? "bg-[#FDFBF8] dark:bg-amber-950/10" : "bg-white dark:bg-transparent"}`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-semibold text-[#333333] dark:text-zinc-200">
-                          {i + 1}. {move.operator_id}
-                        </span>
-                        <span className="text-[10px] px-1.5 py-0.5 bg-[#EAEAEA] dark:bg-zinc-800 text-[#5F5F5F] dark:text-zinc-400 font-medium">
-                          Grade {move.proficiency_grade}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-[#9A9A9A] dark:text-zinc-500 font-mono">
-                        <span>
-                          {move.from_station ?? "—"} → {move.to_station}
-                        </span>
-                        <span className="ml-auto text-[#1A7C4B] dark:text-[#47966F] font-semibold">
-                          +{move.net_profit.toFixed(1)} min
-                        </span>
-                      </div>
-                      {move.donor_cascade_risk && (
-                        <p className="mt-1.5 text-[10px] text-[#A77329] dark:text-[#E1BA82]">
-                          ⚠ {move.donor_risk_detail}
-                        </p>
-                      )}
-                      {move.donor_cascade_risk && move.donor_replacement_id && (
-                        <p className="text-[10px] text-[#1A7C4B] dark:text-[#47966F]">
-                          ↩ Backfill {move.from_station}:{" "}
-                          {move.donor_replacement_id} (Grade{" "}
-                          {move.donor_replacement_grade})
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Cascade warning */}
-                {recommendation.cascade_warnings.length > 0 && (
-                  <div
-                    role="alert"
-                    className="border-l-2 border-l-[#CE8E33] border border-[#F4E5D1] dark:border-amber-800/30 px-3 py-2 bg-[#FDFBF8] dark:bg-amber-950/10"
-                  >
-                    <p className="text-[10px] font-semibold text-[#A77329] dark:text-[#E1BA82] uppercase tracking-wider mb-1">
-                      Cascade Risk
-                    </p>
-                    {recommendation.cascade_warnings.map((w, i) => (
-                      <p
-                        key={i}
-                        className="text-[10px] text-[#A77329] dark:text-[#E1BA82] leading-relaxed"
+                    return (
+                      <div
+                        key={move.operator_id}
+                        className={`p-3 text-[11px] border transition-colors ${
+                          move.donor_cascade_risk
+                            ? "bg-[#FDFBF8] dark:bg-[#1A1510] border-[#EACFA9]/30 dark:border-amber-900/40"
+                            : "bg-white dark:bg-[#111113] border-[#EAEAEA] dark:border-zinc-800"
+                        }`}
                       >
-                        {w}
-                      </p>
-                    ))}
-                  </div>
-                )}
+                        {/* Header: Name, PIN, Grade, Profit */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <span className="font-bold text-[#333333] dark:text-zinc-200 text-xs">
+                              {i + 1}.{" "}
+                              {move.operator_name ||
+                                (move.operator_id
+                                  ? `${move.operator_id.slice(0, 8)}...`
+                                  : "Unknown")}
+                            </span>
+                            <span className="ml-1.5 text-[10px] text-[#9A9A9A] dark:text-zinc-500 font-normal font-mono">
+                              ({move.worker_pin || "PIN"})
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] px-2 py-0.5 bg-[#EAEAEA] dark:bg-zinc-800 text-[#5F5F5F] dark:text-zinc-400 font-semibold">
+                              Grade {move.proficiency_grade}
+                            </span>
+                            <span className="text-[11px] text-[#1A7C4B] dark:text-[#47966F] font-bold bg-[#E6F1EC] dark:bg-[#0A321E]/40 px-2 py-0.5">
+                              +{move.net_profit.toFixed(1)}m
+                            </span>
+                          </div>
+                        </div>
 
-                {/* Accept */}
-                <button
-                  onClick={onAccept}
-                  disabled={accepted || accepting}
-                  className={`
-                    mt-auto w-full py-2.5 px-4 text-sm font-semibold tracking-wide border
-                    transition-colors duration-150 cursor-pointer disabled:cursor-not-allowed
-                    focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1A7C4B]
-                    ${
-                      accepted
-                        ? "bg-[#E6F1EC] dark:bg-[#0A321E]/40 text-[#1A7C4B] dark:text-[#47966F] border-[#B9D7C8] dark:border-[#104A2D]"
-                        : accepting
-                          ? "bg-[#F1F1F1] dark:bg-zinc-800 text-[#9A9A9A] border-[#EAEAEA] dark:border-zinc-700"
-                          : "bg-[#1A7C4B] hover:bg-[#15633C] text-white border-[#15633C]"
-                    }
-                  `}
-                >
-                  {accepted
-                    ? "✓ Moves Accepted"
-                    : accepting
-                      ? "Processing…"
-                      : `Accept ${recommendation.workers_found > 1 ? `${recommendation.workers_found} Moves` : "Move"}`}
-                </button>
+                        {/* Station Shift (Two Boxes) */}
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="flex-1 border border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#0a0a0c] px-2.5 py-1.5">
+                            <p className="text-[9px] text-[#9A9A9A] dark:text-zinc-500 uppercase tracking-wider mb-0.5">
+                              From
+                            </p>
+                            <p className="text-[11px] font-mono font-semibold text-[#5F5F5F] dark:text-zinc-400 truncate">
+                              {move.from_station ?? "Unassigned Pool"}
+                            </p>
+                          </div>
+                          <div className="text-[#9A9A9A] dark:text-zinc-600 shrink-0">
+                            ➔
+                          </div>
+                          <div className="flex-1 border border-[#1A7C4B]/30 bg-[#E6F1EC]/50 dark:bg-[#0A321E]/20 px-2.5 py-1.5">
+                            <p className="text-[9px] text-[#1A7C4B] dark:text-[#47966F] uppercase tracking-wider mb-0.5">
+                              To
+                            </p>
+                            <p className="text-[11px] font-mono font-bold text-[#1A7C4B] dark:text-[#47966F] truncate">
+                              {move.to_station}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Cascade Risk Chart & Backfill Details */}
+                        {move.donor_cascade_risk && (
+                          <div className="mt-2 pt-2 border-t border-[#F4E5D1] dark:border-amber-900/30">
+                            <div className="flex justify-between items-end mb-1.5">
+                              <span className="text-[10px] text-[#A77329] dark:text-[#E1BA82] font-semibold flex items-center gap-1">
+                                <span className="animate-pulse">⚠</span>{" "}
+                                {move.from_station} Projected Gap
+                              </span>
+                              <span className="text-[10px] text-[#A77329] dark:text-[#E1BA82] font-mono font-bold">
+                                {projectedGap}%
+                              </span>
+                            </div>
+
+                            <div className="w-full h-1.5 bg-[#EFDABD] dark:bg-zinc-800 overflow-hidden mb-2">
+                              <div
+                                className="h-full bg-[#CE8E33] transition-all duration-500"
+                                style={{
+                                  width: `${Math.min(100, projectedGap)}%`,
+                                }}
+                              />
+                            </div>
+
+                            {move.donor_replacement_id && (
+                              <p className="text-[10px] text-[#1A7C4B] dark:text-[#47966F] flex items-center gap-1.5 mt-2 bg-[#E6F1EC]/50 dark:bg-[#0A321E]/20 p-1.5 border border-[#1A7C4B]/20">
+                                <span>↩ Auto-Backfill:</span>
+                                <span className="font-mono font-bold">
+                                  {move.donor_replacement_id
+                                    .slice(0, 8)
+                                    .toUpperCase()}
+                                </span>
+                                <span className="text-[#9A9A9A] dark:text-zinc-500">
+                                  (Grade {move.donor_replacement_grade})
+                                </span>
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </>
             )}
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center py-8">
-            <p className="text-xs text-[#9A9A9A] dark:text-zinc-600">
-              Awaiting station data
-            </p>
+            <p className="text-xs text-[#9A9A9A]">Awaiting station data</p>
           </div>
         )}
       </div>
@@ -540,7 +534,7 @@ function ProfitabilityPanel({
 }) {
   if (!recommendation) {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full border-l border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113]">
         <div className="border-b border-[#EAEAEA] dark:border-zinc-800 px-5 py-3">
           <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
             Profitability
@@ -571,73 +565,50 @@ function ProfitabilityPanel({
   const barColor = score > 8 ? "#1A7C4B" : score > 0 ? "#D7A45A" : "#CE8E33";
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-5 py-3">
+    <div className="flex flex-col h-full overflow-hidden border-l border-[#EAEAEA] dark:border-zinc-800 bg-[#F8F8F8] dark:bg-[#111113]">
+      <div className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-5 py-3 h-12 flex items-center">
         <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
-          Profitability · Cost breakdown
+          Cost breakdown
         </p>
       </div>
 
-      <div className="flex-1 px-5 py-4 flex flex-col gap-5 overflow-y-auto min-h-0">
-        {/* Big score */}
+      <div
+        className={`flex-1 px-5 py-4 flex flex-col gap-5 overflow-y-auto min-h-0 ${SCROLLBAR}`}
+      >
         <div>
           <p
             className={`text-4xl font-bold tabular-nums leading-none ${score > 0 ? "text-[#1A7C4B] dark:text-[#47966F]" : "text-[#CE8E33]"}`}
           >
             {score > 0 ? "+" : ""}
             {score.toFixed(1)}
-            <span className="text-base font-normal text-[#9A9A9A] dark:text-zinc-600 ml-1.5">
+            <span className="text-base font-normal text-[#9A9A9A] ml-1.5">
               min
             </span>
           </p>
-          <p className="text-xs text-[#9A9A9A] dark:text-zinc-600 mt-1.5">
+          <p className="text-xs text-[#9A9A9A] mt-1.5">
             total net gain · {recommendation.workers_found ?? 1} worker
             {(recommendation.workers_found ?? 1) > 1 ? "s" : ""}
           </p>
         </div>
 
-        {/* Score bar */}
         <div>
-          <div
-            role="progressbar"
-            aria-valuenow={Math.round(profPct)}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label="Profitability score"
-            className="w-full h-2 bg-[#EAEAEA] dark:bg-zinc-800"
-          >
+          <div className="w-full h-2 bg-[#EAEAEA] dark:bg-zinc-800">
             <div
               className="h-full transition-[width] duration-500"
               style={{ width: `${profPct}%`, backgroundColor: barColor }}
             />
           </div>
-          <div className="flex justify-between text-[10px] text-[#9A9A9A] dark:text-zinc-600 mt-1">
-            <span>Low</span>
-            <span className="tabular-nums font-medium">
-              {profPct.toFixed(0)}%
-            </span>
-            <span>High</span>
-          </div>
         </div>
 
-        {/* Gap coverage */}
         {recommendation.gap_coverage_pct !== undefined && (
           <div>
-            <div className="flex justify-between text-[10px] font-medium text-[#9A9A9A] dark:text-zinc-600 uppercase tracking-wider mb-1">
+            <div className="flex justify-between text-[10px] font-medium text-[#9A9A9A] uppercase tracking-wider mb-1">
               <span>Gap Coverage</span>
-              <span className="text-[#333333] dark:text-zinc-300 tabular-nums normal-case">
+              <span className="text-[#333333] dark:text-zinc-200 tabular-nums normal-case">
                 {recommendation.gap_coverage_pct.toFixed(0)}%
               </span>
             </div>
-            <div
-              role="progressbar"
-              aria-valuenow={Math.round(recommendation.gap_coverage_pct)}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="Gap coverage percentage"
-              className="w-full h-1 bg-[#EAEAEA] dark:bg-zinc-800"
-            >
+            <div className="w-full h-1 bg-[#EAEAEA] dark:bg-zinc-800">
               <div
                 className="h-full bg-[#47966F] transition-[width] duration-500"
                 style={{ width: `${recommendation.gap_coverage_pct}%` }}
@@ -646,9 +617,8 @@ function ProfitabilityPanel({
           </div>
         )}
 
-        {/* Cost breakdown */}
         <div className="mt-auto pt-4 border-t border-[#F1F1F1] dark:border-zinc-800/50">
-          <p className="text-[10px] font-medium text-[#9A9A9A] dark:text-zinc-600 uppercase tracking-wider mb-2.5">
+          <p className="text-[10px] font-medium text-[#9A9A9A] uppercase tracking-wider mb-2.5">
             Where the minutes go
           </p>
           <SegmentedBar
@@ -714,7 +684,7 @@ export default function WorkerReallocationPage() {
           ),
         );
     })();
-  }, []); // eslint-disable-line
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -731,7 +701,7 @@ export default function WorkerReallocationPage() {
           ),
         );
     })();
-  }, []); // eslint-disable-line
+  }, []);
 
   const fetchRecommendation = useCallback(async (b: Bottleneck) => {
     try {
@@ -761,7 +731,7 @@ export default function WorkerReallocationPage() {
     } finally {
       setLoading(false);
     }
-  }, []); // eslint-disable-line
+  }, []);
 
   useEffect(() => {
     if (!activeBottleneck) return;
@@ -828,7 +798,6 @@ export default function WorkerReallocationPage() {
     setRecommendation(null);
   };
 
-  // Derived KPIs for the active station
   const gap =
     activeBottleneck?.targeted_productivity &&
     activeBottleneck?.actual_productivity
@@ -837,30 +806,20 @@ export default function WorkerReallocationPage() {
           activeBottleneck.targeted_productivity) *
         100
       : null;
-
   const bottleneckCount = bottlenecks.filter((b) => b.is_bottleneck).length;
 
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 overflow-hidden">
-      {/* ── Top bar ──────────────────────────────────────────────── */}
-      <header className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-6 py-4 flex items-center justify-between bg-white dark:bg-[#0d0d0f]">
+      <header className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-4 py-4 flex items-center justify-between bg-white dark:bg-[#0d0d0f]">
         <div>
-          
           <h1 className="text-lg font-bold text-[#242424] dark:text-zinc-100 tracking-tight">
             Bottleneck &amp; Move Engine
           </h1>
-
-          {/* update this description */}
-          <p className="text-xs text-[#5F5F5F] dark:text-zinc-400 mt-2 max-w-sm leading-relaxed">
-            A concise view of the latest model signal, stored evidence and next supervisor action. 
-          </p>
+          
         </div>
         <div className="flex items-center gap-4">
           {lastUpdated && (
-            <time
-              dateTime={lastUpdated.toISOString()}
-              className="hidden sm:block text-[11px] text-[#9A9A9A] dark:text-zinc-600 tabular-nums"
-            >
+            <time className="hidden sm:block text-[11px] text-[#9A9A9A] dark:text-zinc-600 tabular-nums">
               Last updated{" "}
               {lastUpdated.toLocaleTimeString([], {
                 hour: "2-digit",
@@ -869,13 +828,7 @@ export default function WorkerReallocationPage() {
             </time>
           )}
           <span
-            role="status"
-            aria-live="polite"
-            className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 border ${
-              bottleneckCount > 0
-                ? "text-[#A77329] dark:text-[#E1BA82] bg-[#FDFBF8] dark:bg-amber-950/20 border-[#EACFA9] dark:border-amber-800/40"
-                : "text-[#1A7C4B] dark:text-[#47966F] bg-[#E6F1EC] dark:bg-[#0A321E]/20 border-[#B9D7C8] dark:border-[#104A2D]"
-            }`}
+            className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 border ${bottleneckCount > 0 ? "text-[#A77329] bg-[#FDFBF8] border-[#EACFA9] dark:bg-amber-950/20 dark:border-amber-800/40 dark:text-[#E1BA82]" : "text-[#1A7C4B] bg-[#E6F1EC] border-[#B9D7C8] dark:bg-[#0A321E]/20 dark:border-[#104A2D] dark:text-[#47966F]"}`}
           >
             <span
               className={`w-1.5 h-1.5 ${bottleneckCount > 0 ? "bg-[#CE8E33] animate-pulse" : "bg-[#1A7C4B]"}`}
@@ -888,45 +841,32 @@ export default function WorkerReallocationPage() {
         </div>
       </header>
 
-      {/* Error banners */}
       {(bottlenecksError || error) && (
         <div className="shrink-0 px-6 py-2 space-y-1">
           {bottlenecksError && (
-            <div
-              role="alert"
-              className="flex items-center gap-2 border-l-2 border-l-[#CE8E33] border border-[#F4E5D1] dark:border-amber-800/30 bg-[#FDFBF8] dark:bg-amber-950/10 px-3 py-2 text-xs text-[#A77329] dark:text-[#E1BA82]"
-            >
+            <div className="flex items-center gap-2 border-l-2 border-l-[#CE8E33] border border-[#F4E5D1] bg-[#FDFBF8] dark:bg-amber-950/10 dark:border-amber-800/30 px-3 py-2 text-xs text-[#A77329] dark:text-[#E1BA82]">
               <span aria-hidden="true">⚠</span> {bottlenecksError}
             </div>
           )}
           {error && (
-            <div
-              role="alert"
-              className="flex items-center gap-2 border-l-2 border-l-[#CE8E33] border border-[#F4E5D1] dark:border-amber-800/30 bg-[#FDFBF8] dark:bg-amber-950/10 px-3 py-2 text-xs text-[#A77329] dark:text-[#E1BA82]"
-            >
+            <div className="flex items-center gap-2 border-l-2 border-l-[#CE8E33] border border-[#F4E5D1] bg-[#FDFBF8] dark:bg-amber-950/10 dark:border-amber-800/30 px-3 py-2 text-xs text-[#A77329] dark:text-[#E1BA82]">
               <span aria-hidden="true">⚠</span> {error}
             </div>
           )}
         </div>
       )}
 
-      {/* ── Main body: left station list + right detail ──────── */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Left: Station list — always visible */}
+        {/* LEFT: Station List */}
         <StationList
           stations={bottlenecks}
           active={activeBottleneck}
           onSelect={selectBottleneck}
         />
 
-        {/* Right: Station detail — scrollable */}
-        <main className="flex-1 flex flex-col min-h-0 bg-[#F8F8F8] dark:bg-[#0a0a0c]">
-          {" "}
-          {/* ── KPI row ─────────────────────────────────────────── */}
-          <section
-            aria-label="Station key metrics"
-            className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113] flex"
-          >
+        {/* MIDDLE: Operational Core */}
+        <main className="flex-1 flex flex-col min-w-0 bg-[#F8F8F8] dark:bg-[#0a0a0c]">
+          <section className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113] flex">
             {activeBottleneck ? (
               <>
                 <KpiTile
@@ -958,11 +898,10 @@ export default function WorkerReallocationPage() {
                 />
               </>
             ) : (
-              /* KPI skeleton */
               [1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
-                  className="flex-1 border-r border-[#EAEAEA] dark:border-zinc-800 last:border-r-0 px-5 py-4"
+                  className="flex-1 border-r border-[#EAEAEA] dark:border-zinc-800 px-5 py-4"
                 >
                   <div className="h-2 w-16 bg-[#F1F1F1] dark:bg-zinc-800 animate-pulse mb-3" />
                   <div className="h-7 w-20 bg-[#F1F1F1] dark:bg-zinc-800 animate-pulse mb-2" />
@@ -971,81 +910,111 @@ export default function WorkerReallocationPage() {
               ))
             )}
           </section>
-          {/* ── Recommendation + Profitability ─────────────────── */}
-          <section
-            aria-label="Move recommendation and profitability"
-            className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[2fr_1fr] border-b border-[#EAEAEA] dark:border-zinc-800"
-          >
-            {/* Recommendation */}
-            <div className="border-r border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113] min-h-0 flex flex-col">
-              <RecommendationPanel
-                recommendation={recommendation}
-                loading={loading}
-                accepted={accepted}
-                accepting={accepting}
-                isBottleneck={activeBottleneck?.is_bottleneck ?? false}
-                lastUpdated={lastUpdated}
-                onRefresh={() => {
-                  if (!activeBottleneck?.is_bottleneck) return;
-                  setLoading(true);
-                  setAccepted(false);
-                  fetchRecommendation(activeBottleneck);
-                }}
-                onAccept={handleAcceptMove}
-              />
-            </div>
 
-            {/* Profitability */}
-            <div className="bg-white dark:bg-[#111113] min-h-0 flex flex-col">
-              <ProfitabilityPanel recommendation={recommendation} />
-            </div>
+          <section className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[2fr_1fr]">
+            <RecommendationPanel
+              recommendation={recommendation}
+              loading={loading}
+              isBottleneck={activeBottleneck?.is_bottleneck ?? false}
+              lastUpdated={lastUpdated}
+              onRefresh={() => {
+                if (!activeBottleneck?.is_bottleneck) return;
+                setLoading(true);
+                setAccepted(false);
+                fetchRecommendation(activeBottleneck);
+              }}
+            />
+            <ProfitabilityPanel recommendation={recommendation} />
           </section>
-          {/* ── Workforce efficiency heatmap ───────────────────── */}
-          <section
-            aria-labelledby="workforce-heading"
-            className="shrink-0 h-[40%] min-h-0 flex flex-col bg-white dark:bg-[#111113] border-b border-[#EAEAEA] dark:border-zinc-800"
-          >
-            <div className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-5 py-3 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-0.5">
-                  {activeBottleneck
-                    ? `${activeBottleneck.station_id} · ${activeBottleneck.required_skill}`
-                    : "Qualified operators"}
-                </p>
-                <h2
-                  id="workforce-heading"
-                  className="text-sm font-bold text-[#242424] dark:text-zinc-100"
-                >
-                  Workforce Efficiency
-                </h2>
-              </div>
-              <p className="text-[11px] text-[#9A9A9A] dark:text-zinc-600 text-right hidden sm:block">
-                Hover a block to view operator details
-              </p>
-            </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4 min-h-0">
-              {skillMatrixError && (
-                <div
-                  role="alert"
-                  className="flex items-center gap-2 border-l-2 border-l-[#CE8E33] border border-[#F4E5D1] dark:border-amber-800/30 bg-[#FDFBF8] dark:bg-amber-950/10 px-3 py-2 text-xs text-[#A77329] dark:text-[#E1BA82] mb-4"
-                >
-                  <span aria-hidden="true">⚠</span> {skillMatrixError}
+          {/* Accept Move Area - Includes Global Cascade Risk Badge */}
+          <div className="shrink-0 flex flex-col border-t border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113]">
+            {recommendation?.cascade_warnings &&
+              recommendation.cascade_warnings.length > 0 &&
+              !accepted && (
+                <div className="px-5 py-3 border-b border-[#F4E5D1] dark:border-amber-900/30 bg-[#FDFBF8] dark:bg-[#1A1510]">
+                  <p className="text-[10px] font-bold text-[#A77329] dark:text-[#E1BA82] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <span className="animate-pulse">⚠</span> Cascade Risk
+                    Warning
+                  </p>
+                  <div className="space-y-1">
+                    {recommendation.cascade_warnings.map((w, i) => {
+                      const formattedWarning = w.replace(
+                        /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
+                        (match) => {
+                          const mv = recommendation.moves.find(
+                            (m) => m.operator_id === match,
+                          );
+                          return (
+                            mv?.operator_name || match.slice(0, 8).toUpperCase()
+                          );
+                        },
+                      );
+                      return (
+                        <p
+                          key={i}
+                          className="text-[10px] text-[#A77329] dark:text-[#E1BA82] leading-relaxed"
+                        >
+                          • {formattedWarning}
+                        </p>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
-              <StationWorkersGrid
-                stations={activeBottleneck ? [activeBottleneck] : []}
-                skillMatrix={skillMatrix}
-              />
+
+            <div className="p-4 flex items-center justify-between">
+              <p className="text-[10px] text-[#9A9A9A] dark:text-zinc-500 uppercase tracking-widest hidden sm:block">
+                {recommendation?.recommended
+                  ? "Action Required"
+                  : "No Action Needed"}
+              </p>
+              <button
+                onClick={handleAcceptMove}
+                disabled={accepted || accepting || !recommendation?.recommended}
+                className={`
+                  py-2.5 px-8 text-sm font-semibold tracking-wide border transition-colors cursor-pointer disabled:cursor-not-allowed
+                  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1A7C4B]
+                  ${accepted ? "bg-[#E6F1EC] text-[#1A7C4B] border-[#B9D7C8] dark:bg-[#0A321E]/40 dark:text-[#47966F] dark:border-[#104A2D]" : accepting ? "bg-[#F1F1F1] text-[#9A9A9A] border-[#EAEAEA] dark:bg-zinc-800 dark:border-zinc-700" : "bg-[#1A7C4B] hover:bg-[#15633C] text-white border-[#15633C]"}
+                `}
+              >
+                {accepted
+                  ? "✓ Moves Accepted"
+                  : accepting
+                    ? "Processing…"
+                    : `Accept ${recommendation?.workers_found && recommendation.workers_found > 1 ? `${recommendation.workers_found} Moves` : "Move"}`}
+              </button>
             </div>
-          </section>
-          {/* ── Footer ─────────────────────────────────────────── */}
-          <footer className="shrink-0 px-5 py-3">
-            <p className="text-[11px] text-[#C6C6C6] dark:text-zinc-700">
-              Opsis · Profitability Engine v1.0 · Recommendations refresh hourly
-            </p>
-          </footer>
+          </div>
         </main>
+
+        {/* RIGHT: Heatmap Panel */}
+        <aside className="w-95 shrink-0 border-l border-[#EAEAEA] dark:border-zinc-800 flex flex-col bg-white dark:bg-[#111113]">
+          <div className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-5 py-3">
+            <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-0.5">
+              {activeBottleneck
+                ? `${activeBottleneck.station_id} · ${activeBottleneck.required_skill}`
+                : "Qualified operators"}
+            </p>
+            <h2 className="text-sm font-bold text-[#242424] dark:text-zinc-100">
+              Workforce Efficiency
+            </h2>
+          </div>
+
+          <div
+            className={`flex-1 overflow-y-auto px-5 py-4 min-h-0 [&>div]:flex-col [&>div]:items-start [&>div>div:first-child]:mb-2 ${SCROLLBAR}`}
+          >
+            {skillMatrixError && (
+              <div className="flex items-center gap-2 border-l-2 border-l-[#CE8E33] bg-[#FDFBF8] dark:bg-[#1A1510] px-3 py-2 text-xs text-[#A77329] dark:text-[#E1BA82] mb-4">
+                <span aria-hidden="true">⚠</span> {skillMatrixError}
+              </div>
+            )}
+            <StationWorkersGrid
+              stations={activeBottleneck ? [activeBottleneck] : []}
+              skillMatrix={skillMatrix}
+            />
+          </div>
+        </aside>
       </div>
     </div>
   );

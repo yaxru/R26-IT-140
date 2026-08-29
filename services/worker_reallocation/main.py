@@ -82,6 +82,8 @@ class RecommendRequest(BaseModel):
 
 class SingleMove(BaseModel):
     operator_id: str
+    operator_name: Optional[str] = None 
+    worker_pin: Optional[str] = None    
     from_station: Optional[str]
     to_station: str
     proficiency_grade: str
@@ -103,7 +105,10 @@ class MoveInstruction(BaseModel):
     total_net_profit: float
     cascade_warnings: list[str]
     instruction: str
+    # Legacy fields
     operator_id: str
+    operator_name: Optional[str] = None 
+    worker_pin: Optional[str] = None    
     from_station: Optional[str]
     to_station: str
     proficiency_grade: str
@@ -118,9 +123,12 @@ class StationOut(BaseModel):
     is_bottleneck: bool
     targeted_productivity: Optional[float] = None
     actual_productivity: Optional[float] = None
+    line_id: Optional[str] = None
 
 class SkillMatrixOut(BaseModel):
     operator_id: str
+    operator_name: Optional[str] = None 
+    worker_pin: Optional[str] = None    
     machine_type: str
     proficiency_grade: str
     efficiency_pct: float
@@ -213,7 +221,7 @@ async def setup_line_layout(request: LineLayoutRequest, _: dict = Depends(requir
 async def get_stations(_: dict = Depends(require_auth)):
     try:
         response = supabase.table("production_status").select(
-            "station_id, wip, required_skill, targeted_productivity, actual_productivity"
+            "station_id, line_id, wip, required_skill, targeted_productivity, actual_productivity"
         ).order("station_id").execute()
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Database query failed: {exc}")
@@ -235,24 +243,29 @@ async def get_stations(_: dict = Depends(require_auth)):
     return result
 
 @app.get("/skill-matrix", response_model=list[SkillMatrixOut])
-async def get_skill_matrix(_: dict = Depends(require_auth)):
-    config = get_algorithm_config()
-    grade_eff = config["grade_efficiency"]
+def get_skill_matrix(_: dict = Depends(require_auth)):
+    res = supabase.table("skill_matrix").select(
+        "operator_id, machine_type, proficiency_grade, operators(name, worker_id)"
+    ).execute()
     
-    try:
-        response = supabase.table("skill_matrix").select(
-            "operator_id, machine_type, proficiency_grade"
-        ).order("operator_id").execute()
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Database query failed: {exc}")
-
-    return [
-        {
-            **row,
-            "efficiency_pct": grade_eff.get(str(row.get("proficiency_grade", "")).upper(), 0.0) * 100
-        }
-        for row in response.data
-    ]
+    formatted_data = []
+    for row in res.data:
+        operator_info = row.get("operators") or {}
+        grade = row.get("proficiency_grade", "C")
+        
+        # Simple fallback logic for UI efficiency percentage
+        eff_pct = 95.0 if grade == "A" else 75.0 if grade == "B" else 55.0
+        
+        formatted_data.append({
+            "operator_id": row["operator_id"],
+            "machine_type": row["machine_type"],
+            "proficiency_grade": grade,
+            "operator_name": operator_info.get("name", "Unknown"),
+            "worker_pin": operator_info.get("worker_id", "N/A"),
+            "efficiency_pct": eff_pct
+        })
+        
+    return formatted_data
 
 @app.post("/recommend", response_model=MoveInstruction)
 async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
@@ -271,9 +284,10 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
     remaining_gap = max(0.0, targeted - actual_prod) if use_dynamic else 0.0
 
     try:
+        # Added operators join to fetch names and PINs
         sm_response = (
             supabase.table("skill_matrix")
-            .select("operator_id, machine_type, proficiency_grade")
+            .select("operator_id, machine_type, proficiency_grade, operators(name, worker_id)")
             .eq("machine_type", request.required_skill)
             .in_("proficiency_grade", ["A", "B", "C"])
             .order("proficiency_grade")
@@ -306,6 +320,7 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
         if len(hist_map[op]) < 5: 
             hist_map[op].append(float(row["efficiency"]))
 
+    # Filter out workers with zero job card submissions
     candidates_raw = [c for c in candidates_raw if c["operator_id"] in hist_map]
     
     if not candidates_raw:
@@ -346,6 +361,7 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
 
         grade = c["proficiency_grade"].upper()
         from_station = c.get("current_station")
+        operator_info = c.get("operators") or {}
 
         if from_station == request.bottleneck_station:
             continue
@@ -367,6 +383,8 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
 
         selected.append({
             "operator_id": op_id,
+            "operator_name": operator_info.get("name", "Unknown"),
+            "worker_pin": operator_info.get("worker_id", "N/A"),
             "from_station": from_station,
             "to_station": request.bottleneck_station,
             "proficiency_grade": c["proficiency_grade"],
@@ -382,6 +400,7 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
         fc = candidates[0]
         fg = fc["proficiency_grade"].upper()
         ff = fc.get("current_station")
+        f_info = fc.get("operators") or {}
         
         actual_eff = personal_efficiency.get(fc["operator_id"], baseline_eff.get(fg, 0.85))
         if use_dynamic:
@@ -394,17 +413,32 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
         profit = gain - cost
 
         no_move = SingleMove(
-            operator_id=fc["operator_id"], from_station=ff, to_station=request.bottleneck_station,
-            proficiency_grade=fc["proficiency_grade"], cost_of_move=cost, expected_production_gain=gain,
-            net_profit=profit, donor_cascade_risk=False, donor_risk_detail=None,
+            operator_id=fc["operator_id"], 
+            operator_name=f_info.get("name", "Unknown"),
+            worker_pin=f_info.get("worker_id", "N/A"),
+            from_station=ff, 
+            to_station=request.bottleneck_station,
+            proficiency_grade=fc["proficiency_grade"], 
+            cost_of_move=cost, 
+            expected_production_gain=gain,
+            net_profit=profit, 
+            donor_cascade_risk=False, 
+            donor_risk_detail=None,
         )
         return MoveInstruction(
             recommended=False,
             no_move_reason=f"Best available worker would recover {gain:.1f} min but relocation costs {cost:.1f} min - net {profit:.1f} min. No move justified.",
             moves=[no_move], workers_needed=workers_needed, workers_found=0, gap_coverage_pct=0.0,
             total_net_profit=0.0, cascade_warnings=[], instruction="No move recommended.",
-            operator_id=fc["operator_id"], from_station=ff, to_station=request.bottleneck_station,
-            proficiency_grade=fc["proficiency_grade"], cost_of_move=cost, expected_production_gain=gain, net_profit=profit,
+            operator_id=fc["operator_id"], 
+            operator_name=f_info.get("name", "Unknown"),
+            worker_pin=f_info.get("worker_id", "N/A"),
+            from_station=ff, 
+            to_station=request.bottleneck_station,
+            proficiency_grade=fc["proficiency_grade"], 
+            cost_of_move=cost, 
+            expected_production_gain=gain, 
+            net_profit=profit,
         )
 
     donor_ids = list({m["from_station"] for m in selected if m["from_station"]})
@@ -466,11 +500,19 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
                         replacement_id, replacement_grade = donor_backfills[donor_id]
 
         final_moves.append(SingleMove(
-            operator_id=move["operator_id"], from_station=move["from_station"], to_station=move["to_station"],
-            proficiency_grade=move["proficiency_grade"], cost_of_move=move["cost_of_move"],
-            expected_production_gain=move["expected_production_gain"], net_profit=move["net_profit"],
-            donor_cascade_risk=cascade_risk, donor_risk_detail=risk_detail,
-            donor_replacement_id=replacement_id, donor_replacement_grade=replacement_grade,
+            operator_id=move["operator_id"],
+            operator_name=move["operator_name"],
+            worker_pin=move["worker_pin"],
+            from_station=move["from_station"], 
+            to_station=move["to_station"],
+            proficiency_grade=move["proficiency_grade"], 
+            cost_of_move=move["cost_of_move"],
+            expected_production_gain=move["expected_production_gain"], 
+            net_profit=move["net_profit"],
+            donor_cascade_risk=cascade_risk, 
+            donor_risk_detail=risk_detail,
+            donor_replacement_id=replacement_id, 
+            donor_replacement_grade=replacement_grade,
         ))
 
     total_gain = sum(m.expected_production_gain for m in final_moves)
@@ -482,10 +524,10 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
         gap_coverage_pct = 100.0
 
     if len(final_moves) == 1:
-        instruction_text = f"Move {final_moves[0].operator_id} to {request.bottleneck_station}"
+        instruction_text = f"Move {final_moves[0].operator_name} to {request.bottleneck_station}"
     else:
-        ids = ", ".join(m.operator_id for m in final_moves)
-        instruction_text = f"Move {len(final_moves)} workers to {request.bottleneck_station}: {ids}"
+        names = ", ".join(m.operator_name for m in final_moves)
+        instruction_text = f"Move {len(final_moves)} workers to {request.bottleneck_station}: {names}"
 
     try:
         supabase.table("move_recommendations").insert({
@@ -503,9 +545,15 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
         workers_needed=workers_needed, workers_found=len(final_moves),
         gap_coverage_pct=gap_coverage_pct, total_net_profit=total_profit,
         cascade_warnings=cascade_warnings, instruction=instruction_text,
-        operator_id=first.operator_id, from_station=first.from_station,
-        to_station=first.to_station, proficiency_grade=first.proficiency_grade,
-        cost_of_move=first.cost_of_move, expected_production_gain=total_gain, net_profit=total_profit,
+        operator_id=first.operator_id, 
+        operator_name=first.operator_name,
+        worker_pin=first.worker_pin,
+        from_station=first.from_station,
+        to_station=first.to_station, 
+        proficiency_grade=first.proficiency_grade,
+        cost_of_move=first.cost_of_move, 
+        expected_production_gain=total_gain, 
+        net_profit=total_profit,
     )
 
 @app.post("/skill-matrix", response_model=dict)

@@ -1,4 +1,4 @@
-import type { Bottleneck } from "../types";
+import type { Bottleneck } from "@/app/(dashboard)/types";
 
 interface BottleneckCardProps {
   bottleneck: Bottleneck | null;

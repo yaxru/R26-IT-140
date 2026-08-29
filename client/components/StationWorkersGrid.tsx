@@ -1,6 +1,6 @@
 "use client";
 
-import type { Bottleneck, SkillMatrixEntry } from "../types";
+import type { Bottleneck, SkillMatrixEntry } from "@/app/(dashboard)/types";
 import { HoverTooltip } from "./HoverTooltip";
 
 interface StationWorkersGridProps {
@@ -10,8 +10,8 @@ interface StationWorkersGridProps {
 
 const LEGEND: { min: number; label: string; bg: string }[] = [
   { min: 0,  label: "<60%",   bg: "rgba(26,124,75,0.12)" },
-  { min: 60, label: "60–75%", bg: "rgba(26,124,75,0.30)" },
-  { min: 75, label: "75–90%", bg: "rgba(26,124,75,0.55)" },
+  { min: 60, label: "60-75%", bg: "rgba(26,124,75,0.30)" },
+  { min: 75, label: "75-90%", bg: "rgba(26,124,75,0.55)" },
   { min: 90, label: "90%+",   bg: "rgba(26,124,75,0.85)" },
 ];
 
@@ -47,14 +47,14 @@ export function StationWorkersGrid({ stations, skillMatrix }: StationWorkersGrid
       </div>
 
       {/* One row per station */}
-      <div className="flex flex-col divide-y divide-[#F1F1F1] dark:divide-zinc-800/40">
+      <div className="flex flex-r divide-y divide-[#F1F1F1] dark:divide-zinc-800/40">
         {stations.map((station) => {
           const workers = skillMatrix.filter((s) => s.machine_type === station.required_skill);
 
           return (
             <div
               key={station.station_id}
-              className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 py-3"
+              className="flex flex-col  gap-2 sm:gap-4 py-3"
             >
               {/* Row label */}
               <div className="flex items-center gap-2 sm:w-44 shrink-0">
@@ -73,26 +73,38 @@ export function StationWorkersGrid({ stations, skillMatrix }: StationWorkersGrid
               {/* Worker blocks */}
               {workers.length > 0 ? (
                 <div className="flex flex-wrap gap-1 flex-1">
-                  {workers.map((w) => (
-                    <HoverTooltip
-                      key={w.operator_id}
-                      content={
-                        <>
-                          <div className="font-semibold text-zinc-100 mb-1">{w.operator_id}</div>
-                          <div className="flex items-center justify-between gap-3 text-zinc-400">
-                            <span>Grade {w.proficiency_grade}</span>
-                            <span className="text-[#47966F] font-semibold">{w.efficiency_pct.toFixed(0)}%</span>
-                          </div>
-                        </>
-                      }
-                    >
-                      <div
-                        className="w-6 h-6 cursor-default border border-transparent hover:border-[#D4D4D4] dark:hover:border-zinc-600 transition-colors"
-                        style={{ backgroundColor: colorForEfficiency(w.efficiency_pct) }}
-                        aria-label={`${w.operator_id}, Grade ${w.proficiency_grade}, ${w.efficiency_pct.toFixed(0)}% efficiency`}
-                      />
-                    </HoverTooltip>
-                  ))}
+                  {workers.map((w) => {
+                    // @ts-ignore - Safely access name and pin from the updated backend response
+                    const workerName = w.operator_name || w.operator_id;
+                    // @ts-ignore
+                    const workerPin = w.worker_pin || "PIN";
+
+                    return (
+                      <HoverTooltip
+                        key={w.operator_id}
+                        content={
+                          <>
+                            <div className="font-semibold text-zinc-100 mb-1">
+                              {workerName}
+                              <span className="ml-1.5 text-[10px] text-zinc-400 font-normal font-mono">
+                                ({workerPin})
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 text-zinc-400">
+                              <span>Grade {w.proficiency_grade}</span>
+                              <span className="text-[#47966F] font-semibold">{w.efficiency_pct.toFixed(0)}%</span>
+                            </div>
+                          </>
+                        }
+                      >
+                        <div
+                          className="w-6 h-6 cursor-default border border-transparent hover:border-[#D4D4D4] dark:hover:border-zinc-600 transition-colors"
+                          style={{ backgroundColor: colorForEfficiency(w.efficiency_pct) }}
+                          aria-label={`${workerName}, Grade ${w.proficiency_grade}, ${w.efficiency_pct.toFixed(0)}% efficiency`}
+                        />
+                      </HoverTooltip>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-[11px] text-[#C6C6C6] dark:text-zinc-700 flex-1">

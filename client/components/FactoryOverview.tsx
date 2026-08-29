@@ -1,4 +1,4 @@
-import type { Bottleneck } from "../types";
+import type { Bottleneck } from "@/app/(dashboard)/types";
 import { HoverTooltip } from "./HoverTooltip";
 
 interface FactoryOverviewProps {

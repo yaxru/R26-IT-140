@@ -1,4 +1,4 @@
-import type { JobCardSubmitResponse } from "../types";
+import type { JobCardSubmitResponse } from "@/app/(dashboard)/types";
 
 function StatItem({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (

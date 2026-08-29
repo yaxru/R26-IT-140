@@ -101,10 +101,10 @@ export function GlobalHeader(_props: Record<string, never> = {}) {
         </div>
         <div>
           <p className="text-sm font-bold text-[#242424] dark:text-zinc-100 uppercase tracking-wide leading-none">
-            Opsis
+            Opsis 
           </p>
-          <p className="text-[9px] font-medium text-[#9A9A9A] dark:text-zinc-500 tracking-widest  leading-none mt-0.5">
-            Production OS
+          <p className="text-[9px]  text-[#9A9A9A] dark:text-zinc-500 tracking-widest  leading-none mt-0.5">
+            version {process.env.NEXT_PUBLIC_APP_VERSION ?? "1.0.5"}
           </p>
         </div>
       </div>

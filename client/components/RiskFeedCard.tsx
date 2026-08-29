@@ -1,4 +1,4 @@
-import type { RiskNotification } from "../types";
+import type { RiskNotification } from "@/app/(dashboard)/types";
 
 interface RiskFeedCardProps {
   notifications: RiskNotification[];
