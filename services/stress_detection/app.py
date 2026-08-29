@@ -24,7 +24,7 @@ from supabase import create_client, Client
 from predictive import predict_stress
 
 # ---------------------------------------------------------------------------
-# App & Supabase setup
+# App & Supabase setup old
 # ---------------------------------------------------------------------------
 
 app = Flask(__name__)
