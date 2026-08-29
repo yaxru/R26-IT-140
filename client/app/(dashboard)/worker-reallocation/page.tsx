@@ -408,35 +408,49 @@ export function RecommendationPanel({
 
                 <div className="flex flex-col gap-3">
                   {recommendation.moves.map((move, i) => {
+                    // 1. Extract the numeric gap percentage
                     const gapMatch =
                       move.donor_risk_detail?.match(/gap:\s*([\d.]+)%/);
                     const projectedGap = gapMatch ? parseFloat(gapMatch[1]) : 0;
 
+                    // 2. Find and format the specific global warning for THIS worker
+                    const specificWarningRaw =
+                      recommendation.cascade_warnings?.find((w) =>
+                        w.includes(move.operator_id),
+                      );
+                    const specificWarning = specificWarningRaw
+                      ? specificWarningRaw.replace(
+                          move.operator_id,
+                          move.operator_name ||
+                            move.operator_id.slice(0, 8).toUpperCase(),
+                        )
+                      : null;
+
                     return (
                       <div
                         key={move.operator_id}
-                        className={`p-3 text-[11px] border transition-colors ${
+                        className={`p-3.5 text-[11px] bg-[#F8F8F8]/30 dark:bg-[#111113] border border-[#EAEAEA] dark:border-zinc-800 transition-all ${
                           move.donor_cascade_risk
-                            ? "bg-[#FDFBF8] dark:bg-[#1A1510] border-[#EACFA9]/30 dark:border-amber-900/40"
-                            : "bg-white dark:bg-[#111113] border-[#EAEAEA] dark:border-zinc-800"
+                            ? ""
+                            : ""
                         }`}
                       >
                         {/* Header: Name, PIN, Grade, Profit */}
                         <div className="flex items-start justify-between mb-3">
                           <div>
-                            <span className="font-bold text-[#333333] dark:text-zinc-200 text-xs">
+                            <span className="font-bold text-[#333333] dark:text-zinc-200 text-xs tracking-tight">
                               {i + 1}.{" "}
                               {move.operator_name ||
                                 (move.operator_id
                                   ? `${move.operator_id.slice(0, 8)}...`
                                   : "Unknown")}
                             </span>
-                            <span className="ml-1.5 text-[10px] text-[#9A9A9A] dark:text-zinc-500 font-normal font-mono">
+                            <span className="ml-1.5 text-[10px] text-[#9A9A9A] dark:text-zinc-500 font-mono">
                               ({move.worker_pin || "PIN"})
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] px-2 py-0.5 bg-[#EAEAEA] dark:bg-zinc-800 text-[#5F5F5F] dark:text-zinc-400 font-semibold">
+                            <span className="text-[10px] px-2 py-0.5 bg-[#F8F8F8] dark:bg-zinc-900 border border-[#EAEAEA] dark:border-zinc-800 text-[#5F5F5F] dark:text-zinc-400 font-semibold uppercase tracking-wide">
                               Grade {move.proficiency_grade}
                             </span>
                             <span className="text-[11px] text-[#1A7C4B] dark:text-[#47966F] font-bold bg-[#E6F1EC] dark:bg-[#0A321E]/40 px-2 py-0.5">
@@ -445,43 +459,51 @@ export function RecommendationPanel({
                           </div>
                         </div>
 
-                        {/* Station Shift (Two Boxes) */}
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="flex-1 border border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#0a0a0c] px-2.5 py-1.5">
-                            <p className="text-[9px] text-[#9A9A9A] dark:text-zinc-500 uppercase tracking-wider mb-0.5">
+                        {/* Minimalist Station Shift Path */}
+                        <div className="flex items-center gap-3 mb-3 px-1">
+                          <div className="flex items-center gap-1.5 text-[#5F5F5F] dark:text-zinc-400">
+                            <span className="text-[9px] uppercase tracking-widest text-[#9A9A9A] dark:text-zinc-500">
                               From
-                            </p>
-                            <p className="text-[11px] font-mono font-semibold text-[#5F5F5F] dark:text-zinc-400 truncate">
+                            </span>
+                            <span className="font-mono font-medium">
                               {move.from_station ?? "Unassigned Pool"}
-                            </p>
+                            </span>
                           </div>
-                          <div className="text-[#9A9A9A] dark:text-zinc-600 shrink-0">
-                            ➔
-                          </div>
-                          <div className="flex-1 border border-[#1A7C4B]/30 bg-[#E6F1EC]/50 dark:bg-[#0A321E]/20 px-2.5 py-1.5">
-                            <p className="text-[9px] text-[#1A7C4B] dark:text-[#47966F] uppercase tracking-wider mb-0.5">
+                          <span className="text-[#D4D4D4] dark:text-zinc-700">
+                            →
+                          </span>
+                          <div className="flex items-center gap-1.5 text-[#1A7C4B] dark:text-[#47966F]">
+                            <span className="text-[9px] uppercase tracking-widest opacity-80">
                               To
-                            </p>
-                            <p className="text-[11px] font-mono font-bold text-[#1A7C4B] dark:text-[#47966F] truncate">
+                            </span>
+                            <span className="font-mono font-bold">
                               {move.to_station}
-                            </p>
+                            </span>
                           </div>
                         </div>
 
-                        {/* Cascade Risk Chart & Backfill Details */}
+                        {/* Cascade Risk Section (Only renders if risk exists) */}
                         {move.donor_cascade_risk && (
-                          <div className="mt-2 pt-2 border-t border-[#F4E5D1] dark:border-amber-900/30">
-                            <div className="flex justify-between items-end mb-1.5">
-                              <span className="text-[10px] text-[#A77329] dark:text-[#E1BA82] font-semibold flex items-center gap-1">
-                                <span className="animate-pulse">⚠</span>{" "}
-                                {move.from_station} Projected Gap
+                          <div className="mt-3 pt-3 border-t border-dashed border-[#EAEAEA] dark:border-zinc-800">
+                            {/* The Extracted Warning Sentence */}
+                            {specificWarning && (
+                              <p className="text-[10px] text-[#A77329] dark:text-[#E1BA82] leading-relaxed mb-2.5 flex gap-1.5">
+                                <span className="animate-pulse">⚠</span>
+                                <span>{specificWarning}</span>
+                              </p>
+                            )}
+
+                            <div className="flex items-end justify-between mb-1.5 px-1">
+                              <span className="text-[9px] text-[#9A9A9A] dark:text-zinc-500 uppercase tracking-widest">
+                                Projected Gap
                               </span>
                               <span className="text-[10px] text-[#A77329] dark:text-[#E1BA82] font-mono font-bold">
                                 {projectedGap}%
                               </span>
                             </div>
 
-                            <div className="w-full h-1.5 bg-[#EFDABD] dark:bg-zinc-800 overflow-hidden mb-2">
+                            {/* Sleek Danger Progress Bar */}
+                            <div className="w-full h-1 bg-[#F1F1F1] dark:bg-zinc-800 overflow-hidden mb-2.5">
                               <div
                                 className="h-full bg-[#CE8E33] transition-all duration-500"
                                 style={{
@@ -490,18 +512,21 @@ export function RecommendationPanel({
                               />
                             </div>
 
+                            {/* Auto-Backfill Badge */}
                             {move.donor_replacement_id && (
-                              <p className="text-[10px] text-[#1A7C4B] dark:text-[#47966F] flex items-center gap-1.5 mt-2 bg-[#E6F1EC]/50 dark:bg-[#0A321E]/20 p-1.5 border border-[#1A7C4B]/20">
-                                <span>↩ Auto-Backfill:</span>
-                                <span className="font-mono font-bold">
+                              <div className="inline-flex items-center gap-1.5 mt-1 bg-[#F8F8F8] dark:bg-zinc-900 border border-[#EAEAEA] dark:border-zinc-800 px-2 py-1">
+                                <span className="text-[9px] text-[#1A7C4B] dark:text-[#47966F] uppercase tracking-widest">
+                                  ↩ Auto-Backfill
+                                </span>
+                                <span className="text-[10px] font-mono font-bold text-[#333333] dark:text-zinc-300">
                                   {move.donor_replacement_id
                                     .slice(0, 8)
                                     .toUpperCase()}
                                 </span>
-                                <span className="text-[#9A9A9A] dark:text-zinc-500">
+                                <span className="text-[9px] text-[#9A9A9A] dark:text-zinc-500">
                                   (Grade {move.donor_replacement_grade})
                                 </span>
-                              </p>
+                              </div>
                             )}
                           </div>
                         )}
@@ -815,7 +840,6 @@ export default function WorkerReallocationPage() {
           <h1 className="text-lg font-bold text-[#242424] dark:text-zinc-100 tracking-tight">
             Bottleneck &amp; Move Engine
           </h1>
-          
         </div>
         <div className="flex items-center gap-4">
           {lastUpdated && (
@@ -929,40 +953,6 @@ export default function WorkerReallocationPage() {
 
           {/* Accept Move Area - Includes Global Cascade Risk Badge */}
           <div className="shrink-0 flex flex-col border-t border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113]">
-            {recommendation?.cascade_warnings &&
-              recommendation.cascade_warnings.length > 0 &&
-              !accepted && (
-                <div className="px-5 py-3 border-b border-[#F4E5D1] dark:border-amber-900/30 bg-[#FDFBF8] dark:bg-[#1A1510]">
-                  <p className="text-[10px] font-bold text-[#A77329] dark:text-[#E1BA82] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <span className="animate-pulse">⚠</span> Cascade Risk
-                    Warning
-                  </p>
-                  <div className="space-y-1">
-                    {recommendation.cascade_warnings.map((w, i) => {
-                      const formattedWarning = w.replace(
-                        /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
-                        (match) => {
-                          const mv = recommendation.moves.find(
-                            (m) => m.operator_id === match,
-                          );
-                          return (
-                            mv?.operator_name || match.slice(0, 8).toUpperCase()
-                          );
-                        },
-                      );
-                      return (
-                        <p
-                          key={i}
-                          className="text-[10px] text-[#A77329] dark:text-[#E1BA82] leading-relaxed"
-                        >
-                          • {formattedWarning}
-                        </p>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
             <div className="p-4 flex items-center justify-between">
               <p className="text-[10px] text-[#9A9A9A] dark:text-zinc-500 uppercase tracking-widest hidden sm:block">
                 {recommendation?.recommended

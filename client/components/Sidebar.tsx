@@ -120,11 +120,11 @@ export function Sidebar({ pinned, onToggle }: SidebarProps) {
                         aria-current={isActive ? "page" : undefined}
                         className={`
                           group flex items-center gap-3 px-2.5 py-2 text-[13px] font-medium
-                          border-l-2 transition-colors duration-100
+                           transition-colors duration-100
                           focus-visible:outline-2 focus-visible:-outline-offset-2
                           focus-visible:outline-[#1A7C4B]
                           ${isActive
-                            ? "border-l-[#1A7C4B] bg-[#E6F1EC] dark:bg-[#0A321E]/40 text-[#1A7C4B] dark:text-[#47966F]"
+                            ? " bg-[#E6F1EC] dark:bg-[#0A321E]/40 text-[#1A7C4B] dark:text-[#47966F]"
                             : "border-l-transparent text-[#5F5F5F] dark:text-zinc-400 hover:bg-[#F8F8F8] dark:hover:bg-zinc-800/60 hover:text-[#242424] dark:hover:text-zinc-200"
                           }
                         `}
