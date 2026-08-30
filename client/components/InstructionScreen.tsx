@@ -1,8 +1,16 @@
 "use client";
 
+import { BlobCharacter } from "./BlobCharacter";
+
+const SCREEN_COLORS: Record<string, { bg: string; blob: string }> = {
+  "instructions-pss10":  { bg: "#F87171", blob: "#EF4444" },
+  "instructions-game1":  { bg: "#FB923C", blob: "#F97316" },
+  "instructions-game2":  { bg: "#60A5FA", blob: "#3B82F6" },
+};
+
 interface Props {
   step: string;
-  emoji: string;
+  stepKey: string; // used to pick color
   title: string;
   bullets: string[];
   actionLabel: string;
@@ -11,46 +19,54 @@ interface Props {
 
 export default function InstructionScreen({
   step,
-  emoji,
+  stepKey,
   title,
   bullets,
   actionLabel,
   onNext,
 }: Props) {
-  return (
-    <div className="flex flex-col items-center justify-center text-center gap-6 px-6 w-full h-full animate-in fade-in slide-in-from-right-4 duration-500 ease-out">
-      <span className="text-xs font-medium tracking-widest text-slate-400 uppercase">
-        {step}
-      </span>
+  const theme = SCREEN_COLORS[stepKey] ?? { bg: "#F87171", blob: "#EF4444" };
 
-      <div className="text-6xl animate-[bounce_3s_infinite_ease-in-out]">
-        {emoji}
+  return (
+    <div className="flex flex-col min-h-dvh overflow-hidden" style={{ backgroundColor: theme.bg }}>
+      {/* ── Character zone ──────────────────────────────── */}
+      <div className="flex-1 flex flex-col items-center justify-end pb-6 pt-14 relative">
+        <p
+          className="absolute top-6 left-6 text-xs font-bold uppercase tracking-widest text-white/60"
+        >
+          {step}
+        </p>
+        <BlobCharacter mood="curious" color={theme.blob} />
       </div>
 
-      <h2 className="text-xl font-medium text-slate-700">{title}</h2>
+      {/* ── Content zone ────────────────────────────────── */}
+      <div className="shrink-0 bg-[#1a1a1a] px-7 pt-8 pb-10">
+        <h1 className="text-4xl font-black text-white leading-[1.05] uppercase mb-6">
+          {title}
+        </h1>
 
-      <ul className="bg-white/80 backdrop-blur-sm rounded-[2rem] shadow-sm border border-slate-100 px-6 py-6 w-full max-w-sm text-left space-y-4">
-        {bullets.map((b, i) => (
-          <li
-            key={i}
-            className="flex gap-3 text-sm text-slate-600 leading-relaxed animate-in fade-in slide-in-from-left-2"
-            style={{
-              animationDelay: `${150 + i * 100}ms`,
-              animationFillMode: "both",
-            }}
-          >
-            <span className="text-indigo-400 font-bold">•</span>
-            <span>{b}</span>
-          </li>
-        ))}
-      </ul>
+        <ul className="space-y-3 mb-8">
+          {bullets.map((b, i) => (
+            <li key={i} className="flex gap-3 items-start">
+              <span
+                className="w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-xs font-black text-[#1a1a1a] mt-0.5"
+                style={{ backgroundColor: theme.bg }}
+              >
+                {i + 1}
+              </span>
+              <span className="text-sm text-white/70 leading-relaxed">{b}</span>
+            </li>
+          ))}
+        </ul>
 
-      <button
-        onClick={onNext}
-        className="select-none w-full max-w-sm bg-indigo-500 hover:bg-indigo-600 active:bg-indigo-700 text-white font-medium py-4 rounded-[2rem] shadow-sm transition-all duration-200 active:scale-95"
-      >
-        {actionLabel}
-      </button>
+        <button
+          onClick={onNext}
+          className="select-none w-full font-black text-lg py-5 rounded-2xl uppercase tracking-wide transition-all duration-150 active:scale-95 text-[#1a1a1a]"
+          style={{ backgroundColor: theme.bg }}
+        >
+          {actionLabel}
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { RankedBarList } from "../components/RankedBarList";
+import { RankedBarList } from "@/components/RankedBarList";
 
 export default function ProductionLinesPage() {
   const lines = [

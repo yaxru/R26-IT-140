@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Bottleneck } from "../types";
+import type { Bottleneck } from "@/app/(dashboard)/types";
 
 // ─── 1. Interactive Line Chart (Hourly Pace) ─────────────────────────────────
 

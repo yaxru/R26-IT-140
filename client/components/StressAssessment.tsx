@@ -114,7 +114,7 @@ export default function StressAssessment() {
   }
 
   return (
-    <div className="min-h-dvh flex items-center justify-center py-10 bg-[#FAFAFA] text-[#242424] transition-colors duration-700 ease-in-out">
+    <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-teal-50/30 to-violet-50/20 text-[#242424] transition-colors duration-700 ease-in-out">
       <ProgressBar progress={progress} />
 
       {error && (
@@ -126,7 +126,7 @@ export default function StressAssessment() {
       {/* The key prop forces React to unmount and remount, triggering the CSS fade-in animation */}
       <div
         key={fadeKey}
-        className={`w-full max-w-md transition-opacity duration-500 ease-in-out ${busy ? "opacity-50 pointer-events-none" : "opacity-100"} animate-[fadeIn_0.8s_ease-in-out]`}
+        className={`transition-opacity duration-500 ease-in-out ${busy ? "opacity-50 pointer-events-none" : "opacity-100"}`}
       >
         {step === "welcome" && (
           <WelcomeScreen
