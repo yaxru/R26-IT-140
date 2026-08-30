@@ -114,87 +114,46 @@ export default function PrecisionInflatorGame({
   const secondsLeft = Math.ceil(timeLeftMs / 1000);
   const timePct     = (timeLeftMs / TRIAL_DURATION_MS) * 100;
 
-  // Ball color: idle=white, pressing=white/off, target=yellow, burst=red bg
   const ballBg = burst ? "#EF4444" : inTarget ? "#FFCA28" : isHolding ? "#E5E7EB" : "#FFFFFF";
 
   return (
-    <div className="flex flex-col min-h-dvh overflow-hidden" style={{ backgroundColor: BG }}>
-      {/* Header */}
-      <div className="flex flex-col pt-12 px-7 pb-4 relative">
-        <p className="text-xs font-bold uppercase tracking-widest text-white/50 mb-1">
-          Game 2 · Precision Hold
-        </p>
-        <h1 className="text-4xl font-black text-white uppercase leading-tight">
-          Hold inside<br />the ring
-        </h1>
-        {/* Trial progress pips */}
-        <div className="flex gap-2 mt-4">
-          {Array.from({ length: TOTAL_TRIALS }).map((_, i) => (
-            <div
-              key={i}
-              className="h-2 w-10 rounded-full transition-all duration-400"
-              style={{
-                backgroundColor:
-                  i < trialIndex ? "rgba(255,255,255,0.9)"
-                  : i === trialIndex ? "rgba(255,255,255,0.5)"
-                  : "rgba(255,255,255,0.15)",
-              }}
-            />
-          ))}
-          <span className="ml-auto text-sm font-black text-white/60 uppercase">
-            Trial {trialIndex + 1}/{TOTAL_TRIALS}
-          </span>
-        </div>
+    <div className="flex flex-col h-full overflow-hidden relative" style={{ backgroundColor: BG }}>
+      <div className="absolute inset-0 pattern-stripes opacity-20 mix-blend-overlay pointer-events-none" />
+
+      <div className="absolute top-6 left-6 right-6 z-20 flex gap-2">
+        {Array.from({ length: TOTAL_TRIALS }).map((_, i) => (
+          <div
+            key={i}
+            className="h-2 flex-1 rounded-full transition-all duration-400"
+            style={{
+              backgroundColor:
+                i < trialIndex ? "rgba(255,255,255,0.9)"
+                : i === trialIndex ? "rgba(255,255,255,0.5)"
+                : "rgba(255,255,255,0.15)",
+            }}
+          />
+        ))}
       </div>
 
-      {/* Timer bar */}
-      <div className="mx-7 h-2 bg-white/15 rounded-full overflow-hidden mb-6">
+      <div className="absolute top-12 left-6 right-6 z-20 h-1.5 bg-black/20 rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-100"
-          style={{
-            width: `${timePct}%`,
-            backgroundColor: timePct > 50 ? "#FFCA28" : timePct > 20 ? "#F97316" : "#EF4444",
-          }}
+          style={{ width: `${timePct}%`, backgroundColor: timePct > 50 ? "#FFCA28" : timePct > 20 ? "#F97316" : "#EF4444" }}
         />
       </div>
 
       {/* Ring arena */}
-      <div
-        className={`flex-1 flex items-center justify-center transition-all duration-500 ${ready ? "opacity-100" : "opacity-0"}`}
-      >
+      <div className={`flex-1 flex items-center justify-center relative z-10 transition-all duration-500 ${ready ? "opacity-100" : "opacity-0"}`}>
         <div className="relative flex items-center justify-center" style={{ width: 260, height: 260 }}>
-          {/* Outer ring */}
           <div
             className="absolute rounded-full border-4 transition-colors duration-200"
-            style={{
-              width: RING_MAX * 260,
-              height: RING_MAX * 260,
-              borderColor: inTarget ? "#FFCA28" : "rgba(255,255,255,0.3)",
-              boxShadow: inTarget ? "0 0 0 0 rgba(255,202,40,0.4)" : "none",
-              animation: inTarget ? "pulseRing 1.4s ease-in-out infinite" : "none",
-            }}
+            style={{ width: RING_MAX * 260, height: RING_MAX * 260, borderColor: inTarget ? "#FFCA28" : "rgba(255,255,255,0.3)", boxShadow: inTarget ? "0 0 0 0 rgba(255,202,40,0.4)" : "none", animation: inTarget ? "pulseRing 1.4s ease-in-out infinite" : "none" }}
           />
-          {/* Inner ring — dashed */}
           <div
             className="absolute rounded-full border-2 border-dashed transition-colors duration-200"
-            style={{
-              width: RING_MIN * 260,
-              height: RING_MIN * 260,
-              borderColor: inTarget ? "rgba(255,202,40,0.6)" : "rgba(255,255,255,0.2)",
-            }}
+            style={{ width: RING_MIN * 260, height: RING_MIN * 260, borderColor: inTarget ? "rgba(255,202,40,0.6)" : "rgba(255,255,255,0.2)" }}
           />
 
-          {/* Labels */}
-          <span className="absolute text-[10px] font-black text-white/40 uppercase"
-            style={{ top: "50%", left: `calc(50% + ${(RING_MAX * 260) / 2 + 10}px)`, transform: "translateY(-50%)" }}>
-            MAX
-          </span>
-          <span className="absolute text-[10px] font-black text-white/40 uppercase"
-            style={{ top: "50%", left: `calc(50% + ${(RING_MIN * 260) / 2 + 10}px)`, transform: "translateY(-50%)" }}>
-            MIN
-          </span>
-
-          {/* The ball */}
           {!burst ? (
             <div
               onPointerDown={handlePointer}
@@ -202,16 +161,9 @@ export default function PrecisionInflatorGame({
               onPointerUp={release}
               onPointerLeave={release}
               className="select-none rounded-full touch-none z-10 cursor-pointer transition-all duration-[40ms] ease-out"
-              style={{
-                width: 80,
-                height: 80,
-                backgroundColor: ballBg,
-                transform: `scale(${ballScale})`,
-                boxShadow: inTarget ? "0 0 24px rgba(255,202,40,0.6)" : "0 4px 16px rgba(0,0,0,0.2)",
-              }}
+              style={{ width: 80, height: 80, backgroundColor: ballBg, transform: `scale(${ballScale})`, boxShadow: inTarget ? "0 0 24px rgba(255,202,40,0.6)" : "0 4px 16px rgba(0,0,0,0.2)" }}
             />
           ) : (
-            /* Burst state */
             <div className="relative flex items-center justify-center">
               <div className="absolute w-24 h-24 rounded-full bg-red-400/30 halo-grow" />
               <div className="absolute w-14 h-14 rounded-full bg-red-400/50 halo-grow" style={{ animationDelay: "0.1s" }} />
@@ -221,20 +173,15 @@ export default function PrecisionInflatorGame({
         </div>
       </div>
 
-      {/* Bottom status */}
-      <div className="px-7 pb-10">
-        <div className="bg-[#1a1a1a] rounded-2xl px-6 py-5 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-white/30 uppercase tracking-widest mb-1">Status</p>
-            <p className="text-lg font-black text-white uppercase">
-              {burst ? "Too hard!" : inTarget ? "On target!" : isHolding ? pressure < RING_MIN ? "Press harder" : "Ease off" : "Press & hold"}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-3xl font-black text-white tabular-nums">{secondsLeft}s</p>
-            <p className="text-xs font-bold text-white/30 uppercase tracking-widest">left</p>
-          </div>
-        </div>
+      {/* Bottom Status */}
+      <div className="h-[35%] shrink-0 bg-[#1a1a1a] px-6 pt-8 pb-8 flex flex-col items-center justify-center relative z-20">
+         <h1 className="text-3xl font-black text-white uppercase leading-tight mb-2 text-center">
+           {burst ? "Too hard!" : inTarget ? "On target!" : isHolding ? pressure < RING_MIN ? "Press harder" : "Ease off" : "Hold in ring"}
+         </h1>
+         <div className="flex items-baseline gap-2 mt-4 text-white/50">
+           <span className="text-5xl font-black text-white tabular-nums">{secondsLeft}</span>
+           <span className="text-sm font-bold uppercase tracking-widest">sec</span>
+         </div>
       </div>
     </div>
   );

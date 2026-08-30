@@ -2,15 +2,38 @@
 
 import { BlobCharacter } from "./BlobCharacter";
 
-const SCREEN_COLORS: Record<string, { bg: string; blob: string }> = {
-  "instructions-pss10":  { bg: "#F87171", blob: "#EF4444" },
-  "instructions-game1":  { bg: "#FB923C", blob: "#F97316" },
-  "instructions-game2":  { bg: "#60A5FA", blob: "#3B82F6" },
+const SCREEN_COLORS: Record<
+  string,
+  {
+    bg: string;
+    blob: string;
+    pattern: string;
+    mood: "curious" | "cheeky" | "sleepy";
+  }
+> = {
+  "instructions-pss10": {
+    bg: "#F87171",
+    blob: "#EF4444",
+    pattern: "pattern-dots",
+    mood: "curious",
+  },
+  "instructions-game1": {
+    bg: "#FB923C",
+    blob: "#F97316",
+    pattern: "pattern-zigzag",
+    mood: "cheeky",
+  },
+  "instructions-game2": {
+    bg: "#60A5FA",
+    blob: "#3B82F6",
+    pattern: "pattern-stripes",
+    mood: "sleepy",
+  },
 };
 
 interface Props {
   step: string;
-  stepKey: string; // used to pick color
+  stepKey: string;
   title: string;
   bullets: string[];
   actionLabel: string;
@@ -25,47 +48,64 @@ export default function InstructionScreen({
   actionLabel,
   onNext,
 }: Props) {
-  const theme = SCREEN_COLORS[stepKey] ?? { bg: "#F87171", blob: "#EF4444" };
+  const theme = SCREEN_COLORS[stepKey] ?? {
+    bg: "#F87171",
+    blob: "#EF4444",
+    pattern: "pattern-dots",
+    mood: "curious",
+  };
 
   return (
-    <div className="flex flex-col min-h-dvh overflow-hidden" style={{ backgroundColor: theme.bg }}>
-      {/* ── Character zone ──────────────────────────────── */}
-      <div className="flex-1 flex flex-col items-center justify-end pb-6 pt-14 relative">
-        <p
-          className="absolute top-6 left-6 text-xs font-bold uppercase tracking-widest text-white/60"
-        >
-          {step}
-        </p>
-        <BlobCharacter mood="curious" color={theme.blob} />
+    <div
+      className="flex flex-col h-dvh w-full overflow-hidden relative"
+      style={{ backgroundColor: theme.bg }}
+    >
+      <div
+        className={`absolute inset-0 ${theme.pattern} opacity-20 mix-blend-overlay pointer-events-none`}
+      />
+
+      <div className="flex-1 w-full flex flex-col relative z-10">
+        <div className="w-full max-w-md mx-auto flex-1 flex flex-col items-center justify-end pb-4 relative">
+          <p className="absolute top-6 left-6 text-xs font-bold uppercase tracking-widest text-white/60">
+            {step}
+          </p>
+          <BlobCharacter mood={theme.mood} color={theme.blob} />
+        </div>
       </div>
 
-      {/* ── Content zone ────────────────────────────────── */}
-      <div className="shrink-0 bg-[#1a1a1a] px-7 pt-8 pb-10">
-        <h1 className="text-4xl font-black text-white leading-[1.05] uppercase mb-6">
-          {title}
-        </h1>
+      <div className="h-[50%] shrink-0 w-full bg-[#1a1a1a] relative z-20">
+        <div className="w-full max-w-md mx-auto h-full px-6 py-6 flex flex-col items-center justify-center text-center">
+          <h1 className="text-4xl font-black text-white leading-[1.05] uppercase mb-5 whitespace-pre-line shrink-0">
+            {title}
+          </h1>
 
-        <ul className="space-y-3 mb-8">
-          {bullets.map((b, i) => (
-            <li key={i} className="flex gap-3 items-start">
-              <span
-                className="w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-xs font-black text-[#1a1a1a] mt-0.5"
-                style={{ backgroundColor: theme.bg }}
+          <ul className="flex flex-col gap-2.5 w-full mb-6 text-left shrink-0">
+            {bullets.map((b, i) => (
+              <li
+                key={i}
+                className="flex gap-4 items-start w-full bg-white/5 p-3 rounded-2xl"
               >
-                {i + 1}
-              </span>
-              <span className="text-sm text-white/70 leading-relaxed">{b}</span>
-            </li>
-          ))}
-        </ul>
+                <span
+                  className="w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-sm font-black text-[#1a1a1a]"
+                  style={{ backgroundColor: theme.bg }}
+                >
+                  {i + 1}
+                </span>
+                <span className="text-sm font-semibold text-white/80 leading-snug pt-1">
+                  {b}
+                </span>
+              </li>
+            ))}
+          </ul>
 
-        <button
-          onClick={onNext}
-          className="select-none w-full font-black text-lg py-5 rounded-2xl uppercase tracking-wide transition-all duration-150 active:scale-95 text-[#1a1a1a]"
-          style={{ backgroundColor: theme.bg }}
-        >
-          {actionLabel}
-        </button>
+          <button
+            onClick={onNext}
+            className="select-none shrink-0 w-full font-black text-lg py-4 rounded-2xl uppercase tracking-wide transition-all duration-150 active:scale-95 text-[#1a1a1a]"
+            style={{ backgroundColor: theme.bg }}
+          >
+            {actionLabel}
+          </button>
+        </div>
       </div>
     </div>
   );

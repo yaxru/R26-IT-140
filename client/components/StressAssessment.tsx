@@ -111,20 +111,28 @@ export default function StressAssessment() {
         bg="#FFCA28"
         label="Loading"
         text="Getting things ready…"
+        pattern="pattern-dots"
       />
     );
   }
 
   if (error && !session) {
-    return <SplashMessage bg="#F87171" label="Error" text={error} />;
+    return (
+      <SplashMessage
+        bg="#F87171"
+        label="Error"
+        text={error}
+        pattern="pattern-zigzag"
+      />
+    );
   }
 
   return (
-    <div className="min-h-dvh bg-[#1a1a1a]">
+    <div className="min-h-dvh w-full bg-[#1a1a1a] relative overflow-hidden">
       <ProgressBar progress={progress} />
 
       {error && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#F87171] text-white text-xs font-bold px-5 py-3 rounded-2xl z-50 uppercase tracking-widest">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-[#F87171] text-white text-xs font-bold px-5 py-3 rounded-2xl z-50 uppercase tracking-widest text-center w-[90%] max-w-md shadow-xl">
           {error}
         </div>
       )}
@@ -132,7 +140,7 @@ export default function StressAssessment() {
       {/* key forces remount on each step transition */}
       <div
         key={fadeKey}
-        className={`transition-opacity duration-300 ease-in-out ${busy ? "opacity-40 pointer-events-none" : "opacity-100"}`}
+        className={`w-full h-dvh transition-opacity duration-300 ease-in-out ${busy ? "opacity-40 pointer-events-none" : "opacity-100"}`}
       >
         {step === "welcome" && (
           <WelcomeScreen
@@ -206,23 +214,37 @@ function SplashMessage({
   bg,
   label,
   text,
+  pattern,
 }: {
   bg: string;
   label: string;
   text: string;
+  pattern?: string;
 }) {
   return (
     <div
-      className="min-h-dvh flex flex-col items-center justify-end pb-16 px-7"
+      className="min-h-dvh w-full flex flex-col relative"
       style={{ backgroundColor: bg }}
     >
-      <div className="bg-[#1a1a1a] w-full rounded-2xl p-8">
-        <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-2">
-          {label}
-        </p>
-        <p className="text-2xl font-black text-white uppercase leading-snug">
-          {text}
-        </p>
+      <div
+        className={`absolute inset-0 opacity-10 mix-blend-overlay pointer-events-none ${pattern || ""}`}
+      />
+
+      {/* Top half loader */}
+      <div className="flex-1 w-full flex items-center justify-center relative z-10">
+        <div className="w-16 h-16 border-4 border-white/20 border-t-white/80 rounded-full animate-spin" />
+      </div>
+
+      {/* Bottom half text */}
+      <div className="h-[45%] shrink-0 w-full bg-[#1a1a1a] relative z-20">
+        <div className="w-full max-w-md mx-auto h-full px-7 flex flex-col items-center justify-center text-center">
+          <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-2">
+            {label}
+          </p>
+          <p className="text-2xl font-black text-white uppercase leading-snug">
+            {text}
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -6,13 +6,14 @@ import { usePressureCapture } from "@/lib/stress/usePressureCapture";
 const EGG_COUNT = 9;
 const BURST_PRESSURE = 0.72;
 const BG = "#FB923C"; // solid orange
-const EGG_IDLE   = "#fff";
-const EGG_CRACK  = "#D1FAE5";
-const EGG_BURST  = "#FEE2E2";
 
 type EggState = "idle" | "cracked" | "burst";
 
-interface Ripple { id: number; x: number; y: number }
+interface Ripple {
+  id: number;
+  x: number;
+  y: number;
+}
 
 export default function EggCrackerGame({
   onComplete,
@@ -20,17 +21,17 @@ export default function EggCrackerGame({
   onComplete: (pressures: number[], responseTimeMs: number) => void;
 }) {
   const [eggs, setEggs] = useState<EggState[]>(
-    Array.from({ length: EGG_COUNT }, () => "idle")
+    Array.from({ length: EGG_COUNT }, () => "idle"),
   );
   const [shakingIdx, setShakingIdx] = useState<number | null>(null);
   const [ripples, setRipples] = useState<Ripple[][]>(
-    Array.from({ length: EGG_COUNT }, () => [])
+    Array.from({ length: EGG_COUNT }, () => []),
   );
   const [ready, setReady] = useState(false);
 
-  const startTime   = useRef(performance.now());
-  const firstTap    = useRef<number | null>(null);
-  const rippleId    = useRef(0);
+  const startTime = useRef(performance.now());
+  const firstTap = useRef<number | null>(null);
+  const rippleId = useRef(0);
   const { record, getSamples } = usePressureCapture();
 
   const remaining = eggs.filter((e) => e === "idle").length;
@@ -73,7 +74,11 @@ export default function EggCrackerGame({
     record(e);
 
     const rect = e.currentTarget.getBoundingClientRect();
-    addRipple(idx, ((e.clientX - rect.left) / rect.width) * 100, ((e.clientY - rect.top) / rect.height) * 100);
+    addRipple(
+      idx,
+      ((e.clientX - rect.left) / rect.width) * 100,
+      ((e.clientY - rect.top) / rect.height) * 100,
+    );
 
     const pressure = e.pressure && e.pressure > 0 ? e.pressure : 0.5;
     const isBurst = pressure > BURST_PRESSURE;
@@ -91,111 +96,83 @@ export default function EggCrackerGame({
   }
 
   return (
-    <div className="flex flex-col min-h-dvh overflow-hidden" style={{ backgroundColor: BG }}>
-      {/* Top header zone */}
-      <div className="flex flex-col items-start pt-12 px-7 pb-6 relative">
-        <p className="text-xs font-bold uppercase tracking-widest text-[#1a1a1a]/50 mb-1">
-          Game 1 · Egg Cracker
-        </p>
-        <h1 className="text-4xl font-black text-[#1a1a1a] uppercase leading-tight">
-          Tap gently<br />to crack
-        </h1>
-        {/* Pip row */}
-        <div className="flex gap-1.5 mt-4">
-          {Array.from({ length: EGG_COUNT }).map((_, i) => (
-            <div
-              key={i}
-              className="h-2 w-2 rounded-full transition-all duration-300"
-              style={{
-                backgroundColor:
-                  eggs[i] === "cracked"
-                    ? "#15803D"
-                    : eggs[i] === "burst"
-                    ? "#DC2626"
-                    : "rgba(0,0,0,0.2)",
-              }}
-            />
-          ))}
-        </div>
-        <p className="text-sm font-bold text-[#1a1a1a]/60 mt-2 uppercase tracking-wide">
-          {remaining} eggs left
-        </p>
-      </div>
+    <div
+      className="flex flex-col h-dvh w-full overflow-hidden relative"
+      style={{ backgroundColor: BG }}
+    >
+      <div className="absolute inset-0 pattern-zigzag opacity-20 mix-blend-overlay pointer-events-none" />
 
-      {/* Egg grid */}
-      <div className="flex-1 flex items-center justify-center px-7">
-        <div
-          className={`grid grid-cols-3 gap-4 w-full max-w-xs transition-all duration-500 ${ready ? "opacity-100" : "opacity-0"}`}
-        >
-          {eggs.map((egg, idx) => (
-            <button
-              key={idx}
-              disabled={egg !== "idle"}
-              onPointerDown={(e) => tapEgg(idx, e)}
-              className={`
-                relative select-none aspect-square rounded-3xl flex items-center justify-center
-                text-3xl touch-none overflow-hidden border-2 transition-all duration-200
-                disabled:cursor-default
-                ${egg === "idle" ? "active:scale-90 hover:scale-105" : ""}
-                ${shakingIdx === idx ? "egg-shake" : ""}
-              `}
-              style={{
-                backgroundColor:
-                  egg === "idle" ? EGG_IDLE : egg === "cracked" ? EGG_CRACK : EGG_BURST,
-                borderColor:
-                  egg === "idle" ? "rgba(0,0,0,0.08)" : egg === "cracked" ? "#6EE7B7" : "#FCA5A5",
-              }}
-            >
-              {/* Ripples */}
-              {ripples[idx].map((r) => (
-                <span
-                  key={r.id}
-                  className="absolute rounded-full ripple-enter pointer-events-none"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    left: `${r.x}%`,
-                    top: `${r.y}%`,
-                    transform: "translate(-50%, -50%)",
-                    background: egg === "burst" ? "rgba(220,38,38,0.25)" : "rgba(21,128,61,0.2)",
-                  }}
-                />
-              ))}
-              {/* State labels (no emoji — text only) */}
-              <span
-                className="absolute text-xs font-black uppercase tracking-wide transition-all duration-200"
-                style={{
-                  color:
-                    egg === "idle"
-                      ? "rgba(0,0,0,0.6)"
-                      : egg === "cracked"
-                      ? "#15803D"
-                      : "#DC2626",
-                  opacity: egg === "idle" ? 0 : 1,
-                }}
+      {/* Top Header zone */}
+      <div className="flex-1 w-full flex flex-col items-center justify-center relative z-10 px-6">
+        <div className="w-full max-w-[280px] mx-auto">
+          <div className="flex justify-between items-center mb-6">
+            <p className="text-xs font-bold uppercase tracking-widest text-black/50">
+              Game 1
+            </p>
+            <p className="text-xs font-black uppercase tracking-widest bg-black/10 px-3 py-1 rounded-full text-black/70">
+              {remaining} left
+            </p>
+          </div>
+
+          <div
+            className={`grid grid-cols-3 gap-4 w-full transition-all duration-500 ${ready ? "opacity-100 scale-100" : "opacity-0 scale-95"}`}
+          >
+            {eggs.map((egg, idx) => (
+              <button
+                key={idx}
+                disabled={egg !== "idle"}
+                onPointerDown={(e) => tapEgg(idx, e)}
+                className={`
+                  relative select-none aspect-square rounded-[2rem] flex items-center justify-center
+                  text-4xl touch-none overflow-hidden transition-all duration-200
+                  disabled:cursor-default bg-white/20 backdrop-blur-sm border border-white/30
+                  ${egg === "idle" ? "active:scale-90 hover:scale-105" : ""}
+                  ${shakingIdx === idx ? "egg-shake" : ""}
+                `}
               >
-                {egg === "cracked" ? "✓" : egg === "burst" ? "✕" : ""}
-              </span>
-              {/* Egg shape — idle */}
-              {egg === "idle" && (
-                <div
-                  className="w-8 h-10 transition-all duration-300"
-                  style={{
-                    backgroundColor: "#d4d4d4",
-                    borderRadius: "50% 50% 50% 50% / 60% 60% 40% 40%",
-                  }}
-                />
-              )}
-            </button>
-          ))}
+                {/* Ripples */}
+                {ripples[idx].map((r) => (
+                  <span
+                    key={r.id}
+                    className="absolute rounded-full ripple-enter pointer-events-none"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      left: `${r.x}%`,
+                      top: `${r.y}%`,
+                      transform: "translate(-50%, -50%)",
+                      background:
+                        egg === "burst"
+                          ? "rgba(220,38,38,0.4)"
+                          : "rgba(255,255,255,0.4)",
+                    }}
+                  />
+                ))}
+
+                {/* Emojis are back as requested */}
+                <span
+                  className={`relative z-10 drop-shadow-sm transition-transform duration-300 ${egg !== "idle" ? "anim-popIn" : ""}`}
+                >
+                  {egg === "cracked" ? "🐣" : egg === "burst" ? "💥" : "🥚"}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Bottom hint */}
-      <div className="px-7 pb-10">
-        <p className="text-xs font-bold text-[#1a1a1a]/50 uppercase tracking-widest text-center">
-          Light = crack · Hard = burst
-        </p>
+      {/* Bottom Hint Zone */}
+      <div className="h-[35%] shrink-0 w-full bg-[#1a1a1a] relative z-20">
+        <div className="w-full max-w-md mx-auto h-full px-6 flex flex-col items-center justify-center text-center">
+          <h1 className="text-3xl font-black text-white uppercase leading-tight mb-3">
+            Tap gently
+            <br />
+            to crack
+          </h1>
+          <p className="text-sm font-bold text-white/40 uppercase tracking-widest text-center">
+            Light = crack · Hard = burst
+          </p>
+        </div>
       </div>
     </div>
   );
