@@ -6,6 +6,7 @@ import {
   type FlaggedEmployee,
   type LaborEntry,
 } from "@/lib/risk-analyze/api";
+import { AlertTriangle, ChevronRight, Minus } from "lucide-react";
 
 type OperatorUser = {
   id: string;
@@ -19,30 +20,36 @@ type EmployeeAnalytics = {
   id: string;
   name: string;
   worker_id: string | null;
-  totalSubmissions: number;
-  todaySubmissions: number;
-  avgEfficiency: number;
+  todayEntries: LaborEntry[];
+  historyEntries: LaborEntry[];
+  todayAvgEfficiency: number | null;
+  historyAvgEfficiency: number | null;
   trend: Trend;
-  latestStatus: "HIGH" | "MEDIUM" | "LOW";
-  riskLevel: "LOW" | "MEDIUM" | "HIGH" | null;
-  isOutlier: boolean;
+  latestTodayStatus: "HIGH" | "MEDIUM" | "LOW" | null;
+  latestTodayRisk: "LOW" | "MEDIUM" | "HIGH" | null;
+  isOutlierToday: boolean;
   isFlagged: boolean;
-  lastSubmittedAt: string;
-  recentEntries: LaborEntry[];
+  lastSubmittedAt: string | null;
 };
 
-function computeTrend(mostRecentFirst: LaborEntry[]): Trend {
-  if (mostRecentFirst.length < 6) return "NOT_ENOUGH_DATA";
-  const last3 =
-    mostRecentFirst.slice(0, 3).reduce((s, e) => s + Number(e.efficiency), 0) /
-    3;
-  const prev3 =
-    mostRecentFirst.slice(3, 6).reduce((s, e) => s + Number(e.efficiency), 0) /
-    3;
-  if (last3 > prev3) return "IMPROVING";
-  if (last3 < prev3) return "DECLINING";
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function computeTrend(
+  todayAvg: number | null,
+  historyAvg: number | null,
+): Trend {
+  if (todayAvg === null || historyAvg === null) return "NOT_ENOUGH_DATA";
+  if (todayAvg > historyAvg + 3) return "IMPROVING";
+  if (todayAvg < historyAvg - 3) return "DECLINING";
   return "STABLE";
 }
+
+function fmt(n: number | null | undefined, digits = 1) {
+  if (n == null) return "—";
+  return Number(n).toFixed(digits);
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function RiskAnalyzePage() {
   const [ready, setReady] = useState(false);
@@ -60,8 +67,8 @@ export default function RiskAnalyzePage() {
       setUsers(u);
       setFlagged(f);
       setEntries(e);
-    } catch {
-      /* keep last known state */
+    } catch (err) {
+      console.error("Failed to load risk analysis data", err);
     } finally {
       setReady(true);
     }
@@ -76,6 +83,9 @@ export default function RiskAnalyzePage() {
     [flagged],
   );
 
+  // Today's date in YYYY-MM-DD format (local time)
+  const todayStr = new Date().toLocaleDateString("en-CA");
+
   const employeeAnalytics = useMemo<EmployeeAnalytics[]>(() => {
     const byLaborer = new Map<string, LaborEntry[]>();
     for (const e of entries) {
@@ -85,61 +95,89 @@ export default function RiskAnalyzePage() {
       else byLaborer.set(idStr, [e]);
     }
 
-    const todayStr = new Date().toISOString().slice(0, 10);
     const rows: EmployeeAnalytics[] = [];
 
     for (const [operatorId, rawEntries] of byLaborer) {
-      if (rawEntries.length === 0) continue;
-
-      const sorted = [...rawEntries].sort((a, b) => {
-        const aKey = `${a.date}T${a.time}`;
-        const bKey = `${b.date}T${b.time}`;
-        return bKey.localeCompare(aKey);
-      });
-
-      const latest = sorted[0];
       const user = users.find((u) => u.id === operatorId);
 
-      const avgEfficiency =
-        rawEntries.reduce((sum, e) => sum + Number(e.efficiency), 0) /
-        rawEntries.length;
+      const todayEntries = rawEntries
+        .filter((e) => e.date === todayStr)
+        .sort((a, b) => b.time.localeCompare(a.time));
+      const historyEntries = rawEntries
+        .filter((e) => e.date !== todayStr)
+        .sort((a, b) =>
+          `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`),
+        );
+
+      const latestToday = todayEntries.length > 0 ? todayEntries[0] : null;
+      const latestOverall = rawEntries.sort((a, b) =>
+        `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`),
+      )[0];
+
+      const todayAvg =
+        todayEntries.length > 0
+          ? todayEntries.reduce((sum, e) => sum + Number(e.efficiency), 0) /
+            todayEntries.length
+          : null;
+
+      const historyAvg =
+        historyEntries.length > 0
+          ? historyEntries.reduce((sum, e) => sum + Number(e.efficiency), 0) /
+            historyEntries.length
+          : null;
 
       rows.push({
         id: operatorId,
         name:
-          latest.laborer_name ||
+          latestOverall?.laborer_name ||
           user?.name ||
           `Employee #${operatorId.slice(0, 6)}`,
-        worker_id: latest.employee_code ?? user?.worker_id ?? null,
-        totalSubmissions: rawEntries.length,
-        todaySubmissions: rawEntries.filter((e) => e.date === todayStr).length,
-        avgEfficiency,
-        trend: computeTrend(sorted),
-        latestStatus: latest.status as "HIGH" | "MEDIUM" | "LOW",
-        riskLevel: latest.risk_level as "LOW" | "MEDIUM" | "HIGH" | null,
-        isOutlier: latest.is_outlier ?? false,
+        worker_id: latestOverall?.employee_code ?? user?.worker_id ?? null,
+        todayEntries,
+        historyEntries,
+        todayAvgEfficiency: todayAvg,
+        historyAvgEfficiency: historyAvg,
+        trend: computeTrend(todayAvg, historyAvg),
+        latestTodayStatus: latestToday
+          ? (latestToday.status as "HIGH" | "MEDIUM" | "LOW")
+          : null,
+        latestTodayRisk: latestToday
+          ? (latestToday.risk_level as "LOW" | "MEDIUM" | "HIGH" | null)
+          : null,
+        isOutlierToday: latestToday?.is_outlier ?? false,
         isFlagged: flaggedIds.has(operatorId),
-        lastSubmittedAt: `${latest.date}T${latest.time}`,
-        recentEntries: sorted,
+        lastSubmittedAt: latestToday
+          ? `${latestToday.date}T${latestToday.time}`
+          : null,
       });
     }
 
-    const riskRank = (r: EmployeeAnalytics) => {
-      if (r.isFlagged) return 0;
-      if (r.riskLevel === "HIGH" || r.isOutlier) return 1;
-      if (r.riskLevel === "MEDIUM") return 2;
-      return 3;
-    };
-
     return rows.sort((a, b) => {
-      const rankDiff = riskRank(a) - riskRank(b);
-      if (rankDiff !== 0) return rankDiff;
-      return a.avgEfficiency - b.avgEfficiency;
-    });
-  }, [entries, users, flaggedIds]);
+      if (a.isFlagged && !b.isFlagged) return -1;
+      if (!a.isFlagged && b.isFlagged) return 1;
 
-  const today = new Date().toISOString().slice(0, 10);
-  const todaysEntries = entries.filter((e) => e.date === today);
+      const aRisk =
+        a.latestTodayRisk === "HIGH" || a.isOutlierToday
+          ? 2
+          : a.latestTodayRisk === "MEDIUM"
+            ? 1
+            : 0;
+      const bRisk =
+        b.latestTodayRisk === "HIGH" || b.isOutlierToday
+          ? 2
+          : b.latestTodayRisk === "MEDIUM"
+            ? 1
+            : 0;
+      if (aRisk !== bRisk) return bRisk - aRisk;
+
+      if (a.todayEntries.length > 0 && b.todayEntries.length === 0) return -1;
+      if (a.todayEntries.length === 0 && b.todayEntries.length > 0) return 1;
+
+      return (a.todayAvgEfficiency || 0) - (b.todayAvgEfficiency || 0);
+    });
+  }, [entries, users, flaggedIds, todayStr]);
+
+  const todaysEntries = entries.filter((e) => e.date === todayStr);
   const employeeCount = users.length;
 
   const avgEfficiencyToday =
@@ -155,8 +193,8 @@ export default function RiskAnalyzePage() {
   if (!ready) {
     return (
       <main className="min-h-screen bg-[#F8F8F8] dark:bg-[#030C08] flex items-center justify-center">
-        <span className="font-mono text-[11px] text-[#9A9A9A] tracking-widest uppercase">
-          Loading analysis…
+        <span className="font-mono text-[11px] text-[#9A9A9A] tracking-widest uppercase animate-pulse">
+          Loading live analysis…
         </span>
       </main>
     );
@@ -164,66 +202,56 @@ export default function RiskAnalyzePage() {
 
   return (
     <main className="min-h-screen bg-[#F8F8F8] dark:bg-[#030C08] text-[#242424] dark:text-zinc-200 flex flex-col">
-      {/* ── Header & KPI Strip ── */}
-      <section className="border-b border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113] flex flex-col lg:flex-row shrink-0">
-        <div className="lg:w-1/3 p-6 lg:p-8 border-b lg:border-b-0 lg:border-r border-[#EAEAEA] dark:border-zinc-800 flex flex-col justify-center">
-          <div className="text-[10px] font-medium uppercase tracking-widest text-[#9A9A9A] dark:text-zinc-500 mb-1">
-            Reports & Analytics
-          </div>
-          <h1 className="text-xl font-bold tracking-tight text-[#242424] dark:text-zinc-100">
-            Real-Time Risk Analysis
+      <header className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-6 py-4 flex items-center justify-between bg-white dark:bg-[#111113]">
+        <div>
+          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-0.5">
+            Core Pipeline · Execution
+          </p>
+          <h1 className="text-lg font-bold text-[#242424] dark:text-zinc-100 tracking-tight">
+            Live Input & Risk Analysis
           </h1>
-          <p className="text-xs text-[#5F5F5F] dark:text-zinc-400 mt-2 max-w-sm leading-relaxed">
-            Monitor operator performance trends, identify bottlenecks, and
-            review high-risk output submissions.
+        </div>
+        <div className="hidden sm:block">
+          <p className="text-xs text-[#5F5F5F] dark:text-zinc-400 max-w-sm text-right">
+            Monitor operator performance trends and high-risk outputs strictly
+            based on today's active shift data.
           </p>
         </div>
+      </header>
 
-        <div className="lg:w-2/3 grid grid-cols-2 md:grid-cols-4">
-          <KpiTile
-            label="Monitored Staff"
-            value={employeeCount}
-            borderRight
-            borderBottom
-            className="md:border-b-0"
-          />
-          <KpiTile
-            label="Active Flags"
-            value={flagged.length}
-            tone={flagged.length > 0 ? "amber" : "default"}
-            borderRight
-            className="md:border-r"
-            borderBottom
-          />
-          <KpiTile
-            label="Avg Efficiency"
-            value={
-              avgEfficiencyToday != null
-                ? `${avgEfficiencyToday.toFixed(1)}%`
-                : "—"
-            }
-            tone={
-              avgEfficiencyToday && avgEfficiencyToday < 75
-                ? "amber"
-                : avgEfficiencyToday && avgEfficiencyToday >= 90
-                  ? "green"
-                  : "default"
-            }
-            borderRight
-          />
-          <KpiTile
-            label="High-Risk Submissions"
-            value={highRiskToday}
-            tone={highRiskToday > 0 ? "amber" : "default"}
-          />
-        </div>
+      <section className="border-b border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113] grid grid-cols-2 lg:grid-cols-4 shrink-0">
+        <KpiTile label="Monitored Staff" value={employeeCount} />
+        <KpiTile
+          label="Active Flags"
+          value={flagged.length}
+          tone={flagged.length > 0 ? "amber" : "default"}
+        />
+        <KpiTile
+          label="Today's Factory Eff"
+          value={
+            avgEfficiencyToday != null
+              ? `${avgEfficiencyToday.toFixed(1)}%`
+              : "—"
+          }
+          tone={
+            avgEfficiencyToday && avgEfficiencyToday < 75
+              ? "amber"
+              : avgEfficiencyToday && avgEfficiencyToday >= 90
+                ? "green"
+                : "default"
+          }
+        />
+        <KpiTile
+          label="High-Risk Inputs"
+          value={highRiskToday}
+          tone={highRiskToday > 0 ? "amber" : "default"}
+        />
       </section>
 
-      {/* ── Employee Analysis Grid ── */}
-      <section className="flex-1 bg-white dark:bg-[#111113]">
-        <div className="px-6 py-4 border-b border-[#EAEAEA] dark:border-zinc-800 flex items-center justify-between bg-[#F8F8F8] dark:bg-zinc-900/40">
+      <section className="flex-1 bg-[#FAFAFA] dark:bg-[#0a0a0c] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-[#EAEAEA] dark:border-zinc-800 flex items-center justify-between bg-white dark:bg-[#111113] sticky top-0 z-10 shadow-sm">
           <div className="text-[10px] font-bold uppercase tracking-widest text-[#5F5F5F] dark:text-zinc-400">
-            Operator Performance Matrix
+            Live Operator Matrix
           </div>
           <div className="text-[10px] font-mono text-[#9A9A9A] dark:text-zinc-500">
             {employeeAnalytics.length} RECORDS FOUND
@@ -235,7 +263,7 @@ export default function RiskAnalyzePage() {
             No entries logged yet.
           </div>
         ) : (
-          <div className="divide-y divide-[#EAEAEA] dark:divide-zinc-800">
+          <div className="flex flex-col border-b border-[#EAEAEA] dark:border-zinc-800">
             {employeeAnalytics.map((emp) => (
               <EmployeeAnalyticsCard key={emp.id} employee={emp} />
             ))}
@@ -252,16 +280,10 @@ function KpiTile({
   label,
   value,
   tone = "default",
-  borderRight,
-  borderBottom,
-  className = "",
 }: {
   label: string;
   value: string | number;
   tone?: "default" | "green" | "amber";
-  borderRight?: boolean;
-  borderBottom?: boolean;
-  className?: string;
 }) {
   const colorClass =
     tone === "green"
@@ -269,17 +291,8 @@ function KpiTile({
       : tone === "amber"
         ? "text-[#CE8E33] dark:text-[#D7A45A]"
         : "text-[#242424] dark:text-zinc-100";
-  const borderR = borderRight
-    ? "border-r border-[#EAEAEA] dark:border-zinc-800"
-    : "";
-  const borderB = borderBottom
-    ? "border-b border-[#EAEAEA] dark:border-zinc-800"
-    : "";
-
   return (
-    <div
-      className={`p-6 flex flex-col justify-center ${borderR} ${borderB} ${className}`}
-    >
+    <div className="p-5 border-r border-b lg:border-b-0 border-[#EAEAEA] dark:border-zinc-800 last:border-r-0 flex flex-col justify-center">
       <div className="text-[10px] uppercase tracking-widest text-[#9A9A9A] dark:text-zinc-500 mb-1">
         {label}
       </div>
@@ -313,7 +326,7 @@ function TrendBadge({ trend }: { trend: Trend }) {
       glyph: "▬",
     },
     NOT_ENOUGH_DATA: {
-      label: "Not enough data",
+      label: "No Baseline",
       className: "text-[#9A9A9A] dark:text-zinc-600",
       glyph: "·",
     },
@@ -321,27 +334,14 @@ function TrendBadge({ trend }: { trend: Trend }) {
   const m = meta[trend];
   return (
     <span
-      className={`font-mono text-[10px] font-bold uppercase tracking-widest inline-flex items-center gap-1 ${m.className}`}
+      className={`font-mono text-[10px] font-bold uppercase tracking-widest inline-flex items-center gap-1.5 ${m.className}`}
     >
-      <span aria-hidden className="text-[8px]">
+      <span aria-hidden className="text-[9px]">
         {m.glyph}
-      </span>
-      {m.label}
+      </span>{" "}
+      {m.label} vs History
     </span>
   );
-}
-
-function StatusTag({ status }: { status: string }) {
-  const baseClasses =
-    "inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest border";
-  const colorClasses =
-    status === "HIGH"
-      ? "bg-[#E6F1EC] dark:bg-[#0A321E] text-[#1A7C4B] dark:text-[#47966F] border-[#1A7C4B]/20"
-      : status === "MEDIUM"
-        ? "bg-[#FDFBF8] dark:bg-amber-950/30 text-[#CE8E33] dark:text-[#D7A45A] border-[#CE8E33]/20"
-        : "bg-[#F1F1F1] dark:bg-zinc-800 text-[#5F5F5F] dark:text-zinc-400 border-[#9A9A9A]/20";
-
-  return <span className={`${baseClasses} ${colorClasses}`}>{status}</span>;
 }
 
 function RiskTag({
@@ -359,25 +359,43 @@ function RiskTag({
   const colorClasses =
     level === "LOW"
       ? "bg-[#E6F1EC] dark:bg-[#0A321E] text-[#1A7C4B] dark:text-[#47966F] border-[#1A7C4B]/20"
-      : level === "MEDIUM"
-        ? "bg-[#FDFBF8] dark:bg-amber-950/30 text-[#CE8E33] dark:text-[#D7A45A] border-[#CE8E33]/20"
-        : "bg-[#FDFBF8] dark:bg-amber-950/30 text-[#CE8E33] dark:text-[#D7A45A] border-[#CE8E33]/20";
+      : "bg-[#FDFBF8] dark:bg-amber-950/30 text-[#CE8E33] dark:text-[#D7A45A] border-[#CE8E33]/20";
 
   return (
     <span className={`${baseClasses} ${colorClasses}`}>
-      {level} RISK
-      {outlier ? " · OUTLIER" : ""}
+      {level} RISK {outlier ? " · OUTLIER" : ""}
     </span>
   );
 }
 
 function EmployeeAnalyticsCard({ employee }: { employee: EmployeeAnalytics }) {
   const [expanded, setExpanded] = useState(false);
+  const hasInputToday = employee.todayEntries.length > 0;
+
+  // Process historical data to build the "Past 5 Shifts" view
+  const dailyHistory = useMemo(() => {
+    const grouped = new Map<string, number[]>();
+    employee.historyEntries.forEach((e) => {
+      const arr = grouped.get(e.date) || [];
+      arr.push(Number(e.efficiency));
+      grouped.set(e.date, arr);
+    });
+    return Array.from(grouped.entries())
+      .map(([date, effs]) => ({
+        date,
+        avg: effs.reduce((a, b) => a + b, 0) / effs.length,
+        count: effs.length,
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date)) // Most recent first
+      .slice(0, 5); // Take top 5
+  }, [employee.historyEntries]);
 
   return (
-    <div className="bg-transparent hover:bg-[#F8F8F8] dark:hover:bg-zinc-900/30 transition-colors">
+    <div
+      className={`border-b border-[#EAEAEA] dark:border-zinc-800 transition-colors ${employee.isFlagged ? "bg-[#FDFBF8]/50 dark:bg-[#1A1510]/50" : "bg-white dark:bg-[#111113] hover:bg-[#F8F8F8] dark:hover:bg-zinc-900/50"}`}
+    >
       <div
-        className="w-full flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 md:p-6 cursor-pointer"
+        className="w-full flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 cursor-pointer"
         onClick={() => setExpanded((v) => !v)}
       >
         <div className="flex-1 min-w-0">
@@ -386,172 +404,136 @@ function EmployeeAnalyticsCard({ employee }: { employee: EmployeeAnalytics }) {
               {employee.name}
             </h3>
             {employee.worker_id && (
-              <span className="font-mono text-[10px] text-[#9A9A9A] dark:text-zinc-500 uppercase tracking-widest border border-[#EAEAEA] dark:border-zinc-700 px-1">
-                ID: {employee.worker_id}
+              <span className="font-mono text-[10px] text-[#9A9A9A] dark:text-zinc-500 uppercase tracking-widest bg-[#F8F8F8] dark:bg-zinc-900 border border-[#EAEAEA] dark:border-zinc-700 px-1.5 py-0.5">
+                {employee.worker_id}
               </span>
             )}
             {employee.isFlagged && (
               <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold bg-[#CE8E33] text-white dark:text-[#0A0702] uppercase tracking-widest animate-pulse">
-                FLAGGED
+                <AlertTriangle size={10} className="mr-1" /> FLAGGED
               </span>
             )}
           </div>
+
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-2">
-            <StatusTag status={employee.latestStatus} />
-            <RiskTag level={employee.riskLevel} outlier={employee.isOutlier} />
-            <span className="text-[#EAEAEA] dark:text-zinc-700">|</span>
-            <TrendBadge trend={employee.trend} />
+            {hasInputToday ? (
+              <>
+                <RiskTag
+                  level={employee.latestTodayRisk}
+                  outlier={employee.isOutlierToday}
+                />
+                <span className="text-[#EAEAEA] dark:text-zinc-700">|</span>
+                <TrendBadge trend={employee.trend} />
+              </>
+            ) : (
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#9A9A9A] bg-[#F1F1F1] dark:bg-zinc-800 px-2 py-0.5">
+                Offline Today
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-6 md:gap-10 shrink-0">
+        <div className="flex items-center gap-8 md:gap-12 shrink-0 pr-2">
           <div className="text-right">
-            <div className="text-[9px] uppercase tracking-widest text-[#9A9A9A] dark:text-zinc-500">
-              Efficiency
+            <div className="text-[9px] uppercase tracking-widest text-[#9A9A9A] dark:text-zinc-500 mb-0.5">
+              Today's Eff
             </div>
-            <div className="font-mono font-bold text-lg text-[#242424] dark:text-zinc-100">
-              {employee.avgEfficiency.toFixed(1)}%
+            <div
+              className={`font-mono font-bold text-xl ${hasInputToday ? "text-[#242424] dark:text-zinc-100" : "text-[#D4D4D4] dark:text-zinc-700"}`}
+            >
+              {fmt(employee.todayAvgEfficiency)}%
             </div>
           </div>
           <div className="text-right hidden sm:block">
-            <div className="text-[9px] uppercase tracking-widest text-[#9A9A9A] dark:text-zinc-500">
-              Submissions
+            <div className="text-[9px] uppercase tracking-widest text-[#9A9A9A] dark:text-zinc-500 mb-0.5">
+              Inputs Today
             </div>
-            <div className="font-mono font-bold text-lg text-[#242424] dark:text-zinc-100">
-              {employee.totalSubmissions}{" "}
-              <span className="text-xs text-[#9A9A9A] font-normal">
-                ({employee.todaySubmissions} today)
-              </span>
+            <div
+              className={`font-mono font-bold text-xl ${hasInputToday ? "text-[#242424] dark:text-zinc-100" : "text-[#D4D4D4] dark:text-zinc-700"}`}
+            >
+              {employee.todayEntries.length}
             </div>
           </div>
-          <div className="text-[#9A9A9A] font-mono text-xl w-6 flex justify-end">
-            {expanded ? "−" : "+"}
+          <div className="text-[#9A9A9A] dark:text-zinc-600 transition-transform">
+            {expanded ? <Minus size={16} /> : <ChevronRight size={16} />}
           </div>
         </div>
       </div>
 
+      {/* Expanded View */}
       {expanded && (
-        <div className="px-5 md:px-6 pb-6 pt-2 bg-[#F8F8F8] dark:bg-[#111113] border-t border-[#EAEAEA] dark:border-zinc-800">
-          <div className="grid md:grid-cols-2 gap-8">
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-widest text-[#5F5F5F] dark:text-zinc-400 mb-4">
-                Recent Efficiency Trend
-              </div>
-              <Sparkline entries={employee.recentEntries.slice(0, 15)} />
+        <div className="flex flex-col lg:flex-row border-t border-[#EAEAEA] dark:border-zinc-800 bg-[#FAFAFA] dark:bg-[#0a0a0c]">
+          {/* Today's Live Feed */}
+          <div className="flex-1 p-5 border-b lg:border-b-0 lg:border-r border-[#EAEAEA] dark:border-zinc-800">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-[#5F5F5F] dark:text-zinc-400 mb-4">
+              Today's Live Submissions
             </div>
 
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-widest text-[#5F5F5F] dark:text-zinc-400 mb-4">
-                Submission History (Latest)
+            {employee.todayEntries.length === 0 ? (
+              <div className="h-24 flex items-center justify-center border border-dashed border-[#EAEAEA] dark:border-zinc-800 text-[10px] font-mono text-[#9A9A9A] uppercase tracking-widest">
+                No submissions logged today
               </div>
-              <div className="border border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-zinc-900/50">
-                {employee.recentEntries.slice(0, 3).map((entry, idx) => (
+            ) : (
+              <div className="border border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113]">
+                {employee.todayEntries.slice(0, 5).map((entry, idx) => (
                   <div
                     key={idx}
-                    className="flex justify-between items-center p-3 border-b border-[#EAEAEA] dark:border-zinc-800 last:border-0"
+                    className="flex justify-between items-center px-4 py-2.5 border-b border-[#EAEAEA] dark:border-zinc-800 last:border-0"
                   >
                     <span className="font-mono text-[10px] text-[#5F5F5F] dark:text-zinc-400">
-                      {entry.date} {entry.time?.slice(0, 5)}
+                      {entry.time?.slice(0, 5)}
                     </span>
-                    <span className="font-mono text-[11px] font-bold text-[#242424] dark:text-zinc-200">
+                    <span
+                      className={`font-mono text-[11px] font-bold ${Number(entry.efficiency) < 70 ? "text-[#CE8E33]" : "text-[#1A7C4B]"}`}
+                    >
                       {Number(entry.efficiency).toFixed(1)}%
                     </span>
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+
+          {/* Historical Baseline */}
+          <div className="flex-1 p-5">
+            <div className="flex justify-between items-end mb-4">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-[#5F5F5F] dark:text-zinc-400">
+                Past 5 Shifts History
+              </div>
+              <div className="text-[10px] font-mono text-[#9A9A9A] dark:text-zinc-500">
+                All-Time Avg:{" "}
+                <span className="font-bold text-[#242424] dark:text-zinc-200">
+                  {fmt(employee.historyAvgEfficiency)}%
+                </span>
+              </div>
             </div>
+
+            {dailyHistory.length === 0 ? (
+              <div className="h-24 flex items-center justify-center border border-dashed border-[#EAEAEA] dark:border-zinc-800 text-[10px] font-mono text-[#9A9A9A] uppercase tracking-widest">
+                No historical records
+              </div>
+            ) : (
+              <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+                {dailyHistory.map((day) => (
+                  <div
+                    key={day.date}
+                    className={`p-3 border flex-1 min-w-25 flex flex-col justify-center ${day.avg < 60 ? "border-[#CE8E33] bg-[#FDFBF8] dark:bg-[#1A1510] dark:border-amber-900/50" : "border-[#EAEAEA] bg-white dark:bg-[#111113] dark:border-zinc-800"}`}
+                  >
+                    <div className="text-[9px] font-mono text-[#9A9A9A] dark:text-zinc-500">
+                      {day.date}
+                    </div>
+                    <div
+                      className={`text-lg font-mono font-bold mt-1 tracking-tight ${day.avg < 60 ? "text-[#CE8E33] dark:text-[#E1BA82]" : "text-[#242424] dark:text-zinc-200"}`}
+                    >
+                      {day.avg.toFixed(1)}%
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
     </div>
-  );
-}
-
-function Sparkline({ entries }: { entries: LaborEntry[] }) {
-  const chrono = [...entries].reverse();
-  const W = 400;
-  const H = 80;
-  const PAD = { top: 10, right: 10, bottom: 10, left: 10 };
-  const innerW = W - PAD.left - PAD.right;
-  const innerH = H - PAD.top - PAD.bottom;
-
-  if (chrono.length < 2) {
-    return (
-      <div
-        className="font-mono text-[10px] text-[#9A9A9A] flex items-center justify-center border border-dashed border-[#EAEAEA] dark:border-zinc-800"
-        style={{ height: H }}
-      >
-        NOT ENOUGH DATA
-      </div>
-    );
-  }
-
-  const vy = (v: number) =>
-    PAD.top + innerH - (Math.max(0, Math.min(150, v)) / 150) * innerH;
-  const points = chrono
-    .map((e, i) => {
-      const x = PAD.left + (i / (chrono.length - 1)) * innerW;
-      const y = vy(Number(e.efficiency));
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-
-  const last = chrono[chrono.length - 1];
-  const lastX = PAD.left + innerW;
-  const lastY = vy(Number(last.efficiency));
-
-  const lineColor =
-    Number(last.efficiency) >= 85
-      ? "#1A7C4B"
-      : Number(last.efficiency) >= 60
-        ? "#CE8E33"
-        : "#CE8E33";
-
-  return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      className="w-full"
-      style={{ height: H }}
-      aria-label="Recent efficiency trend"
-    >
-      {/* Grid line at 100% Target */}
-      <line
-        x1="0"
-        y1={vy(100)}
-        x2={W}
-        y2={vy(100)}
-        stroke="#9A9A9A"
-        strokeWidth={1}
-        strokeDasharray="3 3"
-        className="opacity-30"
-      />
-      <text
-        x="0"
-        y={vy(100) - 4}
-        fontSize="8"
-        fill="#9A9A9A"
-        className="font-mono"
-      >
-        TARGET 100%
-      </text>
-
-      <polyline
-        points={points}
-        fill="none"
-        stroke={lineColor}
-        strokeWidth={2.5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-      <circle
-        cx={lastX}
-        cy={lastY}
-        r={3.5}
-        fill={lineColor}
-        stroke="#FFFFFF"
-        strokeWidth={1.5}
-        className="dark:stroke-[#111113]"
-      />
-    </svg>
   );
 }

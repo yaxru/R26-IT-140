@@ -16,6 +16,7 @@ import {
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
+  Timer
 } from "lucide-react";
 
 const iconProps = { size: 16, strokeWidth: 1.8 };
@@ -28,31 +29,32 @@ const NAV_SECTIONS = [
   {
     label: "Core Pipeline",
     items: [
-      { label: "Overview",           href: "/",                   icon: <LayoutDashboard {...iconProps} /> },
-      { label: "Workforce",          href: "/workforce",          icon: <Users           {...iconProps} /> },
-      { label: "Floor Map",          href: "/floor-map",          icon: <Map             {...iconProps} /> },
-      { label: "Prediction & Risk",  href: "/risk-analyze",       icon: <BrainCircuit    {...iconProps} /> },
-      { label: "Worker Reallocation",href: "/worker-reallocation",icon: <ArrowRightLeft  {...iconProps} /> },
+      { label: "Overview",            href: "/",                   icon: <LayoutDashboard {...iconProps} /> },
+      { label: "Workforce",           href: "/workforce",          icon: <Users           {...iconProps} /> },
+      { label: "Floor Map",           href: "/floor-map",          icon: <Map             {...iconProps} /> },
+      { label: "Time Prediction",     href: "/production-time",    icon: <Timer           {...iconProps} /> },
+      { label: "Live Input & Risk",   href: "/risk-analyze",       icon: <BrainCircuit    {...iconProps} /> },
+      { label: "Worker Reallocation", href: "/worker-reallocation",icon: <ArrowRightLeft  {...iconProps} /> },
     ],
   },
   {
     label: "Tracking & Assets",
     items: [
-      { label: "Production Lines",   href: "/production-lines",   icon: <Layers          {...iconProps} /> },
-      { label: "Style Management",   href: "/style-management",   icon: <Shirt           {...iconProps} /> },
-      { label: "Inventory",          href: "/inventory",          icon: <Package         {...iconProps} /> },
+      { label: "Production Lines",    href: "/production-lines",   icon: <Layers          {...iconProps} /> },
+      { label: "Style Management",    href: "/style-management",   icon: <Shirt           {...iconProps} /> },
+      { label: "Inventory",           href: "/inventory",          icon: <Package         {...iconProps} /> },
     ],
   },
   {
     label: "Interventions",
     items: [
-      { label: "Stress Monitoring",  href: "/management/stress-monitoring", icon: <HeartPulse {...iconProps} /> },
+      { label: "Stress Monitoring",   href: "/management/stress-monitoring", icon: <HeartPulse {...iconProps} /> },
     ],
   },
   {
     label: "System",
     items: [
-      { label: "Settings",           href: "/settings",           icon: <Settings        {...iconProps} /> },
+      { label: "Settings",            href: "/settings",           icon: <Settings        {...iconProps} /> },
     ],
   },
 ];
