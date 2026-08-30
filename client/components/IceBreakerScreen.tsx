@@ -1,45 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { usePressureCapture } from "@/lib/stress/usePressureCapture";
+import { BlobCharacter } from "./BlobCharacter";
 
-const QUESTIONS: { key: string; label: string; options: string[]; color: string }[] = [
-  {
-    key: "hobby",
-    label: "What's a hobby you enjoy?",
-    options: ["Sports", "Music", "Reading", "Gaming", "Cooking", "Other"],
-    color: "from-teal-400 to-cyan-500",
-  },
-  {
-    key: "genre",
-    label: "Favourite music genre?",
-    options: ["Pop", "Rock", "Hip-Hop", "Baila", "Classical", "Other"],
-    color: "from-violet-400 to-purple-500",
-  },
-  {
-    key: "artist",
-    label: "Favourite singer or band?",
-    options: ["Local artist", "International", "Both", "Not sure"],
-    color: "from-pink-400 to-rose-500",
-  },
-  {
-    key: "food",
-    label: "Favourite food?",
-    options: ["Rice & Curry", "Kottu", "String Hoppers", "Fast Food", "Other"],
-    color: "from-amber-400 to-orange-500",
-  },
-  {
-    key: "show",
-    label: "Favourite movie or show?",
-    options: ["Action", "Comedy", "Drama", "Teledrama", "Other"],
-    color: "from-emerald-400 to-green-500",
-  },
-  {
-    key: "extra",
-    label: "One more thing you enjoy?",
-    options: ["Traveling", "Sleeping", "Chatting", "Sports", "Other"],
-    color: "from-sky-400 to-blue-500",
-  },
+const QUESTIONS: { key: string; label: string; options: string[]; bg: string; blob: string }[] = [
+  { key: "hobby",  label: "What's a hobby you enjoy?",      options: ["Sports", "Music", "Reading", "Gaming", "Cooking", "Other"], bg: "#F97316", blob: "#EA580C" },
+  { key: "genre",  label: "Favourite music genre?",         options: ["Pop", "Rock", "Hip-Hop", "Baila", "Classical", "Other"],    bg: "#8B5CF6", blob: "#7C3AED" },
+  { key: "artist", label: "Favourite singer or band?",      options: ["Local artist", "International", "Both", "Not sure"],         bg: "#EC4899", blob: "#DB2777" },
+  { key: "food",   label: "Favourite food?",                options: ["Rice & Curry", "Kottu", "String Hoppers", "Fast Food", "Other"], bg: "#10B981", blob: "#059669" },
+  { key: "show",   label: "Favourite movie or show?",       options: ["Action", "Comedy", "Drama", "Teledrama", "Other"],           bg: "#3B82F6", blob: "#2563EB" },
+  { key: "extra",  label: "One more thing you enjoy?",      options: ["Traveling", "Sleeping", "Chatting", "Sports", "Other"],     bg: "#F59E0B", blob: "#D97706" },
 ];
 
 export default function IceBreakerScreen({
@@ -53,17 +24,15 @@ export default function IceBreakerScreen({
   const [justPicked, setJustPicked] = useState<string | null>(null);
   const { record, getSamples } = usePressureCapture();
 
-  const question = QUESTIONS[index];
-  const progress = ((index + 1) / QUESTIONS.length) * 100;
+  const q = QUESTIONS[index];
 
-  // Reset "in" on index change
   useEffect(() => {
     setPhase("in");
     setJustPicked(null);
   }, [index]);
 
   function choose(option: string) {
-    setSelected((s) => ({ ...s, [question.key]: option }));
+    setSelected((s) => ({ ...s, [q.key]: option }));
     setJustPicked(option);
     setPhase("out");
 
@@ -73,69 +42,60 @@ export default function IceBreakerScreen({
       } else {
         setIndex((i) => i + 1);
       }
-    }, 350);
+    }, 280);
   }
 
   return (
-    <div className="flex flex-col min-h-dvh px-6 pt-10 pb-8 gap-6">
-      {/* Progress bar */}
-      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+    <div
+      className="flex flex-col min-h-dvh overflow-hidden transition-colors duration-300"
+      style={{ backgroundColor: q.bg }}
+    >
+      {/* Character zone */}
+      <div className="flex-1 flex flex-col items-center justify-end pb-6 pt-12 relative">
+        <p className="absolute top-6 left-6 text-xs font-bold uppercase tracking-widest text-white/60">
+          Warm up · {index + 1} / {QUESTIONS.length}
+        </p>
+
         <div
-          className={`h-full bg-gradient-to-r ${question.color} transition-all duration-500 ease-out rounded-full`}
-          style={{ width: `${progress}%` }}
-        />
+          style={{
+            opacity: phase === "in" ? 1 : 0,
+            transition: "opacity 0.25s ease",
+          }}
+        >
+          <BlobCharacter mood="curious" color={q.blob} />
+        </div>
       </div>
 
-      {/* Step counter */}
-      <div className="text-center">
-        <span className="text-xs font-semibold tracking-widest text-slate-400 uppercase">
-          Warm up · {index + 1} of {QUESTIONS.length}
-        </span>
-      </div>
-
-      {/* Question card — transitions in/out */}
+      {/* Content zone */}
       <div
-        className="flex-1 flex flex-col items-center justify-center gap-8"
+        className="shrink-0 bg-[#1a1a1a] px-7 pt-8 pb-10"
         style={{
           opacity: phase === "in" ? 1 : 0,
-          transform: phase === "in" ? "translateY(0)" : "translateY(-16px)",
-          transition: "opacity 0.3s ease, transform 0.3s ease",
+          transform: phase === "in" ? "translateY(0)" : "translateY(12px)",
+          transition: "opacity 0.25s ease, transform 0.25s ease",
         }}
       >
-        {/* Emoji badge */}
-        <div
-          className={`w-20 h-20 rounded-full bg-gradient-to-br ${question.color} flex items-center justify-center text-3xl shadow-lg anim-scaleIn`}
-        >
-          {["🎯", "🎵", "🌟", "🍜", "🎬", "✨"][index]}
-        </div>
-
-        <h2 className="text-xl font-bold text-slate-800 text-center leading-snug max-w-xs">
-          {question.label}
+        <h2 className="text-3xl font-black text-white uppercase leading-tight mb-6">
+          {q.label}
         </h2>
 
-        {/* Options grid */}
-        <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
-          {question.options.map((opt) => {
-            const isSelected = justPicked === opt;
+        {/* Option chips */}
+        <div className="flex flex-wrap gap-2.5">
+          {q.options.map((opt) => {
+            const isPicked = justPicked === opt;
             return (
               <button
                 key={opt}
                 onPointerDown={record}
                 onPointerMove={record}
                 onClick={() => choose(opt)}
-                className={`
-                  relative select-none overflow-hidden py-4 px-3 rounded-2xl text-sm font-semibold 
-                  transition-all duration-200 active:scale-95 border
-                  ${isSelected
-                    ? `bg-gradient-to-br ${question.color} text-white border-transparent shadow-lg`
-                    : "bg-white text-slate-700 border-slate-100 hover:border-slate-200 hover:shadow-md active:bg-slate-50"
-                  }
-                `}
+                className="select-none px-5 py-3 rounded-2xl text-sm font-bold uppercase tracking-wide transition-all duration-150 active:scale-95"
+                style={
+                  isPicked
+                    ? { backgroundColor: q.bg, color: "#1a1a1a" }
+                    : { backgroundColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.75)", border: "1px solid rgba(255,255,255,0.15)" }
+                }
               >
-                {/* Tap ripple for selected */}
-                {isSelected && (
-                  <span className="absolute inset-0 bg-white/20 ripple-enter rounded-2xl" />
-                )}
                 {opt}
               </button>
             );

@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BlobCharacter } from "./BlobCharacter";
+
+const BG   = "#10B981"; // solid emerald/green
+const BLOB = "#059669";
 
 export default function CompletionScreen({
   onRestart,
@@ -8,108 +12,80 @@ export default function CompletionScreen({
   onRestart?: () => void;
 }) {
   const [show, setShow] = useState(false);
-  const [confetti, setConfetti] = useState<{ x: number; y: number; color: string; delay: number }[]>([]);
-
   useEffect(() => {
-    const t = setTimeout(() => setShow(true), 400);
-    // Generate confetti pieces
-    setConfetti(
-      Array.from({ length: 20 }, () => ({
-        x: Math.random() * 100,
-        y: -10 - Math.random() * 20,
-        color: ["#2dd4bf", "#f472b6", "#fb923c", "#a78bfa", "#34d399"][Math.floor(Math.random() * 5)],
-        delay: Math.random() * 1.5,
-      }))
-    );
+    const t = setTimeout(() => setShow(true), 100);
     return () => clearTimeout(t);
   }, []);
 
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-dvh px-6 py-12 text-center overflow-hidden">
-      {/* Decorative blobs */}
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
-        <div className="absolute top-0 left-0 w-72 h-72 rounded-full bg-teal-200/25 blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-72 h-72 rounded-full bg-violet-200/25 blur-3xl" />
-      </div>
-
-      {/* CSS confetti — spans floating down */}
-      {confetti.map((c, i) => (
-        <span
-          key={i}
-          className="pointer-events-none fixed w-2 h-4 rounded-sm opacity-0"
-          style={{
-            left: `${c.x}%`,
-            top: `${c.y}%`,
-            backgroundColor: c.color,
-            animation: `slideUp 1.8s ease-out ${c.delay}s both`,
-            transform: `rotate(${Math.random() * 40 - 20}deg)`,
-          }}
-        />
-      ))}
-
-      {/* Trophy orb */}
-      <div
-        className={`transition-all duration-700 ${show ? "opacity-100 scale-100" : "opacity-0 scale-75"}`}
-      >
-        <div className="relative w-36 h-36 mx-auto">
-          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-amber-200 to-orange-200 blur-xl opacity-60" />
-          <div className="relative w-36 h-36 rounded-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center text-6xl shadow-2xl shadow-amber-200/60 anim-floatBob">
-            🏆
-          </div>
+    <div className="flex flex-col min-h-dvh overflow-hidden" style={{ backgroundColor: BG }}>
+      {/* Character zone */}
+      <div className="flex-1 flex flex-col items-center justify-end pb-6 pt-12 relative">
+        <p className="absolute top-6 left-6 text-xs font-bold uppercase tracking-widest text-[#1a1a1a]/40">
+          All done!
+        </p>
+        <div
+          className={`transition-all duration-600 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+        >
+          <BlobCharacter mood="done" color={BLOB} />
         </div>
       </div>
 
-      {/* Text */}
+      {/* Content zone */}
       <div
-        className={`mt-8 transition-all duration-700 delay-200 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+        className={`shrink-0 bg-[#1a1a1a] px-7 pt-8 pb-10 transition-all duration-500 delay-150 ${show ? "opacity-100" : "opacity-0"}`}
       >
-        <h1 className="text-3xl font-bold text-slate-800">All done!</h1>
-        <p className="text-slate-500 mt-2 max-w-xs leading-relaxed mx-auto">
-          Thank you for checking in. Your session has been recorded securely.
+        <h1 className="text-4xl font-black text-white uppercase leading-tight mb-2">
+          You crushed it.
+        </h1>
+        <p className="text-sm text-white/50 mb-6 leading-relaxed">
+          Your responses have been recorded securely. No further action needed.
         </p>
-      </div>
 
-      {/* Summary card */}
-      <div
-        className={`mt-8 w-full max-w-sm transition-all duration-700 delay-400 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
-      >
-        <div className="bg-white/80 backdrop-blur-md rounded-3xl border border-slate-100 shadow-md px-6 py-5 space-y-3">
+        {/* Stats row */}
+        <div className="flex gap-3 mb-6">
           {[
-            { label: "Questions answered", value: "10/10", color: "text-emerald-500" },
-            { label: "Games completed", value: "2/2", color: "text-teal-500" },
-            { label: "Data submitted", value: "Securely ✓", color: "text-violet-500" },
-          ].map((row, i) => (
+            { label: "Questions", value: "10/10" },
+            { label: "Games", value: "2/2" },
+            { label: "Submitted", value: "✓" },
+          ].map((s) => (
             <div
-              key={i}
-              className="flex justify-between items-center anim-slideRight"
-              style={{ animationDelay: `${500 + i * 100}ms` }}
+              key={s.label}
+              className="flex-1 rounded-2xl py-4 text-center"
+              style={{ backgroundColor: BG + "33" }} // bg with opacity
             >
-              <span className="text-sm text-slate-500">{row.label}</span>
-              <span className={`text-sm font-bold ${row.color}`}>{row.value}</span>
+              <p className="text-xl font-black text-white">{s.value}</p>
+              <p className="text-xs font-bold text-white/50 uppercase tracking-wider mt-0.5">{s.label}</p>
             </div>
           ))}
         </div>
-      </div>
 
-      {/* Footer note */}
-      <p
-        className={`text-xs text-slate-400 mt-6 max-w-xs leading-relaxed transition-all duration-700 delay-700 ${show ? "opacity-100" : "opacity-0"}`}
-      >
-        You can return to your workstation now — no further action needed.
-      </p>
+        {/* Lock badge */}
+        <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-5 py-3 mb-6">
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+            style={{ backgroundColor: BG }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </div>
+          <p className="text-xs text-white/50 leading-relaxed">
+            Your data is private and will never affect your work record.
+          </p>
+        </div>
 
-      {onRestart && (
-        <div
-          className={`mt-6 transition-all duration-700 delay-1000 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-        >
+        {onRestart && (
           <button
             onClick={onRestart}
-            className="select-none text-sm font-medium text-slate-400 hover:text-teal-500 transition-colors py-2 px-5 rounded-full hover:bg-teal-50"
+            className="select-none w-full py-4 rounded-2xl text-sm font-black uppercase tracking-widest text-[#1a1a1a] transition-all duration-150 active:scale-95"
+            style={{ backgroundColor: BG }}
           >
             Return to Dashboard
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

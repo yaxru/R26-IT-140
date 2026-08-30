@@ -9,6 +9,8 @@ const RING_MIN = 0.45;
 const RING_MAX = 0.70;
 const BURST_PRESSURE = 0.95;
 
+const BG = "#3B82F6"; // solid blue
+
 export default function PrecisionInflatorGame({
   onComplete,
 }: {
@@ -20,28 +22,28 @@ export default function PrecisionInflatorGame({
   const [timeLeftMs, setTimeLeftMs] = useState(TRIAL_DURATION_MS);
   const [trials, setTrials] = useState<InflatorTrial[]>([]);
   const [isHolding, setIsHolding] = useState(false);
-  const [introReady, setIntroReady] = useState(false);
+  const [ready, setReady] = useState(false);
 
-  const samples = useRef<number[]>([]);
-  const onTargetMs = useRef(0);
-  const overshootCount = useRef(0);
-  const lastTick = useRef<number>(0);
-  const rafId = useRef<number>(0);
-  const trialStart = useRef<number>(0);
+  const samples      = useRef<number[]>([]);
+  const onTargetMs   = useRef(0);
+  const overshoot    = useRef(0);
+  const lastTick     = useRef(0);
+  const rafId        = useRef(0);
+  const trialStart   = useRef(0);
 
   const inTarget = pressure >= RING_MIN && pressure <= RING_MAX && !burst;
 
   useEffect(() => {
-    const t = setTimeout(() => setIntroReady(true), 100);
+    const t = setTimeout(() => setReady(true), 80);
     return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
     trialStart.current = performance.now();
-    lastTick.current = trialStart.current;
-    samples.current = [];
+    lastTick.current   = trialStart.current;
+    samples.current    = [];
     onTargetMs.current = 0;
-    overshootCount.current = 0;
+    overshoot.current  = 0;
     setBurst(false);
     setPressure(0);
     setIsHolding(false);
@@ -64,21 +66,18 @@ export default function PrecisionInflatorGame({
   }, [trialIndex]);
 
   function finishTrial() {
-    const arr = samples.current;
-    const avg = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+    const arr  = samples.current;
+    const avg  = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
     const peak = arr.length ? Math.max(...arr) : 0;
     const mean = avg;
-    const jitter =
-      arr.length > 1
-        ? arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length
-        : 0;
+    const jitter = arr.length > 1 ? arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length : 0;
 
     const trial: InflatorTrial = {
       avg_touch_pressure: avg,
       peak_pressure: peak,
       time_on_target_ms: Math.round(onTargetMs.current),
       jitter_index: jitter,
-      overshoot_count: overshootCount.current,
+      overshoot_count: overshoot.current,
     };
 
     const next = [...trials, trial];
@@ -98,16 +97,11 @@ export default function PrecisionInflatorGame({
     setPressure(raw);
     setIsHolding(true);
 
-    if (raw >= RING_MIN && raw <= RING_MAX) {
-      onTargetMs.current += 16;
-    }
+    if (raw >= RING_MIN && raw <= RING_MAX) onTargetMs.current += 16;
     if (raw > BURST_PRESSURE) {
-      overshootCount.current += 1;
+      overshoot.current += 1;
       setBurst(true);
-      setTimeout(() => {
-        setPressure(0);
-        setBurst(false);
-      }, 600);
+      setTimeout(() => { setPressure(0); setBurst(false); }, 700);
     }
   }
 
@@ -116,175 +110,130 @@ export default function PrecisionInflatorGame({
     setIsHolding(false);
   }
 
-  const balloonScale = 0.45 + pressure * 1.15;
+  const ballScale   = 0.45 + pressure * 1.15;
   const secondsLeft = Math.ceil(timeLeftMs / 1000);
-  const timePct = (timeLeftMs / TRIAL_DURATION_MS) * 100;
+  const timePct     = (timeLeftMs / TRIAL_DURATION_MS) * 100;
 
-  // Ring sizes in px (based on 280px container)
-  const CONTAINER = 280;
-  const outerRingPx = RING_MAX * CONTAINER;
-  const innerRingPx = RING_MIN * CONTAINER;
+  // Ball color: idle=white, pressing=white/off, target=yellow, burst=red bg
+  const ballBg = burst ? "#EF4444" : inTarget ? "#FFCA28" : isHolding ? "#E5E7EB" : "#FFFFFF";
 
   return (
-    <div className="flex flex-col min-h-dvh px-6 pt-10 pb-8 gap-6">
+    <div className="flex flex-col min-h-dvh overflow-hidden" style={{ backgroundColor: BG }}>
       {/* Header */}
-      <div
-        className={`text-center transition-all duration-600 ${introReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-      >
-        {/* Trial pips */}
-        <div className="flex justify-center gap-2 mb-4">
+      <div className="flex flex-col pt-12 px-7 pb-4 relative">
+        <p className="text-xs font-bold uppercase tracking-widest text-white/50 mb-1">
+          Game 2 · Precision Hold
+        </p>
+        <h1 className="text-4xl font-black text-white uppercase leading-tight">
+          Hold inside<br />the ring
+        </h1>
+        {/* Trial progress pips */}
+        <div className="flex gap-2 mt-4">
           {Array.from({ length: TOTAL_TRIALS }).map((_, i) => (
             <div
               key={i}
-              className={`h-2 w-8 rounded-full transition-all duration-500 ${
-                i < trialIndex
-                  ? "bg-emerald-400"
-                  : i === trialIndex
-                  ? "bg-teal-400 anim-gentlePulse"
-                  : "bg-slate-200"
-              }`}
+              className="h-2 w-10 rounded-full transition-all duration-400"
+              style={{
+                backgroundColor:
+                  i < trialIndex ? "rgba(255,255,255,0.9)"
+                  : i === trialIndex ? "rgba(255,255,255,0.5)"
+                  : "rgba(255,255,255,0.15)",
+              }}
             />
           ))}
+          <span className="ml-auto text-sm font-black text-white/60 uppercase">
+            Trial {trialIndex + 1}/{TOTAL_TRIALS}
+          </span>
         </div>
-
-        <span className="text-xs font-semibold tracking-widest text-teal-500 uppercase bg-teal-50 px-4 py-1.5 rounded-full">
-          Game 2 · Precision Hold · Trial {trialIndex + 1} of {TOTAL_TRIALS}
-        </span>
-        <h2 className="text-xl font-bold text-slate-800 mt-4">
-          Press & hold inside the ring
-        </h2>
-        <p className="text-sm text-slate-400 mt-1">
-          Too hard = pop! Too soft = won't reach.
-        </p>
       </div>
 
-      {/* Time bar */}
-      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+      {/* Timer bar */}
+      <div className="mx-7 h-2 bg-white/15 rounded-full overflow-hidden mb-6">
         <div
-          className={`h-full rounded-full transition-all duration-100 ${
-            timePct > 50
-              ? "bg-gradient-to-r from-teal-400 to-cyan-500"
-              : timePct > 20
-              ? "bg-gradient-to-r from-amber-400 to-orange-400"
-              : "bg-gradient-to-r from-rose-400 to-red-500"
-          }`}
-          style={{ width: `${timePct}%` }}
+          className="h-full rounded-full transition-all duration-100"
+          style={{
+            width: `${timePct}%`,
+            backgroundColor: timePct > 50 ? "#FFCA28" : timePct > 20 ? "#F97316" : "#EF4444",
+          }}
         />
       </div>
 
-      {/* Main interaction area */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-6">
-        {/* Ring arena */}
-        <div
-          className="relative flex items-center justify-center"
-          style={{ width: CONTAINER, height: CONTAINER }}
-        >
+      {/* Ring arena */}
+      <div
+        className={`flex-1 flex items-center justify-center transition-all duration-500 ${ready ? "opacity-100" : "opacity-0"}`}
+      >
+        <div className="relative flex items-center justify-center" style={{ width: 260, height: 260 }}>
           {/* Outer ring */}
           <div
-            className={`absolute rounded-full border-[3px] transition-colors duration-300 ${
-              burst
-                ? "border-rose-400"
-                : inTarget
-                ? "border-teal-400"
-                : "border-slate-200"
-            } ${inTarget && !burst ? "anim-pulseRing" : ""}`}
-            style={{ width: outerRingPx, height: outerRingPx }}
+            className="absolute rounded-full border-4 transition-colors duration-200"
+            style={{
+              width: RING_MAX * 260,
+              height: RING_MAX * 260,
+              borderColor: inTarget ? "#FFCA28" : "rgba(255,255,255,0.3)",
+              boxShadow: inTarget ? "0 0 0 0 rgba(255,202,40,0.4)" : "none",
+              animation: inTarget ? "pulseRing 1.4s ease-in-out infinite" : "none",
+            }}
+          />
+          {/* Inner ring — dashed */}
+          <div
+            className="absolute rounded-full border-2 border-dashed transition-colors duration-200"
+            style={{
+              width: RING_MIN * 260,
+              height: RING_MIN * 260,
+              borderColor: inTarget ? "rgba(255,202,40,0.6)" : "rgba(255,255,255,0.2)",
+            }}
           />
 
-          {/* Outer ring label */}
-          <div
-            className="absolute text-[10px] font-semibold text-slate-400"
-            style={{ top: "50%", left: `calc(50% + ${outerRingPx / 2 + 6}px)`, transform: "translateY(-50%)" }}
-          >
+          {/* Labels */}
+          <span className="absolute text-[10px] font-black text-white/40 uppercase"
+            style={{ top: "50%", left: `calc(50% + ${(RING_MAX * 260) / 2 + 10}px)`, transform: "translateY(-50%)" }}>
             MAX
-          </div>
-
-          {/* Inner ring */}
-          <div
-            className={`absolute rounded-full border-2 border-dashed transition-colors duration-300 ${
-              burst
-                ? "border-rose-300/50"
-                : inTarget
-                ? "border-teal-300/80"
-                : "border-slate-200/70"
-            }`}
-            style={{ width: innerRingPx, height: innerRingPx }}
-          />
-
-          {/* Inner ring label */}
-          <div
-            className="absolute text-[10px] font-semibold text-slate-400"
-            style={{ top: "50%", left: `calc(50% + ${innerRingPx / 2 + 6}px)`, transform: "translateY(-50%)" }}
-          >
+          </span>
+          <span className="absolute text-[10px] font-black text-white/40 uppercase"
+            style={{ top: "50%", left: `calc(50% + ${(RING_MIN * 260) / 2 + 10}px)`, transform: "translateY(-50%)" }}>
             MIN
-          </div>
+          </span>
 
-          {/* "In target" flash zone */}
-          {inTarget && (
-            <div
-              className="absolute rounded-full bg-teal-300/20 transition-all duration-100 pointer-events-none"
-              style={{
-                width: outerRingPx - 6,
-                height: outerRingPx - 6,
-              }}
-            />
-          )}
-
-          {/* Balloon / ball */}
+          {/* The ball */}
           {!burst ? (
             <div
               onPointerDown={handlePointer}
               onPointerMove={handlePointer}
               onPointerUp={release}
               onPointerLeave={release}
-              className={`
-                select-none rounded-full cursor-pointer touch-none z-10
-                transition-all duration-[50ms] ease-out flex items-center justify-center
-                ${inTarget
-                  ? "bg-gradient-to-br from-teal-300 to-cyan-500 shadow-2xl shadow-teal-300/50"
-                  : isHolding
-                  ? "bg-gradient-to-br from-violet-300 to-purple-400 shadow-xl shadow-purple-200/50"
-                  : "bg-gradient-to-br from-slate-200 to-slate-300 shadow-md"
-                }
-              `}
+              className="select-none rounded-full touch-none z-10 cursor-pointer transition-all duration-[40ms] ease-out"
               style={{
                 width: 80,
                 height: 80,
-                transform: `scale(${balloonScale})`,
+                backgroundColor: ballBg,
+                transform: `scale(${ballScale})`,
+                boxShadow: inTarget ? "0 0 24px rgba(255,202,40,0.6)" : "0 4px 16px rgba(0,0,0,0.2)",
               }}
-            >
-              {/* Shine */}
-              <div className="w-5 h-5 rounded-full bg-white/30 absolute top-3 left-4" />
-            </div>
+            />
           ) : (
-            /* Burst explosion */
+            /* Burst state */
             <div className="relative flex items-center justify-center">
-              <div className="w-20 h-20 rounded-full bg-rose-200 halo-grow absolute" />
-              <div className="w-12 h-12 rounded-full bg-rose-300 halo-grow absolute" style={{ animationDelay: "0.1s" }} />
-              <span className="text-5xl anim-popIn z-10">💥</span>
+              <div className="absolute w-24 h-24 rounded-full bg-red-400/30 halo-grow" />
+              <div className="absolute w-14 h-14 rounded-full bg-red-400/50 halo-grow" style={{ animationDelay: "0.1s" }} />
+              <div className="w-10 h-10 rounded-full bg-red-400 anim-scaleIn" />
             </div>
           )}
         </div>
+      </div>
 
-        {/* Status */}
-        <div className="text-center">
-          {inTarget ? (
-            <p className="text-teal-500 font-bold text-sm anim-popIn">✓ On target! Hold it!</p>
-          ) : burst ? (
-            <p className="text-rose-500 font-bold text-sm anim-popIn">💥 Too hard! Next trial…</p>
-          ) : isHolding ? (
-            <p className="text-violet-500 font-medium text-sm">
-              {pressure < RING_MIN ? "Press harder ↑" : "Ease off ↓"}
+      {/* Bottom status */}
+      <div className="px-7 pb-10">
+        <div className="bg-[#1a1a1a] rounded-2xl px-6 py-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-white/30 uppercase tracking-widest mb-1">Status</p>
+            <p className="text-lg font-black text-white uppercase">
+              {burst ? "Too hard!" : inTarget ? "On target!" : isHolding ? pressure < RING_MIN ? "Press harder" : "Ease off" : "Press & hold"}
             </p>
-          ) : (
-            <p className="text-slate-400 text-sm anim-gentlePulse">Press & hold the circle</p>
-          )}
-        </div>
-
-        {/* Timer */}
-        <div className="text-center">
-          <p className="text-4xl font-bold tabular-nums text-slate-700 font-mono">{secondsLeft}s</p>
-          <p className="text-xs text-slate-400 uppercase tracking-wider mt-1">remaining</p>
+          </div>
+          <div className="text-right">
+            <p className="text-3xl font-black text-white tabular-nums">{secondsLeft}s</p>
+            <p className="text-xs font-bold text-white/30 uppercase tracking-widest">left</p>
+          </div>
         </div>
       </div>
     </div>

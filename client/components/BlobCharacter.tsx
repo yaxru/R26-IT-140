@@ -14,8 +14,8 @@ function BlobCharacter({
     mood === "happy"
       ? { left: "26%", right: "62%", top: "36%" }
       : mood === "curious"
-      ? { left: "24%", right: "60%", top: "40%" }
-      : { left: "26%", right: "62%", top: "38%" };
+        ? { left: "24%", right: "60%", top: "40%" }
+        : { left: "26%", right: "62%", top: "38%" };
 
   return (
     <div className="relative w-48 h-44 mx-auto" aria-hidden="true">
@@ -28,8 +28,8 @@ function BlobCharacter({
             mood === "happy"
               ? "62% 38% 52% 48% / 55% 60% 40% 45%"
               : mood === "curious"
-              ? "55% 45% 65% 35% / 50% 55% 45% 50%"
-              : "58% 42% 48% 52% / 52% 48% 52% 48%",
+                ? "55% 45% 65% 35% / 50% 55% 45% 50%"
+                : "58% 42% 48% 52% / 52% 48% 52% 48%",
         }}
       />
       {/* Left eye white */}
@@ -80,7 +80,13 @@ function BlobCharacter({
       {mood === "calm" && (
         <div
           className="absolute bg-white"
-          style={{ width: "36%", height: "5%", bottom: "22%", left: "32%", borderRadius: "8px" }}
+          style={{
+            width: "36%",
+            height: "5%",
+            bottom: "22%",
+            left: "32%",
+            borderRadius: "8px",
+          }}
         />
       )}
       {mood === "focused" && (

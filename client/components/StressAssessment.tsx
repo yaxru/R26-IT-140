@@ -106,27 +106,33 @@ export default function StressAssessment() {
   }
 
   if (loading) {
-    return <CenteredMessage emoji="⏳" text="Getting things ready…" />;
+    return (
+      <SplashMessage
+        bg="#FFCA28"
+        label="Loading"
+        text="Getting things ready…"
+      />
+    );
   }
 
   if (error && !session) {
-    return <CenteredMessage emoji="⚠️" text={error} />;
+    return <SplashMessage bg="#F87171" label="Error" text={error} />;
   }
 
   return (
-    <div className="min-h-dvh bg-gradient-to-br from-slate-50 via-teal-50/30 to-violet-50/20 text-[#242424] transition-colors duration-700 ease-in-out">
+    <div className="min-h-dvh bg-[#1a1a1a]">
       <ProgressBar progress={progress} />
 
       {error && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-red-500 text-white text-sm px-4 py-2 rounded-xl shadow-sm z-50 animate-pulse">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#F87171] text-white text-xs font-bold px-5 py-3 rounded-2xl z-50 uppercase tracking-widest">
           {error}
         </div>
       )}
 
-      {/* The key prop forces React to unmount and remount, triggering the CSS fade-in animation */}
+      {/* key forces remount on each step transition */}
       <div
         key={fadeKey}
-        className={`transition-opacity duration-500 ease-in-out ${busy ? "opacity-50 pointer-events-none" : "opacity-100"}`}
+        className={`transition-opacity duration-300 ease-in-out ${busy ? "opacity-40 pointer-events-none" : "opacity-100"}`}
       >
         {step === "welcome" && (
           <WelcomeScreen
@@ -137,45 +143,45 @@ export default function StressAssessment() {
 
         {step === "instructions-pss10" && (
           <InstructionScreen
-            step="Before we start · 1 of 3"
-            emoji="📝"
-            title="About the questions"
+            step="Step 1 of 3"
+            stepKey="instructions-pss10"
+            title={"10 quick\nquestions"}
             bullets={[
-              "10 quick questions about how you've felt this past month.",
+              "How you've felt this past month.",
               "Options range from Never to Very Often.",
               "Fully confidential — no impact on your work record.",
             ]}
-            actionLabel="Next"
+            actionLabel="Got it, Next"
             onNext={() => transitionTo("instructions-game1")}
           />
         )}
 
         {step === "instructions-game1" && (
           <InstructionScreen
-            step="Before we start · 2 of 3"
-            emoji="🥚"
-            title="Game 1 — Egg Cracker"
+            step="Step 2 of 3"
+            stepKey="instructions-game1"
+            title={"Egg cracker\ngame"}
             bullets={[
-              "Eggs will appear on screen.",
-              "Tap gently to crack them.",
-              "Tap too hard and the egg will burst — control your force.",
+              "9 eggs appear on screen.",
+              "Tap gently to crack each one.",
+              "Too much pressure = burst. Control your force.",
             ]}
-            actionLabel="Next"
+            actionLabel="Let's Crack Some Eggs"
             onNext={() => transitionTo("instructions-game2")}
           />
         )}
 
         {step === "instructions-game2" && (
           <InstructionScreen
-            step="Before we start · 3 of 3"
-            emoji="🎈"
-            title="Game 2 — Precision Inflator"
+            step="Step 3 of 3"
+            stepKey="instructions-game2"
+            title={"Precision\nhold game"}
             bullets={[
               "Press & hold to inflate the balloon into the ring.",
-              "Too hard pops it, too light won't reach it.",
+              "Too hard pops it, too soft won't reach.",
               "3 short rounds, 10 seconds each.",
             ]}
-            actionLabel="Let's Start"
+            actionLabel="Ready, Let's Go"
             onNext={() => transitionTo("icebreaker")}
           />
         )}
@@ -196,11 +202,28 @@ export default function StressAssessment() {
   );
 }
 
-function CenteredMessage({ emoji, text }: { emoji: string; text: string }) {
+function SplashMessage({
+  bg,
+  label,
+  text,
+}: {
+  bg: string;
+  label: string;
+  text: string;
+}) {
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center gap-4 px-6 text-center animate-[fadeIn_1s_ease-in-out]">
-      <div className="text-5xl animate-bounce">{emoji}</div>
-      <p className="text-gray-500 text-sm max-w-xs">{text}</p>
+    <div
+      className="min-h-dvh flex flex-col items-center justify-end pb-16 px-7"
+      style={{ backgroundColor: bg }}
+    >
+      <div className="bg-[#1a1a1a] w-full rounded-2xl p-8">
+        <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-2">
+          {label}
+        </p>
+        <p className="text-2xl font-black text-white uppercase leading-snug">
+          {text}
+        </p>
+      </div>
     </div>
   );
 }
