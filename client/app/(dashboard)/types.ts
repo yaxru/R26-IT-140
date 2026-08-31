@@ -45,6 +45,7 @@ export interface Bottleneck {
   targeted_productivity: number | null;
   actual_productivity: number | null;
   line_id?: string; // Added to support your line-grouping in the sidebar
+  cooldown_until?: string | null; // <-- NEW: Added to support the "In Transit" badge
 }
 
 export interface SkillMatrixEntry {

@@ -8,7 +8,7 @@ import { SegmentedBar } from "@/components/SegmentedBar";
 import { HoverTooltip } from "@/components/HoverTooltip";
 import { createClient } from "@/lib/supabase/client";
 import { getAuthHeaders } from "@/shared/auth";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Clock } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const RECOMMEND_INTERVAL_MS = 3_600_000;
@@ -22,6 +22,11 @@ const SCROLLBAR =
 function fmt(n: number | null | undefined, digits = 0) {
   if (n == null) return "—";
   return (n * 100).toFixed(digits);
+}
+
+function isStationInTransit(cooldown_until?: string | null) {
+  if (!cooldown_until) return false;
+  return new Date(cooldown_until) > new Date();
 }
 
 function GapBar({
@@ -162,6 +167,9 @@ function StationList({
                               )
                             : null;
 
+                        // Check if station is in cooldown
+                        const inTransit = isStationInTransit(b.cooldown_until);
+
                         return (
                           <li key={b.station_id}>
                             <button
@@ -179,7 +187,13 @@ function StationList({
                             >
                               <span
                                 aria-hidden="true"
-                                className={`mt-1.5 w-1.5 h-1.5 shrink-0 ${b.is_bottleneck ? "bg-[#CE8E33] animate-pulse" : "bg-[#1A7C4B]"}`}
+                                className={`mt-1.5 w-1.5 h-1.5 shrink-0 ${
+                                  inTransit
+                                    ? "bg-[#3B82F6] animate-pulse"
+                                    : b.is_bottleneck
+                                      ? "bg-[#CE8E33] animate-pulse"
+                                      : "bg-[#1A7C4B]"
+                                }`}
                               />
                               <div className="flex-1 min-w-0">
                                 <p
@@ -196,16 +210,26 @@ function StationList({
                                       value={b.actual_productivity! * 100}
                                       max={100}
                                       color={
-                                        b.is_bottleneck ? "#CE8E33" : "#1A7C4B"
+                                        inTransit
+                                          ? "#3B82F6"
+                                          : b.is_bottleneck
+                                            ? "#CE8E33"
+                                            : "#1A7C4B"
                                       }
                                     />
                                   </div>
                                 )}
                               </div>
                               <span
-                                className={`mt-0.5 text-[10px] font-mono font-bold tabular-nums ${b.is_bottleneck ? "text-[#CE8E33]" : "text-[#9A9A9A] dark:text-zinc-500"}`}
+                                className={`mt-0.5 text-[10px] font-mono font-bold tabular-nums ${
+                                  inTransit
+                                    ? "text-[#3B82F6]"
+                                    : b.is_bottleneck
+                                      ? "text-[#CE8E33]"
+                                      : "text-[#9A9A9A] dark:text-zinc-500"
+                                }`}
                               >
-                                {b.wip}
+                                {inTransit ? <Clock size={12} /> : b.wip}
                               </span>
                             </button>
                           </li>
@@ -219,7 +243,7 @@ function StationList({
           </div>
         )}
       </nav>
-      <div className="px-4  border-t border-[#EAEAEA] dark:border-zinc-800 flex flex-col items-start justify-center gap-1.5 bg-white dark:bg-[#111113] h-16">
+      <div className="px-4 py-3 border-t border-[#EAEAEA] dark:border-zinc-800 flex flex-col items-start justify-center gap-2 bg-white dark:bg-[#111113]">
         <div className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 bg-[#1A7C4B] shrink-0" />
           <span className="text-[10px] text-[#9A9A9A] dark:text-zinc-600">
@@ -230,6 +254,12 @@ function StationList({
           <span className="w-1.5 h-1.5 bg-[#CE8E33] shrink-0" />
           <span className="text-[10px] text-[#9A9A9A] dark:text-zinc-600">
             Critical / bottleneck
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-1.5 h-1.5 bg-[#3B82F6] shrink-0" />
+          <span className="text-[10px] text-[#9A9A9A] dark:text-zinc-600">
+            Worker in transit
           </span>
         </div>
       </div>
@@ -248,14 +278,16 @@ function KpiTile({
   label: string;
   value: string;
   sub?: string;
-  accent?: "green" | "amber" | "none";
+  accent?: "green" | "amber" | "blue" | "none";
 }) {
   const valueColor =
     accent === "green"
       ? "text-[#1A7C4B] dark:text-[#47966F]"
       : accent === "amber"
         ? "text-[#CE8E33] dark:text-[#D7A45A]"
-        : "text-[#242424] dark:text-zinc-100";
+        : accent === "blue"
+          ? "text-[#3B82F6]"
+          : "text-[#242424] dark:text-zinc-100";
 
   return (
     <div className="flex-1 border-r border-[#EAEAEA] dark:border-zinc-800 last:border-r-0 px-5 py-4">
@@ -282,18 +314,22 @@ export function RecommendationPanel({
   recommendation,
   loading,
   isBottleneck,
+  inTransit,
+  cooldownUntil,
   lastUpdated,
   onRefresh,
 }: {
   recommendation: RecommendResponse | null;
   loading: boolean;
   isBottleneck: boolean;
+  inTransit: boolean;
+  cooldownUntil: string | null;
   lastUpdated: Date | null;
   onRefresh: () => void;
 }) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="shrink-0 flex bg-white items-center justify-between border-b border-[#EAEAEA] dark:border-zinc-800 px-5 py-3 h-12">
+      <div className="shrink-0 flex bg-white items-center justify-between border-b border-[#EAEAEA] dark:border-zinc-800 px-5  h-12">
         <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
           Move Recommendation
         </p>
@@ -315,7 +351,7 @@ export function RecommendationPanel({
           ) : null}
           <button
             onClick={onRefresh}
-            disabled={loading || !isBottleneck}
+            disabled={loading || (!isBottleneck && !inTransit)}
             className="w-6 h-6 flex items-center justify-center text-[#9A9A9A] hover:text-[#242424] disabled:opacity-30 transition-colors cursor-pointer"
           >
             <svg
@@ -340,7 +376,26 @@ export function RecommendationPanel({
       <div
         className={`flex-1 px-5 py-4 overflow-y-auto flex flex-col min-h-0 bg-white dark:bg-[#111113] ${SCROLLBAR}`}
       >
-        {!isBottleneck ? (
+        {inTransit ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 py-8">
+            <div className="w-8 h-8 border border-[#3B82F6]/30 flex items-center justify-center bg-[#EFF6FF] dark:bg-[#1E3A8A]/30">
+              <Clock size={16} className="text-[#3B82F6] animate-pulse" />
+            </div>
+            <p className="text-sm font-semibold text-[#333333] dark:text-zinc-200">
+              Worker in Transit
+            </p>
+            <p className="text-xs text-[#9A9A9A] dark:text-zinc-600">
+              Station is stabilizing. Check back after{" "}
+              {cooldownUntil
+                ? new Date(cooldownUntil).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "cooldown period"}
+              .
+            </p>
+          </div>
+        ) : !isBottleneck ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-2 py-8">
             <div className="w-8 h-8 border border-[#1A7C4B]/30 flex items-center justify-center bg-[#E6F1EC] dark:bg-[#0A321E]/30">
               <span className="text-[#1A7C4B] text-sm" aria-hidden="true">
@@ -408,12 +463,10 @@ export function RecommendationPanel({
 
                 <div className="flex flex-col gap-3">
                   {recommendation.moves.map((move, i) => {
-                    // 1. Extract the numeric gap percentage
                     const gapMatch =
                       move.donor_risk_detail?.match(/gap:\s*([\d.]+)%/);
                     const projectedGap = gapMatch ? parseFloat(gapMatch[1]) : 0;
 
-                    // 2. Find and format the specific global warning for THIS worker
                     const specificWarningRaw =
                       recommendation.cascade_warnings?.find((w) =>
                         w.includes(move.operator_id),
@@ -430,12 +483,9 @@ export function RecommendationPanel({
                       <div
                         key={move.operator_id}
                         className={`p-3.5 text-[11px] bg-[#F8F8F8]/30 dark:bg-[#111113] border border-[#EAEAEA] dark:border-zinc-800 transition-all ${
-                          move.donor_cascade_risk
-                            ? ""
-                            : ""
+                          move.donor_cascade_risk ? "" : ""
                         }`}
                       >
-                        {/* Header: Name, PIN, Grade, Profit */}
                         <div className="flex items-start justify-between mb-3">
                           <div>
                             <span className="font-bold text-[#333333] dark:text-zinc-200 text-xs tracking-tight">
@@ -459,7 +509,6 @@ export function RecommendationPanel({
                           </div>
                         </div>
 
-                        {/* Minimalist Station Shift Path */}
                         <div className="flex items-center gap-3 mb-3 px-1">
                           <div className="flex items-center gap-1.5 text-[#5F5F5F] dark:text-zinc-400">
                             <span className="text-[9px] uppercase tracking-widest text-[#9A9A9A] dark:text-zinc-500">
@@ -482,10 +531,8 @@ export function RecommendationPanel({
                           </div>
                         </div>
 
-                        {/* Cascade Risk Section (Only renders if risk exists) */}
                         {move.donor_cascade_risk && (
                           <div className="mt-3 pt-3 border-t border-dashed border-[#EAEAEA] dark:border-zinc-800">
-                            {/* The Extracted Warning Sentence */}
                             {specificWarning && (
                               <p className="text-[10px] text-[#A77329] dark:text-[#E1BA82] leading-relaxed mb-2.5 flex gap-1.5">
                                 <span className="animate-pulse">⚠</span>
@@ -502,7 +549,6 @@ export function RecommendationPanel({
                               </span>
                             </div>
 
-                            {/* Sleek Danger Progress Bar */}
                             <div className="w-full h-1 bg-[#F1F1F1] dark:bg-zinc-800 overflow-hidden mb-2.5">
                               <div
                                 className="h-full bg-[#CE8E33] transition-all duration-500"
@@ -512,7 +558,6 @@ export function RecommendationPanel({
                               />
                             </div>
 
-                            {/* Auto-Backfill Badge */}
                             {move.donor_replacement_id && (
                               <div className="inline-flex items-center gap-1.5 mt-1 bg-[#F8F8F8] dark:bg-zinc-900 border border-[#EAEAEA] dark:border-zinc-800 px-2 py-1">
                                 <span className="text-[9px] text-[#1A7C4B] dark:text-[#47966F] uppercase tracking-widest">
@@ -591,7 +636,7 @@ function ProfitabilityPanel({
 
   return (
     <div className="flex flex-col h-full overflow-hidden border-l border-[#EAEAEA] dark:border-zinc-800 bg-[#F8F8F8] dark:bg-[#111113]">
-      <div className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-5 py-3 h-12 flex items-center">
+      <div className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-5  h-12 flex items-center">
         <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
           Cost breakdown
         </p>
@@ -691,25 +736,31 @@ export default function WorkerReallocationPage() {
   const [skillMatrix, setSkillMatrix] = useState<SkillMatrixEntry[]>([]);
   const [skillMatrixError, setSkillMatrixError] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
+  // 1. Extracted fetch logic so we can call it after accepting a move
+  const fetchStations = useCallback(async () => {
+    try {
       const headers = await getAuthHeaders(supabase);
-      fetch(`${API_BASE}/stations`, { headers })
-        .then((r) => {
-          if (!r.ok) throw new Error(`Stations error ${r.status}`);
-          return r.json();
-        })
-        .then((data: Bottleneck[]) => {
-          setBottlenecks(data);
-          setActiveBottleneck(data[0] ?? null);
-        })
-        .catch((e) =>
-          setBottlenecksError(
-            e instanceof Error ? e.message : "Could not load stations",
-          ),
-        );
-    })();
-  }, []);
+      const r = await fetch(`${API_BASE}/stations`, { headers });
+      if (!r.ok) throw new Error(`Stations error ${r.status}`);
+      const data: Bottleneck[] = await r.json();
+      setBottlenecks(data);
+
+      // Update active bottleneck with new data if it exists
+      setActiveBottleneck((prev) =>
+        prev
+          ? data.find((d) => d.station_id === prev.station_id) || prev
+          : (data[0] ?? null),
+      );
+    } catch (e) {
+      setBottlenecksError(
+        e instanceof Error ? e.message : "Could not load stations",
+      );
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchStations();
+  }, [fetchStations]);
 
   useEffect(() => {
     (async () => {
@@ -728,43 +779,53 @@ export default function WorkerReallocationPage() {
     })();
   }, []);
 
-  const fetchRecommendation = useCallback(async (b: Bottleneck) => {
-    try {
-      const headers = await getAuthHeaders(supabase);
-      const res = await fetch(`${API_BASE}/recommend`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...headers },
-        body: JSON.stringify({
-          bottleneck_station: b.station_id,
-          required_skill: b.required_skill,
-          targeted_productivity: b.targeted_productivity,
-          actual_productivity: b.actual_productivity,
-        }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(body.detail ?? "Error");
+  const fetchRecommendation = useCallback(
+    async (b: Bottleneck) => {
+      try {
+        const headers = await getAuthHeaders(supabase);
+        const res = await fetch(`${API_BASE}/recommend`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...headers },
+          body: JSON.stringify({
+            bottleneck_station: b.station_id,
+            required_skill: b.required_skill,
+            targeted_productivity: b.targeted_productivity,
+            actual_productivity: b.actual_productivity,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res
+            .json()
+            .catch(() => ({ detail: res.statusText }));
+          throw new Error(body.detail ?? "Error");
+        }
+        setRecommendation(await res.json());
+        setError(null);
+        setAccepted(false);
+        setLastUpdated(new Date());
+      } catch (e) {
+        setError(
+          e instanceof Error ? e.message : "Failed to fetch recommendation",
+        );
+      } finally {
+        setLoading(false);
       }
-      setRecommendation(await res.json());
-      setError(null);
-      setAccepted(false);
-      setLastUpdated(new Date());
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Failed to fetch recommendation",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [supabase],
+  );
 
   useEffect(() => {
     if (!activeBottleneck) return;
-    if (!activeBottleneck.is_bottleneck) {
+
+    // Check if the current station is in transit
+    const inTransit = isStationInTransit(activeBottleneck.cooldown_until);
+
+    if (!activeBottleneck.is_bottleneck || inTransit) {
       setRecommendation(null);
       setLoading(false);
       return;
     }
+
     setLoading(true);
     fetchRecommendation(activeBottleneck);
     const id = setInterval(
@@ -808,6 +869,9 @@ export default function WorkerReallocationPage() {
         throw new Error(body.detail ?? "Failed");
       }
       setAccepted(true);
+
+      // 2. Automatically refresh the stations to trigger the UI update!
+      await fetchStations();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to accept move");
     } finally {
@@ -831,7 +895,11 @@ export default function WorkerReallocationPage() {
           activeBottleneck.targeted_productivity) *
         100
       : null;
+
   const bottleneckCount = bottlenecks.filter((b) => b.is_bottleneck).length;
+
+  // Calculate if the active station is currently in transit
+  const activeInTransit = isStationInTransit(activeBottleneck?.cooldown_until);
 
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 overflow-hidden">
@@ -902,23 +970,43 @@ export default function WorkerReallocationPage() {
                   label="WIP Queue"
                   value={`${activeBottleneck.wip}`}
                   sub="units in queue"
-                  accent={activeBottleneck.wip > 40 ? "amber" : "none"}
+                  accent={
+                    activeInTransit
+                      ? "blue"
+                      : activeBottleneck.wip > 40
+                        ? "amber"
+                        : "none"
+                  }
                 />
                 <KpiTile
                   label="Actual Productivity"
                   value={`${fmt(activeBottleneck.actual_productivity)}%`}
                   sub={`Target: ${fmt(activeBottleneck.targeted_productivity)}%`}
-                  accent={activeBottleneck.is_bottleneck ? "amber" : "green"}
+                  accent={
+                    activeInTransit
+                      ? "blue"
+                      : activeBottleneck.is_bottleneck
+                        ? "amber"
+                        : "green"
+                  }
                 />
                 <KpiTile
                   label="Productivity Gap"
                   value={gap !== null ? `${gap.toFixed(1)}%` : "—"}
                   sub={
-                    activeBottleneck.is_bottleneck
-                      ? "Below threshold"
-                      : "Within normal range"
+                    activeInTransit
+                      ? "Worker relocating..."
+                      : activeBottleneck.is_bottleneck
+                        ? "Below threshold"
+                        : "Within normal range"
                   }
-                  accent={activeBottleneck.is_bottleneck ? "amber" : "green"}
+                  accent={
+                    activeInTransit
+                      ? "blue"
+                      : activeBottleneck.is_bottleneck
+                        ? "amber"
+                        : "green"
+                  }
                 />
               </>
             ) : (
@@ -940,12 +1028,19 @@ export default function WorkerReallocationPage() {
               recommendation={recommendation}
               loading={loading}
               isBottleneck={activeBottleneck?.is_bottleneck ?? false}
+              inTransit={activeInTransit}
+              cooldownUntil={activeBottleneck?.cooldown_until ?? null}
               lastUpdated={lastUpdated}
               onRefresh={() => {
-                if (!activeBottleneck?.is_bottleneck) return;
+                // ADD THIS GUARD CLAUSE FIRST:
+                if (!activeBottleneck) return; 
+                
+                // Now TypeScript knows activeBottleneck is strictly a 'Bottleneck'
+                if (!activeBottleneck.is_bottleneck && !activeInTransit) return;
+                
                 setLoading(true);
                 setAccepted(false);
-                fetchRecommendation(activeBottleneck);
+                fetchRecommendation(activeBottleneck); 
               }}
             />
             <ProfitabilityPanel recommendation={recommendation} />
@@ -955,21 +1050,28 @@ export default function WorkerReallocationPage() {
           <div className="shrink-0 flex flex-col border-t border-[#EAEAEA]  justify-between h-16 dark:border-zinc-800 bg-white dark:bg-[#111113]">
             <div className="p-3 flex items-center justify-between">
               <p className="text-[10px] text-[#9A9A9A] dark:text-zinc-500 uppercase tracking-widest hidden sm:block">
-                {recommendation?.recommended
-                  ? "Action Required"
-                  : "No Action Needed"}
+                {activeInTransit
+                  ? "Move in Progress"
+                  : recommendation?.recommended
+                    ? "Action Required"
+                    : "No Action Needed"}
               </p>
               <button
                 onClick={handleAcceptMove}
-                disabled={accepted || accepting || !recommendation?.recommended}
+                disabled={
+                  accepted ||
+                  accepting ||
+                  activeInTransit ||
+                  !recommendation?.recommended
+                }
                 className={`
                   py-2 px-8 text-sm font-semibold tracking-wide border transition-colors cursor-pointer disabled:cursor-not-allowed
                   focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1A7C4B]
-                  ${accepted ? "bg-[#E6F1EC] text-[#1A7C4B] border-[#B9D7C8] dark:bg-[#0A321E]/40 dark:text-[#47966F] dark:border-[#104A2D]" : accepting ? "bg-[#F1F1F1] text-[#9A9A9A] border-[#EAEAEA] dark:bg-zinc-800 dark:border-zinc-700" : "bg-[#1A7C4B] hover:bg-[#15633C] text-white border-[#15633C]"}
+                  ${accepted || activeInTransit ? "bg-[#EFF6FF] text-[#3B82F6] border-[#BFDBFE] dark:bg-[#1E3A8A]/40 dark:text-[#60A5FA] dark:border-[#1E3A8A]" : accepting ? "bg-[#F1F1F1] text-[#9A9A9A] border-[#EAEAEA] dark:bg-zinc-800 dark:border-zinc-700" : "bg-[#1A7C4B] hover:bg-[#15633C] text-white border-[#15633C]"}
                 `}
               >
-                {accepted
-                  ? "✓ Moves Accepted"
+                {accepted || activeInTransit
+                  ? "✓ Move in Progress"
                   : accepting
                     ? "Processing…"
                     : `Accept ${recommendation?.workers_found && recommendation.workers_found > 1 ? `${recommendation.workers_found} Moves` : "Move"}`}
