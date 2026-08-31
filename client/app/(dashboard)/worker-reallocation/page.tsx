@@ -219,7 +219,7 @@ function StationList({
           </div>
         )}
       </nav>
-      <div className="px-4 py-3 border-t border-[#EAEAEA] dark:border-zinc-800 flex flex-col gap-1.5 bg-white dark:bg-[#111113]">
+      <div className="px-4  border-t border-[#EAEAEA] dark:border-zinc-800 flex flex-col items-start justify-center gap-1.5 bg-white dark:bg-[#111113] h-16">
         <div className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 bg-[#1A7C4B] shrink-0" />
           <span className="text-[10px] text-[#9A9A9A] dark:text-zinc-600">
@@ -952,7 +952,7 @@ export default function WorkerReallocationPage() {
           </section>
 
           {/* Accept Move Area - Includes Global Cascade Risk Badge */}
-          <div className="shrink-0 flex flex-col border-t border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113]">
+          <div className="shrink-0 flex flex-col border-t border-[#EAEAEA]  justify-between h-16 dark:border-zinc-800 bg-white dark:bg-[#111113]">
             <div className="p-3 flex items-center justify-between">
               <p className="text-[10px] text-[#9A9A9A] dark:text-zinc-500 uppercase tracking-widest hidden sm:block">
                 {recommendation?.recommended

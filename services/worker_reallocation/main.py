@@ -43,7 +43,7 @@ def require_auth(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-app = FastAPI(title="StitchFlow Profitability Engine", version="2.0.0")
+app = FastAPI(title="StitchFlow Profitability Engine", version="2.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -60,6 +60,7 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 SHIFT_REMAINING_MIN: float = float(os.environ.get("SHIFT_REMAINING_MIN", "240"))
 BOTTLENECK_THRESHOLD_PCT: float = float(os.environ.get("BOTTLENECK_THRESHOLD_PCT", "5"))
+COOLDOWN_MINUTES: int = 15 # Configurable time for a worker to relocate and warm up
 
 class ProficiencyGrade(str, Enum):
     A = "A"
@@ -105,7 +106,6 @@ class MoveInstruction(BaseModel):
     total_net_profit: float
     cascade_warnings: list[str]
     instruction: str
-    # Legacy fields
     operator_id: str
     operator_name: Optional[str] = None 
     worker_pin: Optional[str] = None    
@@ -124,6 +124,7 @@ class StationOut(BaseModel):
     targeted_productivity: Optional[float] = None
     actual_productivity: Optional[float] = None
     line_id: Optional[str] = None
+    cooldown_until: Optional[str] = None # Added for frontend UI badge
 
 class SkillMatrixOut(BaseModel):
     operator_id: str
@@ -150,7 +151,6 @@ class BatchAssignmentRequest(BaseModel):
     line_id: str
     assignments: list[WorkerAssignment]
 
-
 class AcceptMoveItem(BaseModel):
     operator_id: str
     from_station: Optional[str]
@@ -166,7 +166,6 @@ class AcceptMoveRequest(BaseModel):
 # Dynamic Config Fetcher
 # ---------------------------------------------------------------------------
 def get_algorithm_config():
-    """Fetches real-time algorithm weights from the database."""
     res = supabase.table("algorithm_config").select("key, value").execute()
     config = {row["key"]: row["value"] for row in res.data}
     
@@ -182,7 +181,7 @@ def get_algorithm_config():
 # ---------------------------------------------------------------------------
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "service": "StitchFlow Profitability Engine V2"}
+    return {"status": "ok", "service": "StitchFlow Profitability Engine V2.1"}
 
 @app.post("/line-layout", response_model=dict)
 async def setup_line_layout(request: LineLayoutRequest, _: dict = Depends(require_auth)):
@@ -197,7 +196,8 @@ async def setup_line_layout(request: LineLayoutRequest, _: dict = Depends(requir
             "required_skill": station.required_skill,
             "wip": 0,
             "actual_productivity": 0.0,
-            "targeted_productivity": 0.85 
+            "targeted_productivity": 0.85,
+            "cooldown_until": None # Reset cooldown on layout change
         })
 
     try:
@@ -220,9 +220,28 @@ async def setup_line_layout(request: LineLayoutRequest, _: dict = Depends(requir
 @app.get("/stations", response_model=list[StationOut])
 async def get_stations(_: dict = Depends(require_auth)):
     try:
+        # Fetch base station config, now including cooldown_until
         response = supabase.table("production_status").select(
-            "station_id, line_id, wip, required_skill, targeted_productivity, actual_productivity"
+            "station_id, line_id, wip, required_skill, targeted_productivity, actual_productivity, cooldown_until"
         ).order("station_id").execute()
+        
+        # Fetch TODAY'S actual performance from laborers_data
+        today_str = datetime.datetime.utcnow().date().isoformat()
+        ld_res = supabase.table("laborers_data").select("station_id, efficiency").eq("date", today_str).execute()
+        
+        station_today = {}
+        if ld_res.data:
+            for r in ld_res.data:
+                sid = r.get("station_id")
+                eff = r.get("efficiency")
+                if sid and eff is not None:
+                    if sid not in station_today:
+                        station_today[sid] = []
+                    station_today[sid].append(float(eff))
+                    
+        # Calculate today's average efficiency per station (scaled 0.0 to 1.0)
+        today_actuals = {sid: round((sum(effs)/len(effs))/100.0, 4) for sid, effs in station_today.items()}
+        
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Database query failed: {exc}")
         
@@ -231,13 +250,35 @@ async def get_stations(_: dict = Depends(require_auth)):
 
     threshold = BOTTLENECK_THRESHOLD_PCT / 100
     result = []
+    
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    
     for s in response.data:
+        sid = s["station_id"]
         t = s.get("targeted_productivity")
-        a = s.get("actual_productivity")
-        if t is None or a is None or t <= 0:
+        
+        # Override the static table value with TODAY'S live average
+        a = today_actuals.get(sid, 0.0)
+        s["actual_productivity"] = a
+        
+        # Evaluate cooldown status
+        cooldown_str = s.get("cooldown_until")
+        in_cooldown = False
+        if cooldown_str:
+            try:
+                # Handle ISO8601 formatting from Supabase
+                cooldown_time = datetime.datetime.fromisoformat(cooldown_str.replace("Z", "+00:00"))
+                if now_utc < cooldown_time:
+                    in_cooldown = True
+            except Exception as e:
+                print(f"[DATE PARSE ERROR] {e}")
+
+        # Avoid marking offline/unstarted stations OR stations in transit as bottlenecks
+        if t is None or t <= 0 or a == 0.0 or in_cooldown:
             is_bottleneck = False
         else:
             is_bottleneck = (t - a) / t >= threshold
+            
         result.append({**s, "is_bottleneck": is_bottleneck})
 
     return result
@@ -253,7 +294,6 @@ def get_skill_matrix(_: dict = Depends(require_auth)):
         operator_info = row.get("operators") or {}
         grade = row.get("proficiency_grade", "C")
         
-        # Simple fallback logic for UI efficiency percentage
         eff_pct = 95.0 if grade == "A" else 75.0 if grade == "B" else 55.0
         
         formatted_data.append({
@@ -284,7 +324,6 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
     remaining_gap = max(0.0, targeted - actual_prod) if use_dynamic else 0.0
 
     try:
-        # Added operators join to fetch names and PINs
         sm_response = (
             supabase.table("skill_matrix")
             .select("operator_id, machine_type, proficiency_grade, operators(name, worker_id)")
@@ -302,34 +341,56 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
         raise HTTPException(status_code=404, detail=f"No qualified operators found for skill '{request.required_skill}'.")
 
     candidate_ids = [c["operator_id"] for c in candidates_raw]
+    today_str = datetime.datetime.utcnow().date().isoformat()
+
+    today_resp = (
+        supabase.table("laborers_data")
+        .select("operator_id, efficiency")
+        .in_("operator_id", candidate_ids)
+        .eq("date", today_str)
+        .execute()
+    )
+    
+    today_map = {}
+    if today_resp.data:
+        for row in today_resp.data:
+            op = row["operator_id"]
+            if op not in today_map:
+                today_map[op] = []
+            today_map[op].append(float(row["efficiency"]))
 
     hist_resp = (
         supabase.table("laborers_data")
         .select("operator_id, efficiency")
         .in_("operator_id", candidate_ids)
+        .neq("date", today_str)
         .order("created_at", desc=True)
-        .limit(100)
+        .limit(200)
         .execute()
     )
     
     hist_map = {}
-    for row in hist_resp.data:
-        op = row["operator_id"]
-        if op not in hist_map:
-            hist_map[op] = []
-        if len(hist_map[op]) < 5: 
-            hist_map[op].append(float(row["efficiency"]))
+    if hist_resp.data:
+        for row in hist_resp.data:
+            op = row["operator_id"]
+            if op not in hist_map:
+                hist_map[op] = []
+            if len(hist_map[op]) < 5: 
+                hist_map[op].append(float(row["efficiency"]))
 
-    # Filter out workers with zero job card submissions
-    candidates_raw = [c for c in candidates_raw if c["operator_id"] in hist_map]
+    personal_efficiency = {}
+    for c_id in candidate_ids:
+        if c_id in today_map and today_map[c_id]:
+            eff_val = sum(today_map[c_id]) / len(today_map[c_id])
+            personal_efficiency[c_id] = eff_val / 100.0 if eff_val > 1.5 else eff_val
+        elif c_id in hist_map and hist_map[c_id]:
+            eff_val = sum(hist_map[c_id]) / len(hist_map[c_id])
+            personal_efficiency[c_id] = eff_val / 100.0 if eff_val > 1.5 else eff_val
+
+    candidates_raw = [c for c in candidates_raw if c["operator_id"] in personal_efficiency]
     
     if not candidates_raw:
         raise HTTPException(status_code=404, detail=f"No operators with actual production history found for '{request.required_skill}'.")
-
-    personal_efficiency = {
-        op: (sum(effs) / len(effs)) / 100.0 if sum(effs)/len(effs) > 1.5 else (sum(effs) / len(effs))
-        for op, effs in hist_map.items() if effs
-    }
 
     op_station_map = {}
     try:
@@ -574,6 +635,9 @@ async def accept_move(request: AcceptMoveRequest, _: dict = Depends(require_auth
 
     errors = []
 
+    # Calculate UTC time X minutes from now for the cooldown
+    cooldown_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=COOLDOWN_MINUTES)).isoformat()
+
     for move in request.moves:
         grade = move.proficiency_grade.upper()
         boost = per_worker_fraction * baseline_eff.get(grade, 1.0)
@@ -598,7 +662,12 @@ async def accept_move(request: AcceptMoveRequest, _: dict = Depends(require_auth
                 targeted = dest_resp.data["targeted_productivity"] or 0.0
                 loc_boost = targeted * per_worker_fraction * baseline_eff.get(grade, 1.0) if targeted > 0 else 0.0
                 new_actual = min(targeted, current + loc_boost) if targeted > 0 else current + loc_boost
-                supabase.table("production_status").update({"actual_productivity": round(new_actual, 4)}).eq("station_id", move.to_station).execute()
+                
+                # Apply the cooldown time to the destination station
+                supabase.table("production_status").update({
+                    "actual_productivity": round(new_actual, 4),
+                    "cooldown_until": cooldown_time 
+                }).eq("station_id", move.to_station).execute()
         except Exception as exc:
             errors.append(f"Productivity update failed for {move.to_station}: {exc}")
 
@@ -642,22 +711,11 @@ async def assign_workers_to_stations(request: BatchAssignmentRequest, _: dict = 
         "message": f"Successfully updated {len(request.assignments)} operator assignments on {request.line_id}."
     }
 
-# ---------------------------------------------------------------------------
-# NEW: Automated Skill Grading Endpoint
-# ---------------------------------------------------------------------------
 @app.post("/trigger-regrade", response_model=dict)
 async def trigger_regrade(_: dict = Depends(require_auth)):
-    """
-    Analyzes the last 14 days of operator performance from laborers_data
-    and automatically adjusts their A/B/C skill grade in the matrix.
-    """
     try:
         fourteen_days_ago = (datetime.datetime.now() - datetime.timedelta(days=14)).date().isoformat()
-        
-        # 1. Fetch recent performance data
         ld_resp = supabase.table("laborers_data").select("operator_id, station_id, efficiency").gte("date", fourteen_days_ago).execute()
-        
-        # 2. Fetch station definitions to map physical stations to machine skills
         st_resp = supabase.table("production_status").select("station_id, required_skill").execute()
         
         if not ld_resp.data:
@@ -665,7 +723,6 @@ async def trigger_regrade(_: dict = Depends(require_auth)):
             
         station_skill_map = {row["station_id"]: row["required_skill"] for row in st_resp.data}
         
-        # 3. Aggregate efficiency scores per operator per machine type
         agg_data = {}
         for row in ld_resp.data:
             op_id = row["operator_id"]
@@ -682,12 +739,9 @@ async def trigger_regrade(_: dict = Depends(require_auth)):
                 agg_data[key] = []
             agg_data[key].append(eff)
             
-        # 4. Calculate averages and assign new grades
         success_count = 0
         for (op_id, machine_type), effs in agg_data.items():
             avg_eff = sum(effs) / len(effs)
-            
-            # Normalize percentage (handling both 0.85 and 85.0 formats)
             normalized_eff = avg_eff if avg_eff <= 1.5 else avg_eff / 100.0
             
             if normalized_eff >= 0.85:
@@ -697,7 +751,6 @@ async def trigger_regrade(_: dict = Depends(require_auth)):
             else:
                 new_grade = "C"
                 
-            # 5. Safely update or insert into the skill matrix
             try:
                 update_res = supabase.table("skill_matrix").update({
                     "proficiency_grade": new_grade
