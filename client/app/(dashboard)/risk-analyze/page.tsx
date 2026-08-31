@@ -204,19 +204,16 @@ export default function RiskAnalyzePage() {
     <main className="min-h-screen bg-[#F8F8F8] dark:bg-[#030C08] text-[#242424] dark:text-zinc-200 flex flex-col">
       <header className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-6 py-4 flex items-center justify-between bg-white dark:bg-[#111113]">
         <div>
-          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-0.5">
-            Core Pipeline · Execution
-          </p>
+          
           <h1 className="text-lg font-bold text-[#242424] dark:text-zinc-100 tracking-tight">
             Live Input & Risk Analysis
           </h1>
-        </div>
-        <div className="hidden sm:block">
-          <p className="text-xs text-[#5F5F5F] dark:text-zinc-400 max-w-sm text-right">
+          <p className="text-xs text-[#5F5F5F] dark:text-zinc-400 max-w-sm ">
             Monitor operator performance trends and high-risk outputs strictly
             based on today's active shift data.
           </p>
         </div>
+       
       </header>
 
       <section className="border-b border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113] grid grid-cols-2 lg:grid-cols-4 shrink-0">

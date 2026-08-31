@@ -33,11 +33,13 @@ function KpiTile({
   value,
   sub,
   accent,
+  className = "",
 }: {
   label: string;
   value: React.ReactNode;
   sub?: string;
   accent?: "green" | "amber" | "none";
+  className?: string;
 }) {
   const valueColor =
     accent === "green"
@@ -46,7 +48,7 @@ function KpiTile({
         ? "text-[#CE8E33] dark:text-[#D7A45A]"
         : "text-[#242424] dark:text-zinc-100";
   return (
-    <div className="flex-1 border-r border-b xl:border-b-0 border-[#EAEAEA] dark:border-zinc-800 last:border-r-0 px-5 py-4 flex flex-col justify-center bg-white dark:bg-[#111113]">
+    <div className={`p-5 flex flex-col justify-center bg-white dark:bg-[#111113] ${className}`}>
       <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-1">
         {label}
       </p>
@@ -101,7 +103,7 @@ function ShortcutCard({
 
 // ─── Dynamic SVG Charts ───────────────────────────────────────────────────────
 
-// 1. Floor Tree Graph (Hierarchical layout mapping Lines -> Stations -> Worker Count)
+// 1. Floor Tree Graph (Restored to vertical flow without the inner grid)
 function FloorTreeGraph({
   stations,
   skillMatrix,
@@ -143,11 +145,10 @@ function FloorTreeGraph({
             {/* Stations Branch */}
             <div className="flex items-center pl-1 relative">
               {/* Vertical Guide Line */}
-              <div className="w-px h-full bg-[#EAEAEA] dark:bg-zinc-800 absolute left-0.75 top-0" />
+              <div className="w-px h-full bg-[#EAEAEA] dark:bg-zinc-800 absolute left-[3px] top-0" />
 
               <div className="flex items-center pl-4 py-1">
                 {lineStations.map((s, i) => {
-                  // Dynamically calculate the pool of qualified workers for this specific station's required skill
                   const workersCount = skillMatrix.filter(
                     (sm) => sm.machine_type === s.required_skill,
                   ).length;
@@ -165,7 +166,7 @@ function FloorTreeGraph({
 
                       {/* Station Data Box */}
                       <div
-                        className={`flex flex-col min-w-30 px-3 py-2 border transition-colors ${isWarning ? "bg-[#fafafa] border-[#333333]/20 dark:bg-[#1A1510] dark:border-amber-900" : "bg-white border-[#EAEAEA] dark:bg-[#111113] dark:border-zinc-700"}`}
+                        className={`flex flex-col min-w-[120px] px-3 py-2 border transition-colors ${isWarning ? "bg-[#FDFBF8] border-[#CE8E33] dark:bg-[#1A1510] dark:border-amber-900" : "bg-white border-[#EAEAEA] dark:bg-[#111113] dark:border-zinc-700"}`}
                       >
                         <div className="flex items-center justify-between gap-3 mb-1.5">
                           <span
@@ -472,9 +473,6 @@ export default function OverviewPage() {
     <div className="flex flex-col h-screen overflow-hidden bg-[#F8F8F8] dark:bg-[#030C08]">
       <header className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-6 py-4 flex items-center justify-between bg-white dark:bg-[#111113]">
         <div>
-          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-0.5">
-            Live Operations
-          </p>
           <h1 className="text-xl font-bold text-[#242424] dark:text-zinc-100 tracking-tight">
             Factory Floor Overview
           </h1>
@@ -496,18 +494,19 @@ export default function OverviewPage() {
 
       {error && (
         <div className="shrink-0 px-6 py-2 bg-[#F8F8F8] dark:bg-[#0a0a0c]">
-          <div className="flex items-center gap-2  bg-[#FDFBF8] dark:bg-amber-950/10 px-3 py-2 text-xs text-[#A77329] dark:text-[#E1BA82]">
+          <div className="flex items-center gap-2 bg-[#FDFBF8] dark:bg-amber-950/10 px-3 py-2 text-xs text-[#A77329] dark:text-[#E1BA82]">
             <AlertTriangle size={14} /> {error}
           </div>
         </div>
       )}
 
       <main className={`flex-1 overflow-y-auto ${SCROLLBAR}`}>
-        <div className="grid grid-cols-12 min-h-full">
-          {/* LEFT COLUMN: Data, Predictions & Charts (8 Cols) */}
-          <div className="col-span-12 xl:col-span-8 flex flex-col border-r border-[#EAEAEA] dark:border-zinc-800 bg-[#FAFAFA] dark:bg-[#0a0a0c]">
-            {/* Row 1: Core KPIs */}
-            <div className="grid grid-cols-2 xl:grid-cols-4 border-b border-[#EAEAEA] dark:border-zinc-800 shrink-0">
+        <div className="flex flex-col min-h-full">
+          
+          {/* 1ST ROW: KPIs (Left) and Prediction/Shortcuts (Right) */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 border-b border-[#EAEAEA] dark:border-zinc-800 shrink-0 bg-[#FAFAFA] dark:bg-[#0a0a0c]">
+            {/* Left Col: 2x2 KPIs */}
+            <div className="grid grid-cols-2 border-r border-[#EAEAEA] dark:border-zinc-800">
               <KpiTile
                 label="Total WIP"
                 value={
@@ -517,6 +516,7 @@ export default function OverviewPage() {
                   </>
                 }
                 sub="Across Active Lines"
+                className="border-r border-b border-[#EAEAEA] dark:border-zinc-800"
               />
               <KpiTile
                 label="Global Efficiency"
@@ -529,24 +529,27 @@ export default function OverviewPage() {
                       : "amber"
                 }
                 sub="Vs 100% Target"
+                className="border-b border-[#EAEAEA] dark:border-zinc-800"
               />
               <KpiTile
                 label="Active Bottlenecks"
                 value={bottleneckCount.toString()}
                 accent={bottleneckCount > 0 ? "amber" : "green"}
                 sub="Requires Reallocation"
+                className="border-r border-[#EAEAEA] dark:border-zinc-800"
               />
               <KpiTile
                 label="System Status"
                 value={bottleneckCount > 0 ? "Alert" : "Stable"}
                 accent={bottleneckCount > 0 ? "amber" : "green"}
                 sub="Continuous Monitoring"
+                className=""
               />
             </div>
 
-            {/* Row 2: Action Center */}
-            <div className="flex flex-col sm:flex-row border-b border-[#EAEAEA] dark:border-zinc-800 shrink-0 bg-white dark:bg-[#111113]">
-              <div className="flex-1 p-5 bg-[#E6F1EC]/30 dark:bg-[#0A321E]/10 border-r border-[#EAEAEA] dark:border-zinc-800">
+            {/* Right Col: Model Prediction + Shortcuts */}
+            <div className="flex flex-col bg-white dark:bg-[#111113]">
+              <div className="flex-1 p-5 bg-[#E6F1EC]/30 dark:bg-[#0A321E]/10 border-b border-[#EAEAEA] dark:border-zinc-800 flex flex-col justify-center">
                 <div className="flex items-center gap-2 mb-2">
                   <Activity
                     size={12}
@@ -556,14 +559,14 @@ export default function OverviewPage() {
                     Model Prediction
                   </p>
                 </div>
-                <h3 className="text-xl font-bold text-[#242424] dark:text-zinc-100 tabular-nums">
+                <h3 className="text-2xl font-bold text-[#242424] dark:text-zinc-100 tabular-nums">
                   {(avgEfficiency + 2.4).toFixed(1)}%
                 </h3>
                 <p className="text-[10px] text-[#5F5F5F] dark:text-zinc-400 mt-1">
                   Expected end-of-shift efficiency based on current velocity.
                 </p>
               </div>
-              <div className="flex-[2] flex">
+              <div className="flex flex-1">
                 <ShortcutCard
                   title="Risk Analysis"
                   desc="View predictive models"
@@ -584,15 +587,18 @@ export default function OverviewPage() {
                 />
               </div>
             </div>
+          </div>
 
-            {/* Row 3: Floor Tree Graph (Hierarchical Station Flow) */}
-            <div className="shrink-0 flex flex-col border-b border-[#EAEAEA] dark:border-zinc-800 bg-[#FAFAFA] dark:bg-[#0a0a0c] min-h-[160px]">
-              <div className="shrink-0 px-5 pt-5 pb-2">
+          {/* 2ND ROW: Workforce Matrix, Efficiency Chart, Notification Center */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 border-b border-[#EAEAEA] dark:border-zinc-800 shrink-0 bg-[#FAFAFA] dark:bg-[#0a0a0c]">
+            {/* Col 1: Workforce Matrix */}
+            <div className="p-5 flex flex-col bg-white dark:bg-[#111113] border-b xl:border-b-0 xl:border-r border-[#EAEAEA] dark:border-zinc-800 min-h-[300px]">
+              <div className="shrink-0 mb-2">
                 <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] uppercase mb-0.5">
-                  Floor Layout
+                  Skill Distribution
                 </p>
                 <h3 className="text-sm font-bold text-[#242424] dark:text-zinc-100">
-                  Production Routing
+                  Active Workforce Matrix
                 </h3>
               </div>
               {loading ? (
@@ -600,53 +606,31 @@ export default function OverviewPage() {
                   Loading...
                 </div>
               ) : (
-                <FloorTreeGraph stations={stations} skillMatrix={skillMatrix} />
+                <SkillDonutChart matrix={skillMatrix} />
               )}
             </div>
 
-            {/* Row 4: Detailed Charts (Bar + Donut) */}
-            <div className="flex-1 min-h-[220px] grid grid-cols-1 md:grid-cols-2 bg-[#FAFAFA] dark:bg-[#0a0a0c]">
-              <div className="border-b md:border-b-0 md:border-r border-[#EAEAEA] dark:border-zinc-800 p-5 flex flex-col bg-white dark:bg-[#111113]">
-                <div className="shrink-0 mb-2">
-                  <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] uppercase mb-0.5">
-                    Performance
-                  </p>
-                  <h3 className="text-sm font-bold text-[#242424] dark:text-zinc-100">
-                    Efficiency vs Target
-                  </h3>
-                </div>
-                {loading ? (
-                  <div className="flex-1 flex items-center justify-center text-[10px] text-[#9A9A9A]">
-                    Loading...
-                  </div>
-                ) : (
-                  <EfficiencyBarChart stations={stations} />
-                )}
+            {/* Col 2: Efficiency vs Target */}
+            <div className="p-5 flex flex-col bg-white dark:bg-[#111113] border-b xl:border-b-0 xl:border-r border-[#EAEAEA] dark:border-zinc-800 min-h-[300px]">
+              <div className="shrink-0 mb-2">
+                <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] uppercase mb-0.5">
+                  Performance
+                </p>
+                <h3 className="text-sm font-bold text-[#242424] dark:text-zinc-100">
+                  Efficiency vs Target
+                </h3>
               </div>
-              <div className="p-5 flex flex-col bg-white dark:bg-[#111113]">
-                <div className="shrink-0 mb-2">
-                  <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] uppercase mb-0.5">
-                    Skill Distribution
-                  </p>
-                  <h3 className="text-sm font-bold text-[#242424] dark:text-zinc-100">
-                    Active Workforce Matrix
-                  </h3>
+              {loading ? (
+                <div className="flex-1 flex items-center justify-center text-[10px] text-[#9A9A9A]">
+                  Loading...
                 </div>
-                {loading ? (
-                  <div className="flex-1 flex items-center justify-center text-[10px] text-[#9A9A9A]">
-                    Loading...
-                  </div>
-                ) : (
-                  <SkillDonutChart matrix={skillMatrix} />
-                )}
-              </div>
+              ) : (
+                <EfficiencyBarChart stations={stations} />
+              )}
             </div>
-          </div>
 
-          {/* RIGHT COLUMN: Alerts & Fixed-Height Table (4 Cols) */}
-          <div className="col-span-12 xl:col-span-4 flex flex-col bg-white dark:bg-[#111113]">
-            {/* System Log / Alerts - STRICT HEIGHT */}
-            <div className="shrink-0 h-100 flex flex-col border-b border-[#EAEAEA] dark:border-zinc-800">
+            {/* Col 3: Notification Center (Strict Height) */}
+            <div className="flex flex-col bg-white dark:bg-[#111113] h-[350px]">
               <div className="shrink-0 px-5 py-4 border-b border-[#EAEAEA] dark:border-zinc-800 flex justify-between items-center bg-[#FAFAFA] dark:bg-[#0a0a0c]">
                 <p className="text-[10px] font-bold tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
                   Alert Center
@@ -655,10 +639,7 @@ export default function OverviewPage() {
                   {allAlerts.length} Events
                 </span>
               </div>
-
-              <div
-                className={`flex-1 overflow-y-auto flex flex-col ${SCROLLBAR}`}
-              >
+              <div className={`flex-1 overflow-y-auto flex flex-col ${SCROLLBAR}`}>
                 {allAlerts.length === 0 ? (
                   <p className="text-xs text-center text-[#9A9A9A] mt-10">
                     No active alerts.
@@ -687,57 +668,55 @@ export default function OverviewPage() {
                 )}
               </div>
             </div>
+          </div>
 
-            {/* Compressed Station Table - STRICT HEIGHT */}
-            <div className="shrink-0 h-[350px] flex flex-col border-b border-[#EAEAEA] dark:border-zinc-800">
+          {/* 3RD ROW: Production Routing Map & Live Queue Breakdown */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 border-b border-[#EAEAEA] dark:border-zinc-800 shrink-0 bg-[#FAFAFA] dark:bg-[#0a0a0c]">
+            
+            {/* Col 1: Production Routing (Floor Map) */}
+            <div className="flex-1 flex flex-col bg-[#FAFAFA] dark:bg-[#0a0a0c] border-b xl:border-b-0 xl:border-r border-[#EAEAEA] dark:border-zinc-800 min-h-[350px]">
+              <div className="shrink-0 px-5 pt-5 pb-2">
+                <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] uppercase mb-0.5">
+                  Floor Layout
+                </p>
+                <h3 className="text-sm font-bold text-[#242424] dark:text-zinc-100">
+                  Production Routing
+                </h3>
+              </div>
+              {loading ? (
+                <div className="flex-1 flex items-center justify-center text-[10px] text-[#9A9A9A]">
+                  Loading...
+                </div>
+              ) : (
+                <FloorTreeGraph stations={stations} skillMatrix={skillMatrix} />
+              )}
+            </div>
+
+            {/* Col 2: Live Queue Breakdown (Fixed Height) */}
+            <div className="shrink-0 h-[350px] flex flex-col bg-white dark:bg-[#111113]">
               <div className="shrink-0 px-5 py-4 border-b border-[#EAEAEA] dark:border-zinc-800 bg-[#FAFAFA] dark:bg-[#0a0a0c]">
                 <p className="text-[10px] font-bold tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
                   Live Queue Breakdown
                 </p>
               </div>
-
               <div className={`flex-1 overflow-y-auto ${SCROLLBAR}`}>
                 <table className="w-full text-left text-[11px]">
                   <thead className="bg-white dark:bg-[#111113] sticky top-0 border-b border-[#EAEAEA] dark:border-zinc-800 z-10">
                     <tr>
-                      <th className="px-4 py-2.5 font-medium text-[#9A9A9A] uppercase tracking-wider">
-                        Station
-                      </th>
-                      <th className="px-4 py-2.5 font-medium text-[#9A9A9A] uppercase tracking-wider">
-                        WIP
-                      </th>
-                      <th className="px-4 py-2.5 font-medium text-[#9A9A9A] uppercase tracking-wider text-right">
-                        Actual
-                      </th>
+                      <th className="px-4 py-2.5 font-medium text-[#9A9A9A] uppercase tracking-wider">Station</th>
+                      <th className="px-4 py-2.5 font-medium text-[#9A9A9A] uppercase tracking-wider">WIP</th>
+                      <th className="px-4 py-2.5 font-medium text-[#9A9A9A] uppercase tracking-wider text-right">Actual</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F1F1F1] dark:divide-zinc-800/40">
                     {loading ? (
-                      <tr>
-                        <td
-                          colSpan={3}
-                          className="p-4 text-center text-[#9A9A9A]"
-                        >
-                          Loading...
-                        </td>
-                      </tr>
+                       <tr><td colSpan={3} className="p-4 text-center text-[#9A9A9A]">Loading...</td></tr>
                     ) : (
-                      stations.map((s) => (
-                        <tr
-                          key={s.station_id}
-                          className={`hover:bg-[#F8F8F8] dark:hover:bg-zinc-800/30 ${s.is_bottleneck ? "bg-[#FDFBF8] dark:bg-amber-950/10" : "bg-white dark:bg-[#111113]"}`}
-                        >
-                          <td className="px-4 py-2.5 font-bold text-[#333333] dark:text-zinc-200">
-                            {s.station_id}
-                          </td>
-                          <td
-                            className={`px-4 py-2.5 font-mono ${s.is_bottleneck ? "text-[#CE8E33]" : "text-[#5F5F5F] dark:text-zinc-400"}`}
-                          >
-                            {s.wip} units
-                          </td>
-                          <td className="px-4 py-2.5 font-mono text-right font-semibold text-[#1A7C4B] dark:text-[#47966F]">
-                            {fmt(s.actual_productivity)}%
-                          </td>
+                      stations.map(s => (
+                        <tr key={s.station_id} className={`hover:bg-[#F8F8F8] dark:hover:bg-zinc-800/30 ${s.is_bottleneck ? "bg-[#FDFBF8] dark:bg-amber-950/10" : "bg-white dark:bg-[#111113]"}`}>
+                          <td className="px-4 py-2.5 font-bold text-[#333333] dark:text-zinc-200">{s.station_id}</td>
+                          <td className={`px-4 py-2.5 font-mono ${s.is_bottleneck ? "text-[#CE8E33]" : "text-[#5F5F5F] dark:text-zinc-400"}`}>{s.wip} units</td>
+                          <td className="px-4 py-2.5 font-mono text-right font-semibold text-[#1A7C4B] dark:text-[#47966F]">{fmt(s.actual_productivity)}%</td>
                         </tr>
                       ))
                     )}
@@ -746,7 +725,6 @@ export default function OverviewPage() {
               </div>
             </div>
 
-            <div className="flex-1 bg-[#FAFAFA] dark:bg-[#0a0a0c]" />
           </div>
         </div>
       </main>

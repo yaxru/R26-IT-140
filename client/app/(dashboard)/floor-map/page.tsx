@@ -346,9 +346,7 @@ const handleCreateStationFromGroup = (skill: string, groupWorkers: Worker[]) => 
       {/* ── Header ── */}
       <section className="bg-white dark:bg-[#111113] border-b border-[#EAEAEA] dark:border-zinc-800 px-6 lg:px-8 py-6 flex flex-col md:flex-row md:items-start justify-between shrink-0">
         <div>
-          <div className="text-[10px] font-medium uppercase tracking-widest text-[#9A9A9A] dark:text-zinc-500 mb-1">
-            Workforce Control
-          </div>
+          
           <h1 className="text-xl font-bold tracking-tight text-[#242424] dark:text-zinc-100">
             Line Layout &amp; Routing
           </h1>

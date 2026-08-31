@@ -373,7 +373,7 @@ export function RecommendationPanel({
               <>
                 <div
                   role="alert"
-                  className="flex items-center gap-2 px-3 py-2.5 bg-[#FDFBF8] border-l-2 border-l-[#CE8E33] border border-[#F4E5D1]"
+                  className="flex items-center gap-2 px-3 py-2.5 bg-[#F4E5D1] border-l-2  border border-[#F4E5D1]"
                 >
                   <span className="text-[#CE8E33] text-xs" aria-hidden="true">
                     ⚠
@@ -852,7 +852,7 @@ export default function WorkerReallocationPage() {
             </time>
           )}
           <span
-            className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 border ${bottleneckCount > 0 ? "text-[#A77329] bg-[#FDFBF8] border-[#EACFA9] dark:bg-amber-950/20 dark:border-amber-800/40 dark:text-[#E1BA82]" : "text-[#1A7C4B] bg-[#E6F1EC] border-[#B9D7C8] dark:bg-[#0A321E]/20 dark:border-[#104A2D] dark:text-[#47966F]"}`}
+            className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 border ${bottleneckCount > 0 ? "text-[#A77329] bg-[#EACFA9]/40 border-[#EACFA9] dark:bg-amber-950/20 dark:border-amber-800/40 dark:text-[#E1BA82]" : "text-[#1A7C4B] bg-[#E6F1EC] border-[#B9D7C8] dark:bg-[#0A321E]/20 dark:border-[#104A2D] dark:text-[#47966F]"}`}
           >
             <span
               className={`w-1.5 h-1.5 ${bottleneckCount > 0 ? "bg-[#CE8E33] animate-pulse" : "bg-[#1A7C4B]"}`}
@@ -953,7 +953,7 @@ export default function WorkerReallocationPage() {
 
           {/* Accept Move Area - Includes Global Cascade Risk Badge */}
           <div className="shrink-0 flex flex-col border-t border-[#EAEAEA] dark:border-zinc-800 bg-white dark:bg-[#111113]">
-            <div className="p-4 flex items-center justify-between">
+            <div className="p-3 flex items-center justify-between">
               <p className="text-[10px] text-[#9A9A9A] dark:text-zinc-500 uppercase tracking-widest hidden sm:block">
                 {recommendation?.recommended
                   ? "Action Required"
@@ -963,7 +963,7 @@ export default function WorkerReallocationPage() {
                 onClick={handleAcceptMove}
                 disabled={accepted || accepting || !recommendation?.recommended}
                 className={`
-                  py-2.5 px-8 text-sm font-semibold tracking-wide border transition-colors cursor-pointer disabled:cursor-not-allowed
+                  py-2 px-8 text-sm font-semibold tracking-wide border transition-colors cursor-pointer disabled:cursor-not-allowed
                   focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1A7C4B]
                   ${accepted ? "bg-[#E6F1EC] text-[#1A7C4B] border-[#B9D7C8] dark:bg-[#0A321E]/40 dark:text-[#47966F] dark:border-[#104A2D]" : accepting ? "bg-[#F1F1F1] text-[#9A9A9A] border-[#EAEAEA] dark:bg-zinc-800 dark:border-zinc-700" : "bg-[#1A7C4B] hover:bg-[#15633C] text-white border-[#15633C]"}
                 `}

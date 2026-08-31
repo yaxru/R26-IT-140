@@ -47,7 +47,8 @@ interface StressAssessment {
 
 function fmt(n: number | string | null | undefined, digits = 0) {
   if (n == null) return "—";
-  return (Number(n) * 100).toFixed(digits);
+  // Removed the * 100 because the data is already a percentage
+  return Number(n).toFixed(digits);
 }
 
 // Reusable Kpi Tile
@@ -207,9 +208,7 @@ export default function SupervisorStressDashboard() {
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <header className="shrink-0 border-b border-[#EAEAEA] dark:border-zinc-800 px-6 py-4 flex items-center justify-between bg-white dark:bg-[#111113]">
         <div>
-          <p className="text-[10px] font-medium tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase mb-0.5">
-            Management · Welfare & Diagnostics
-          </p>
+        
           <h1 className="text-lg font-bold text-[#242424] dark:text-zinc-100 tracking-tight">
             Cognitive Load Diagnostics
           </h1>
@@ -227,7 +226,7 @@ export default function SupervisorStressDashboard() {
         <div className="flex flex-col border-r border-[#EAEAEA] dark:border-zinc-800 bg-[#FAFAFA] dark:bg-[#0a0a0c]">
           <div className="shrink-0 px-6 py-4 border-b border-[#EAEAEA] dark:border-zinc-800 flex items-center justify-between bg-white dark:bg-[#111113]">
             <h2 className="text-xs font-bold uppercase tracking-widest text-[#5F5F5F] dark:text-zinc-400 flex items-center gap-2">
-              <AlertTriangle size={14} className="text-[#CE8E33]" />
+             
               Action Queue ({flaggedWorkers.length})
             </h2>
             <button
@@ -377,8 +376,9 @@ export default function SupervisorStressDashboard() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Diagnostic Results Panel */}
+       {/* RIGHT COLUMN: Diagnostic Results Panel */}
         <div className="flex flex-col bg-white dark:bg-[#111113]">
+          
           <div className="shrink-0 px-6 py-4 border-b border-[#EAEAEA] dark:border-zinc-800 bg-[#FAFAFA] dark:bg-[#0a0a0c]">
             <p className="text-[10px] font-bold tracking-widest text-[#9A9A9A] dark:text-zinc-500 uppercase">
               Operator Diagnostic Profile
@@ -394,8 +394,7 @@ export default function SupervisorStressDashboard() {
                 Awaiting Selection
               </h3>
               <p className="text-[11px] text-[#9A9A9A] mt-2 max-w-sm leading-relaxed">
-                Select an operator with a "Report Ready" badge from the queue to
-                view their cognitive load and motor-function diagnostic results.
+                Select an operator with a "Report Ready" badge from the queue to view their cognitive load and motor-function diagnostic results.
               </p>
             </div>
           ) : (
@@ -405,90 +404,85 @@ export default function SupervisorStressDashboard() {
 
               const isStressed = Number(report.model_output) === 1;
 
+              // DSS Logic mapped directly from the backend intervention_recommendation function
+              const dssRecommendation = (() => {
+                const out = Number(report.model_output);
+                const pss = report.pss10_classification;
+                if (out === 1 && pss === "High") return "Escalate to Counsellor";
+                if (out === 1 || pss === "Moderate" || pss === "High") return "Welfare Check";
+                return "Monitor";
+              })();
+
+              // Contextual explanation for the DSS Output
+              const dssContext = (() => {
+                if (dssRecommendation === "Escalate to Counsellor") {
+                  return "Critical cognitive overload and high psychological stress detected. Immediate removal from the line and referral to occupational health or counselling is required.";
+                }
+                if (dssRecommendation === "Welfare Check") {
+                  return "Moderate fatigue or stress indicators detected. Recommend a scheduled break, a direct welfare check by the supervisor, or a temporary reallocation to a low-strain station.";
+                }
+                return "Cognitive and motor functions are within standard operating variance. The initial flag was likely caused by mechanical issues or external line delays. Clear flag and return to duty.";
+              })();
+
               return (
-                <div
-                  className={`flex-1 overflow-y-auto flex flex-col ${SCROLLBAR}`}
-                >
+                <div className={`flex-1 overflow-y-auto flex flex-col ${SCROLLBAR}`}>
+                  
                   {/* Result Header */}
-                  <div
-                    className={`p-6 border-b border-[#EAEAEA] dark:border-zinc-800 ${isStressed ? "bg-[#FDFBF8] dark:bg-[#1A1510]" : "bg-[#E6F1EC]/30 dark:bg-[#0A321E]/10"}`}
-                  >
+                  <div className={`p-6 border-b border-[#EAEAEA] dark:border-zinc-800 ${isStressed ? "bg-[#FDFBF8] dark:bg-[#1A1510]" : "bg-[#E6F1EC]/30 dark:bg-[#0A321E]/10"}`}>
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h2 className="text-xl font-bold text-[#242424] dark:text-zinc-100 tracking-tight">
                           {selectedWorker.operators.name}
                         </h2>
                         <span className="text-[10px] font-mono text-[#5F5F5F] dark:text-zinc-400">
-                          {selectedWorker.operators.worker_id} · Tested:{" "}
-                          {new Date(report.created_at).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {selectedWorker.operators.worker_id} · Tested: {new Date(report.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
-                      <span
-                        className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest border ${
-                          isStressed
-                            ? "text-[#CE8E33] border-[#CE8E33] bg-white dark:bg-[#111113]"
-                            : "text-[#1A7C4B] border-[#1A7C4B] bg-white dark:bg-[#111113]"
-                        }`}
-                      >
+                      <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest border ${
+                        isStressed ? "text-[#CE8E33] border-[#CE8E33] bg-white dark:bg-[#111113]" : "text-[#1A7C4B] border-[#1A7C4B] bg-white dark:bg-[#111113]"
+                      }`}>
                         {isStressed ? "Fatigue Detected" : "Optimal State"}
                       </span>
                     </div>
 
-                    <p className="text-[11px] text-[#5F5F5F] dark:text-zinc-400 leading-relaxed max-w-md">
-                      {isStressed
-                        ? "The diagnostic model has flagged cognitive overload and motor-function decay. Recommend immediate station reallocation or scheduled break to prevent bottleneck cascade."
-                        : "Cognitive assessment indicates standard operating variance. No severe mental fatigue detected. Flag was likely triggered by mechanical or external factors."}
-                    </p>
+                    {/* DSS Recommendation Block */}
+                    <div className="mt-4 bg-white dark:bg-[#111113] border border-[#EAEAEA] dark:border-zinc-800 p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Activity size={12} className={dssRecommendation === "Monitor" ? "text-[#1A7C4B]" : "text-[#CE8E33]"} />
+                        <p className="text-[9px] font-bold tracking-widest text-[#9A9A9A] uppercase">DSS Output Instruction</p>
+                      </div>
+                      <p className={`text-sm font-bold uppercase tracking-wide ${dssRecommendation === "Monitor" ? "text-[#1A7C4B] dark:text-[#47966F]" : "text-[#CE8E33] dark:text-[#D7A45A]"}`}>
+                        {dssRecommendation}
+                      </p>
+                      <p className="text-[11px] text-[#5F5F5F] dark:text-zinc-400 mt-1.5 leading-relaxed">
+                        {dssContext}
+                      </p>
+                    </div>
                   </div>
 
                   {/* 2x2 Bento Grid for Metrics */}
                   <div className="grid grid-cols-2">
-                    <KpiTile
-                      label="Psychometric Score"
-                      value={
-                        report.pss10_score != null
-                          ? `${report.pss10_score} / 40`
-                          : "—"
-                      }
-                      sub={`Class: ${report.pss10_classification || "Unknown"}`}
-                      accent={
-                        report.pss10_score != null &&
-                        Number(report.pss10_score) > 20
-                          ? "amber"
-                          : "none"
-                      }
+                    <KpiTile 
+                      label="Psychometric Score" 
+                      value={report.pss10_score != null ? `${report.pss10_score} / 40` : "—"} 
+                      sub={`Class: ${report.pss10_classification || "Unknown"}`} 
+                      accent={report.pss10_score != null && Number(report.pss10_score) > 20 ? "amber" : "none"} 
                     />
-                    <KpiTile
-                      label="AI Confidence"
-                      value={`${fmt(report.model_confidence, 1)}%`}
-                      sub="Prediction Accuracy"
+                    <KpiTile 
+                      label="AI Confidence" 
+                      value={`${fmt(report.model_confidence, 2)}%`} 
+                      sub="Prediction Accuracy" 
                     />
-                    <KpiTile
-                      label="Motor Response"
-                      value={
-                        report.response_time_ms != null
-                          ? `${report.response_time_ms} ms`
-                          : "—"
-                      }
-                      sub="Avg target acquisition time"
-                      accent={
-                        report.response_time_ms != null &&
-                        Number(report.response_time_ms) > 800
-                          ? "amber"
-                          : "none"
-                      }
+                    <KpiTile 
+                      label="Motor Response" 
+                      value={report.response_time_ms != null ? `${report.response_time_ms} ms` : "—"} 
+                      sub="Avg target acquisition time" 
+                      accent={report.response_time_ms != null && Number(report.response_time_ms) > 800 ? "amber" : "none"} 
                     />
-                    <KpiTile
-                      label="Pressure Variance"
-                      value={
-                        report.pressure_gap != null
-                          ? Number(report.pressure_gap).toFixed(2)
-                          : "—"
-                      }
-                      sub="Deviation from baseline"
+                    <KpiTile 
+                      label="Pressure Variance" 
+                      value={report.pressure_gap != null ? Number(report.pressure_gap).toFixed(2) : "—"} 
+                      sub="Deviation from baseline" 
                     />
                   </div>
 
@@ -508,19 +502,10 @@ export default function SupervisorStressDashboard() {
                           className="w-full px-3 py-2 text-[10px] font-mono bg-white dark:bg-[#111113] border border-[#EAEAEA] dark:border-zinc-800 border-r-0 text-[#5F5F5F] dark:text-zinc-400 focus:outline-none"
                         />
                         <button
-                          onClick={() =>
-                            copyToClipboard(
-                              generatedLinks[selectedWorker.operator_id],
-                              selectedWorker.operator_id,
-                            )
-                          }
+                          onClick={() => copyToClipboard(generatedLinks[selectedWorker.operator_id], selectedWorker.operator_id)}
                           className="px-4 py-2 bg-[#E6F1EC] dark:bg-[#0A321E]/60 text-[#1A7C4B] dark:text-[#47966F] border border-[#B9D7C8] dark:border-[#104A2D] hover:bg-[#1A7C4B] hover:text-white transition-colors"
                         >
-                          {copiedLink === selectedWorker.operator_id ? (
-                            <Check size={14} />
-                          ) : (
-                            <Copy size={14} />
-                          )}
+                          {copiedLink === selectedWorker.operator_id ? <Check size={14} /> : <Copy size={14} />}
                         </button>
                       </div>
                     )}
@@ -531,38 +516,28 @@ export default function SupervisorStressDashboard() {
                           <button className="flex-1 bg-[#242424] dark:bg-zinc-200 text-white dark:text-[#0d0d0f] hover:bg-black dark:hover:bg-white text-[11px] font-bold uppercase tracking-widest py-3 border border-transparent transition-colors flex items-center justify-center gap-2">
                             <Stethoscope size={14} /> Send to Medical
                           </button>
-                          <Link
-                            href="/worker-reallocation"
-                            className="flex-1 bg-white dark:bg-[#111113] text-[#242424] dark:text-zinc-200 hover:bg-[#F8F8F8] dark:hover:bg-zinc-900 text-[11px] font-bold uppercase tracking-widest py-3 border border-[#EAEAEA] dark:border-zinc-700 transition-colors flex items-center justify-center gap-2"
-                          >
+                          <Link href="/worker-reallocation" className="flex-1 bg-white dark:bg-[#111113] text-[#242424] dark:text-zinc-200 hover:bg-[#F8F8F8] dark:hover:bg-zinc-900 text-[11px] font-bold uppercase tracking-widest py-3 border border-[#EAEAEA] dark:border-zinc-700 transition-colors flex items-center justify-center gap-2">
                             <Fingerprint size={14} /> Reallocate Line
                           </Link>
                         </>
                       ) : (
-                        <button
-                          onClick={() =>
-                            handleClearFlag(selectedWorker.operator_id)
-                          }
+                        <button 
+                          onClick={() => handleClearFlag(selectedWorker.operator_id)}
                           className="flex-1 bg-[#1A7C4B] hover:bg-[#15633C] text-white text-[11px] font-bold uppercase tracking-widest py-3 border border-transparent transition-colors flex items-center justify-center gap-2"
                         >
                           <Check size={14} /> Clear Flag & Return
                         </button>
                       )}
-
-                      <button
-                        onClick={() =>
-                          generateAssessmentLink(
-                            selectedWorker.operators.worker_id,
-                            selectedWorker.operators.name,
-                            selectedWorker.operator_id,
-                          )
-                        }
+                      
+                      <button 
+                        onClick={() => generateAssessmentLink(selectedWorker.operators.worker_id, selectedWorker.operators.name, selectedWorker.operator_id)}
                         className="flex-[0.5] bg-white dark:bg-[#111113] text-[#242424] dark:text-zinc-200 hover:bg-[#F8F8F8] dark:hover:bg-zinc-900 text-[11px] font-bold uppercase tracking-widest py-3 border border-[#EAEAEA] dark:border-zinc-700 transition-colors flex items-center justify-center gap-2"
                       >
                         <BrainCircuit size={14} /> Retake Test
                       </button>
                     </div>
                   </div>
+
                 </div>
               );
             })()
