@@ -1,4 +1,3 @@
-import math
 import os
 import datetime
 from enum import Enum
@@ -10,6 +9,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 from supabase import create_client, Client
 from dotenv import load_dotenv
+
+from algorithm import evaluate_donor_risks, projected_donor_gap_pct, select_workers
 
 load_dotenv()
 
@@ -310,18 +311,7 @@ def get_skill_matrix(_: dict = Depends(require_auth)):
 @app.post("/recommend", response_model=MoveInstruction)
 async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
     config = get_algorithm_config()
-    learning_penalty = config["learning_penalty"]
-    baseline_eff = config["grade_efficiency"]
-    fallback_gain = config["fallback_gain"]
     per_worker_fraction = config["system"]["per_worker_gain_fraction"]
-    t_relocation = config["system"]["t_relocation_min"]
-
-    threshold = BOTTLENECK_THRESHOLD_PCT / 100
-    targeted = request.targeted_productivity
-    actual_prod = request.actual_productivity
-    use_dynamic = targeted is not None and actual_prod is not None and targeted > 0
-
-    remaining_gap = max(0.0, targeted - actual_prod) if use_dynamic else 0.0
 
     try:
         sm_response = (
@@ -401,105 +391,47 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
 
     candidates = [{**c, "current_station": op_station_map.get(c["operator_id"])} for c in candidates_raw]
 
-    best_grade = candidates[0]["proficiency_grade"].upper()
-    if use_dynamic and remaining_gap > 0:
-        best_boost = targeted * per_worker_fraction * baseline_eff.get(best_grade, 1.0)
-        workers_needed = math.ceil(remaining_gap / best_boost) if best_boost > 0 else 1
-    else:
-        workers_needed = 1
+    selection = select_workers(
+        candidates=candidates,
+        personal_efficiency=personal_efficiency,
+        bottleneck_station=request.bottleneck_station,
+        targeted_productivity=request.targeted_productivity,
+        actual_productivity=request.actual_productivity,
+        config=config,
+        shift_remaining_min=SHIFT_REMAINING_MIN,
+    )
+    selected = selection["selected"]
 
-    gap_left = remaining_gap
-    selected = []
-    used_ids = set()
-
-    for c in candidates:
-        if use_dynamic and gap_left <= 0:
-            break
-
-        op_id = c["operator_id"]
-        if op_id in used_ids:
-            continue
-
-        grade = c["proficiency_grade"].upper()
-        from_station = c.get("current_station")
-        operator_info = c.get("operators") or {}
-
-        if from_station == request.bottleneck_station:
-            continue
-
-        actual_eff = personal_efficiency.get(op_id, baseline_eff.get(grade, 0.85))
-
-        if use_dynamic:
-            per_worker_boost = targeted * per_worker_fraction * actual_eff
-            this_gap_closed = min(gap_left, per_worker_boost)
-            this_gain_min = this_gap_closed * SHIFT_REMAINING_MIN
-        else:
-            this_gain_min = fallback_gain.get(grade, 14.0)
-
-        cost = t_relocation + learning_penalty.get(grade, 5.0)
-        profit = this_gain_min - cost
-
-        if profit <= 0:
-            break
-
-        selected.append({
-            "operator_id": op_id,
-            "operator_name": operator_info.get("name", "Unknown"),
-            "worker_pin": operator_info.get("worker_id", "N/A"),
-            "from_station": from_station,
-            "to_station": request.bottleneck_station,
-            "proficiency_grade": c["proficiency_grade"],
-            "cost_of_move": cost,
-            "expected_production_gain": this_gain_min,
-            "net_profit": profit,
-        })
-        used_ids.add(op_id)
-        if use_dynamic:
-            gap_left = max(0.0, gap_left - per_worker_boost)
-
-    if not selected:
-        fc = candidates[0]
-        fg = fc["proficiency_grade"].upper()
-        ff = fc.get("current_station")
-        f_info = fc.get("operators") or {}
-        
-        actual_eff = personal_efficiency.get(fc["operator_id"], baseline_eff.get(fg, 0.85))
-        if use_dynamic:
-            boost = targeted * per_worker_fraction * actual_eff
-            gain = min(remaining_gap, boost) * SHIFT_REMAINING_MIN
-        else:
-            gain = fallback_gain.get(fg, 14.0)
-            
-        cost = t_relocation + learning_penalty.get(fg, 5.0)
-        profit = gain - cost
-
+    if selection["no_move"]:
+        no_move_data = selection["no_move"]
         no_move = SingleMove(
-            operator_id=fc["operator_id"], 
-            operator_name=f_info.get("name", "Unknown"),
-            worker_pin=f_info.get("worker_id", "N/A"),
-            from_station=ff, 
-            to_station=request.bottleneck_station,
-            proficiency_grade=fc["proficiency_grade"], 
-            cost_of_move=cost, 
-            expected_production_gain=gain,
-            net_profit=profit, 
-            donor_cascade_risk=False, 
+            **{
+                key: value
+                for key, value in no_move_data.items()
+                if key != "no_move_reason"
+            },
+            donor_cascade_risk=False,
             donor_risk_detail=None,
         )
         return MoveInstruction(
             recommended=False,
-            no_move_reason=f"Best available worker would recover {gain:.1f} min but relocation costs {cost:.1f} min - net {profit:.1f} min. No move justified.",
-            moves=[no_move], workers_needed=workers_needed, workers_found=0, gap_coverage_pct=0.0,
-            total_net_profit=0.0, cascade_warnings=[], instruction="No move recommended.",
-            operator_id=fc["operator_id"], 
-            operator_name=f_info.get("name", "Unknown"),
-            worker_pin=f_info.get("worker_id", "N/A"),
-            from_station=ff, 
-            to_station=request.bottleneck_station,
-            proficiency_grade=fc["proficiency_grade"], 
-            cost_of_move=cost, 
-            expected_production_gain=gain, 
-            net_profit=profit,
+            no_move_reason=no_move_data["no_move_reason"],
+            moves=[no_move],
+            workers_needed=selection["workers_needed"],
+            workers_found=0,
+            gap_coverage_pct=0.0,
+            total_net_profit=0.0,
+            cascade_warnings=[],
+            instruction="No move recommended.",
+            operator_id=no_move.operator_id,
+            operator_name=no_move.operator_name,
+            worker_pin=no_move.worker_pin,
+            from_station=no_move.from_station,
+            to_station=no_move.to_station,
+            proficiency_grade=no_move.proficiency_grade,
+            cost_of_move=no_move.cost_of_move,
+            expected_production_gain=no_move.expected_production_gain,
+            net_profit=no_move.net_profit,
         )
 
     donor_ids = list({m["from_station"] for m in selected if m["from_station"]})
@@ -514,14 +446,14 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
         except Exception:
             pass
 
-    donor_backfills = {} 
+    selected_ids = {move["operator_id"] for move in selected}
+    donor_backfills = {}
     for donor_id, d in donor_data.items():
-        dt = d.get("targeted_productivity")
-        da = d.get("actual_productivity")
-        if not (dt and da and dt > 0):
-            continue
-        new_actual = da - per_worker_fraction
-        if max(0.0, (dt - new_actual) / dt * 100) < BOTTLENECK_THRESHOLD_PCT:
+        projected_gap_pct = projected_donor_gap_pct(d, per_worker_fraction)
+        if (
+            projected_gap_pct is None
+            or projected_gap_pct < BOTTLENECK_THRESHOLD_PCT
+        ):
             continue
         donor_skill = d.get("required_skill")
         if not donor_skill:
@@ -530,59 +462,23 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
             rep_resp = supabase.table("skill_matrix").select("operator_id, proficiency_grade").eq(
                 "machine_type", donor_skill).in_("proficiency_grade", ["A", "B", "C"]).order("proficiency_grade").limit(5).execute()
             for rep in rep_resp.data:
-                if rep["operator_id"] not in used_ids:
+                if rep["operator_id"] not in selected_ids:
                     donor_backfills[donor_id] = (rep["operator_id"], rep["proficiency_grade"])
                     break
         except Exception:
             pass
 
-    cascade_warnings = []
-    final_moves = []
-
-    for move in selected:
-        donor_id = move["from_station"]
-        cascade_risk = False
-        risk_detail = None
-        replacement_id = None
-        replacement_grade = None
-
-        if donor_id and donor_id in donor_data:
-            d = donor_data[donor_id]
-            dt = d.get("targeted_productivity")
-            da = d.get("actual_productivity")
-            if dt and da and dt > 0:
-                new_actual = da - per_worker_fraction
-                projected_gap_pct = max(0.0, (dt - new_actual) / dt * 100)
-                if projected_gap_pct >= BOTTLENECK_THRESHOLD_PCT:
-                    cascade_risk = True
-                    risk_detail = f"{donor_id} projected gap: {projected_gap_pct:.1f}% (≥ {BOTTLENECK_THRESHOLD_PCT:.0f}% threshold)"
-                    cascade_warnings.append(f"Moving {move['operator_id']} from {donor_id} may create a new bottleneck there (projected gap {projected_gap_pct:.1f}%)")
-                    if donor_id in donor_backfills:
-                        replacement_id, replacement_grade = donor_backfills[donor_id]
-
-        final_moves.append(SingleMove(
-            operator_id=move["operator_id"],
-            operator_name=move["operator_name"],
-            worker_pin=move["worker_pin"],
-            from_station=move["from_station"], 
-            to_station=move["to_station"],
-            proficiency_grade=move["proficiency_grade"], 
-            cost_of_move=move["cost_of_move"],
-            expected_production_gain=move["expected_production_gain"], 
-            net_profit=move["net_profit"],
-            donor_cascade_risk=cascade_risk, 
-            donor_risk_detail=risk_detail,
-            donor_replacement_id=replacement_id, 
-            donor_replacement_grade=replacement_grade,
-        ))
+    final_moves_data, cascade_warnings = evaluate_donor_risks(
+        selected=selected,
+        donor_data=donor_data,
+        donor_backfills=donor_backfills,
+        threshold_pct=BOTTLENECK_THRESHOLD_PCT,
+        per_worker_fraction=per_worker_fraction,
+    )
+    final_moves = [SingleMove(**move) for move in final_moves_data]
 
     total_gain = sum(m.expected_production_gain for m in final_moves)
     total_profit = sum(m.net_profit for m in final_moves)
-
-    if use_dynamic and remaining_gap > 0:
-        gap_coverage_pct = min(100.0, (remaining_gap - max(0.0, gap_left)) / remaining_gap * 100)
-    else:
-        gap_coverage_pct = 100.0
 
     if len(final_moves) == 1:
         instruction_text = f"Move {final_moves[0].operator_name} to {request.bottleneck_station}"
@@ -603,8 +499,8 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
     first = final_moves[0]
     return MoveInstruction(
         recommended=True, no_move_reason=None, moves=final_moves,
-        workers_needed=workers_needed, workers_found=len(final_moves),
-        gap_coverage_pct=gap_coverage_pct, total_net_profit=total_profit,
+        workers_needed=selection["workers_needed"], workers_found=len(final_moves),
+        gap_coverage_pct=selection["gap_coverage_pct"], total_net_profit=total_profit,
         cascade_warnings=cascade_warnings, instruction=instruction_text,
         operator_id=first.operator_id, 
         operator_name=first.operator_name,
