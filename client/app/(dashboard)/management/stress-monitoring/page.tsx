@@ -22,14 +22,17 @@ const SCROLLBAR =
 interface FlaggedWorker {
   operator_id: string;
   is_flagged: boolean;
-  flag_reason: string;
+  flag_reason: string | null;
   flagged_at: string | null;
   updated_at: string;
-  operators: {
-    worker_id: string;
-    name: string;
-  };
+  operators: { worker_id: string; name: string };
 }
+
+type FlagRow = Omit<FlaggedWorker, "operators"> & {
+  operators:
+    | NonNullable<FlaggedWorker["operators"]>
+    | NonNullable<FlaggedWorker["operators"]>[];
+};
 
 interface StressAssessment {
   session_id: string;
@@ -42,6 +45,10 @@ interface StressAssessment {
   model_output: number;
   model_confidence: number;
   created_at: string;
+}
+
+function hasPreviousFlag(flag: FlaggedWorker) {
+  return Boolean(flag.flagged_at && flag.flag_reason);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -118,7 +125,7 @@ export default function SupervisorStressDashboard() {
   const fetchDashboardData = async () => {
     setLoading(true);
 
-    // 1. Fetch Flagged Workers
+    // Fetch active flags and prior flags retained for the supervisor's history.
     const { data: flags, error: flagsError } = await supabase
       .from("operator_flags")
       .select(
@@ -131,8 +138,7 @@ export default function SupervisorStressDashboard() {
         operators (worker_id, name)
       `,
       )
-      .eq("is_flagged", true)
-      .order("updated_at", { ascending: false });
+      .order("flagged_at", { ascending: false });
 
     // 2. Fetch recent assessments to cross-reference
     const { data: asmtData } = await supabase
@@ -140,9 +146,24 @@ export default function SupervisorStressDashboard() {
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (flags && !flagsError) {
-      // @ts-ignore
-      setFlaggedWorkers(flags);
+    if (flagsError) {
+      console.error("Failed to fetch operator flags:", flagsError);
+    } else if (flags) {
+      const retainedFlags = (flags as FlagRow[]).flatMap((flag) => {
+        const operator = Array.isArray(flag.operators)
+          ? flag.operators[0]
+          : flag.operators;
+        if (!operator) return [];
+
+        const normalizedFlag = {
+          ...flag,
+          operators: operator,
+        } as FlaggedWorker;
+        return normalizedFlag.is_flagged || hasPreviousFlag(normalizedFlag)
+          ? [normalizedFlag]
+          : [];
+      });
+      setFlaggedWorkers(retainedFlags);
     }
 
     // Map the LATEST assessment to each worker_id
@@ -195,18 +216,21 @@ export default function SupervisorStressDashboard() {
 
   const handleClearFlag = async (operatorId: string) => {
     try {
-      await supabase
+      const { error } = await supabase
         .from("operator_flags")
         .update({
           is_flagged: false,
-          flag_reason:
-            "Cleared by supervisor after optimal cognitive assessment.",
           updated_at: new Date().toISOString(),
         })
         .eq("operator_id", operatorId);
+      if (error) throw error;
 
       setFlaggedWorkers((prev) =>
-        prev.filter((f) => f.operator_id !== operatorId),
+        prev.map((flag) =>
+          flag.operator_id === operatorId
+            ? { ...flag, is_flagged: false }
+            : flag,
+        ),
       );
       setSelectedWorker(null);
     } catch (error) {
@@ -238,7 +262,7 @@ export default function SupervisorStressDashboard() {
           <div className="shrink-0 px-6 py-4 border-b border-[#EAEAEA] dark:border-zinc-800 flex items-center justify-between bg-white dark:bg-[#111113]">
             <h2 className="text-xs font-bold uppercase tracking-widest text-[#5F5F5F] dark:text-zinc-400 flex items-center gap-2">
              
-              Action Queue ({flaggedWorkers.length})
+              Action Queue ({flaggedWorkers.filter((flag) => flag.is_flagged).length} active)
             </h2>
             <button
               onClick={fetchDashboardData}
@@ -261,17 +285,19 @@ export default function SupervisorStressDashboard() {
                   <Check className="w-6 h-6 text-[#1A7C4B]" />
                 </div>
                 <h3 className="font-bold text-sm tracking-wide">
-                  SYSTEM OPTIMAL
+                  NO FLAGGED WORKERS
                 </h3>
                 <p className="text-xs text-[#9A9A9A] mt-2 max-w-sm">
-                  All operators are tracking within normal efficiency variances.
-                  No cognitive assessments required.
+                  There are no active or retained previous flags to display.
+                  This does not mean operators were assessed today.
                 </p>
               </div>
             ) : (
               <div className="divide-y divide-[#EAEAEA] dark:divide-zinc-800/60 border-b border-[#EAEAEA] dark:border-zinc-800">
                 {flaggedWorkers.map((flag) => {
                   const report = assessments[flag.operators.worker_id];
+                  const isActiveFlag = flag.is_flagged;
+                  const isPreviousFlag = !isActiveFlag && hasPreviousFlag(flag);
 
                   const flagTime = new Date(
                     flag.flagged_at || flag.updated_at || 0,
@@ -308,10 +334,20 @@ export default function SupervisorStressDashboard() {
                               Report Ready
                             </span>
                           )}
+                          {isPreviousFlag && (
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-[#5F5F5F] dark:text-zinc-400 bg-[#F8F8F8] dark:bg-zinc-800/40 border border-[#EAEAEA] dark:border-zinc-700 px-1.5 py-0.5">
+                              Previous Flag
+                            </span>
+                          )}
                         </div>
                         <p className="text-[11px] text-[#CE8E33] dark:text-[#E1BA82] flex items-center gap-1.5 font-medium">
                           Alert: {flag.flag_reason}
                         </p>
+                        {isPreviousFlag && flag.flagged_at && (
+                          <p className="mt-1 text-[10px] text-[#9A9A9A]">
+                            Flagged: {new Date(flag.flagged_at).toLocaleString()}
+                          </p>
+                        )}
                       </div>
 
                       {/* Actions */}
@@ -341,6 +377,12 @@ export default function SupervisorStressDashboard() {
                             {report && !isTestUpToDate && (
                               <span className="text-[9px] text-[#A77329] font-medium uppercase tracking-widest">
                                 Old test detected. Retest required.
+                              </span>
+                            )}
+                            {isPreviousFlag && !report && (
+                              <span className="max-w-xs text-right text-[10px] text-[#9A9A9A]">
+                                No assessment was completed for this earlier
+                                flag. Generate a link to send the worker.
                               </span>
                             )}
                             <button
@@ -529,32 +571,39 @@ export default function SupervisorStressDashboard() {
                       </div>
                     )}
 
-                    <div className="flex gap-3">
-                      {isStressed ? (
-                        <>
-                          <button className="flex-1 bg-[#242424] dark:bg-zinc-200 text-white dark:text-[#0d0d0f] hover:bg-black dark:hover:bg-white text-[11px] font-bold uppercase tracking-widest py-3 border border-transparent transition-colors flex items-center justify-center gap-2">
-                            <Stethoscope size={14} /> Send to Medical
+                    {selectedWorker.is_flagged ? (
+                      <div className="flex gap-3">
+                        {isStressed ? (
+                          <>
+                            <button className="flex-1 bg-[#242424] dark:bg-zinc-200 text-white dark:text-[#0d0d0f] hover:bg-black dark:hover:bg-white text-[11px] font-bold uppercase tracking-widest py-3 border border-transparent transition-colors flex items-center justify-center gap-2">
+                              <Stethoscope size={14} /> Send to Medical
+                            </button>
+                            <Link href="/worker-reallocation" className="flex-1 bg-white dark:bg-[#111113] text-[#242424] dark:text-zinc-200 hover:bg-[#F8F8F8] dark:hover:bg-zinc-900 text-[11px] font-bold uppercase tracking-widest py-3 border border-[#EAEAEA] dark:border-zinc-700 transition-colors flex items-center justify-center gap-2">
+                              <Fingerprint size={14} /> Reallocate Line
+                            </Link>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => handleClearFlag(selectedWorker.operator_id)}
+                            className="flex-1 bg-[#1A7C4B] hover:bg-[#15633C] text-white text-[11px] font-bold uppercase tracking-widest py-3 border border-transparent transition-colors flex items-center justify-center gap-2"
+                          >
+                            <Check size={14} /> Clear Flag & Return
                           </button>
-                          <Link href="/worker-reallocation" className="flex-1 bg-white dark:bg-[#111113] text-[#242424] dark:text-zinc-200 hover:bg-[#F8F8F8] dark:hover:bg-zinc-900 text-[11px] font-bold uppercase tracking-widest py-3 border border-[#EAEAEA] dark:border-zinc-700 transition-colors flex items-center justify-center gap-2">
-                            <Fingerprint size={14} /> Reallocate Line
-                          </Link>
-                        </>
-                      ) : (
-                        <button 
-                          onClick={() => handleClearFlag(selectedWorker.operator_id)}
-                          className="flex-1 bg-[#1A7C4B] hover:bg-[#15633C] text-white text-[11px] font-bold uppercase tracking-widest py-3 border border-transparent transition-colors flex items-center justify-center gap-2"
+                        )}
+
+                        <button
+                          onClick={() => generateAssessmentLink(selectedWorker.operators.worker_id, selectedWorker.operators.name, selectedWorker.operator_id)}
+                          className="flex-[0.5] bg-white dark:bg-[#111113] text-[#242424] dark:text-zinc-200 hover:bg-[#F8F8F8] dark:hover:bg-zinc-900 text-[11px] font-bold uppercase tracking-widest py-3 border border-[#EAEAEA] dark:border-zinc-700 transition-colors flex items-center justify-center gap-2"
                         >
-                          <Check size={14} /> Clear Flag & Return
+                          <BrainCircuit size={14} /> Retake Test
                         </button>
-                      )}
-                      
-                      <button 
-                        onClick={() => generateAssessmentLink(selectedWorker.operators.worker_id, selectedWorker.operators.name, selectedWorker.operator_id)}
-                        className="flex-[0.5] bg-white dark:bg-[#111113] text-[#242424] dark:text-zinc-200 hover:bg-[#F8F8F8] dark:hover:bg-zinc-900 text-[11px] font-bold uppercase tracking-widest py-3 border border-[#EAEAEA] dark:border-zinc-700 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <BrainCircuit size={14} /> Retake Test
-                      </button>
-                    </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[#9A9A9A]">
+                        Historical record only. It does not indicate an active
+                        flag or an assessment completed today.
+                      </p>
+                    )}
                   </div>
 
                 </div>

@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const stressServiceUrl = (
-  process.env.STRESS_API_INTERNAL_URL ?? "http://localhost:5003"
+  process.env.STRESS_API_INTERNAL_URL ?? "http://localhost:8003"
 ).replace(/\/+$/, "");
 
 const nextConfig: NextConfig = {

@@ -233,7 +233,7 @@ async def get_flags(current_user: dict = Depends(require_auth)):
         # FIX: Lazy clear old flags so they don't show up on the frontend the next day
         flag_date = row.get("updated_at", "").split("T")[0]
         if flag_date < today_str:
-            supabase.table("operator_flags").update({"is_flagged": False, "flag_reason": "Auto-cleared (New Shift)"}).eq("operator_id", row["operator_id"]).execute()
+            supabase.table("operator_flags").update({"is_flagged": False}).eq("operator_id", row["operator_id"]).execute()
             continue
             
         op = row.pop("operators", None) or {}
@@ -248,8 +248,6 @@ async def get_flags(current_user: dict = Depends(require_auth)):
 async def clear_flag(operator_id: str, current_user: dict = Depends(require_auth)):
     res = supabase.table("operator_flags").update({
         "is_flagged": False, 
-        "flagged_at": None, 
-        "flag_reason": None,
         "updated_at": datetime.utcnow().isoformat()
     }).eq("operator_id", operator_id).execute()
     return res.data[0] if res.data else None

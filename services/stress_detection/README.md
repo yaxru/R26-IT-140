@@ -13,10 +13,10 @@ inside this component.
 
 Set `STRESS_CORS_ORIGINS` to the comma-separated frontend origins that will call
 the service. The local default is `http://localhost:3000`; the API listens on
-port `5003` by default. The Next.js server proxies browser API calls to the
+port `8003` by default. The Next.js server proxies browser API calls to the
 service through the frontend origin. Set `STRESS_API_INTERNAL_URL` in the
 client's server environment if the service is not available at
-`http://localhost:5003`. This same-origin proxy also supports mobile browsers
+`http://localhost:8003`. This same-origin proxy also supports mobile browsers
 accessing the frontend over a local network without exposing a browser-side
 `localhost` API URL or requiring CORS. Set `FRONTEND_BASE_URL` when the API
 itself must return assessment links.
