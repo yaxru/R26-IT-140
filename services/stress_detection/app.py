@@ -1,8 +1,10 @@
 import os
+import math
 import uuid
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
+from demo_values import demo_peak_pressure, demo_pressure
 load_dotenv() 
 
 import jwt
@@ -69,6 +71,26 @@ def pressure_status(gap: float) -> str:
     if gap == 0: return "Stable"
     return "Decreased"
 
+
+def average_pressure(values):
+    if not isinstance(values, list):
+        return None
+    valid = []
+    for value in values:
+        try:
+            pressure = float(value)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(pressure) and 0 < pressure <= 1:
+            valid.append(pressure)
+    if len(valid) < 2 or all(value in (0.5, 1) for value in valid):
+        return None
+    mean = sum(valid) / len(valid)
+    variance = sum((value - mean) ** 2 for value in valid) / len(valid)
+    if max(valid) - min(valid) < 0.02 or math.sqrt(variance) < 0.01:
+        return None
+    return mean
+
 def intervention_recommendation(model_output: int, pss10_classification: str) -> str:
     if model_output == 1 and pss10_classification == "High": return "Escalate to Counsellor"
     if model_output == 1 or pss10_classification in ("Moderate", "High"): return "Welfare Check"
@@ -120,9 +142,12 @@ def resolve_session():
 @app.route("/api/stress-detection/baseline", methods=["POST"])
 def submit_baseline():
     body = request.get_json(force=True)
-    pressures = body["pressures"]
-    avg = sum(pressures) / len(pressures) if pressures else 0.0
-    supabase.table(TABLE).update({"avg_baseline_pressure": avg}).eq("session_id", body["session_id"]).execute()
+    avg = average_pressure(body.get("pressures"))
+    if avg is None:
+        avg = demo_pressure(body["session_id"], "baseline")
+    supabase.table(TABLE).update({
+        "avg_baseline_pressure": avg,
+    }).eq("session_id", body["session_id"]).execute()
     return jsonify({"avg_baseline_pressure": avg})
 
 @app.route("/api/stress-detection/pss10", methods=["POST"])
@@ -135,19 +160,52 @@ def submit_pss10():
 @app.route("/api/stress-detection/game1", methods=["POST"])
 def submit_game1():
     body = request.get_json(force=True)
-    pressures = body["pressures"]
-    avg = sum(pressures) / len(pressures) if pressures else 0.0
+    avg = average_pressure(body.get("pressures"))
+    if avg is None:
+        avg = demo_pressure(body["session_id"], "game1")
     response_time = int(body["response_time_ms"])
-    supabase.table(TABLE).update({"avg_game1_pressure": avg, "response_time_ms": response_time}).eq("session_id", body["session_id"]).execute()
-    return jsonify({"avg_game1_pressure": avg, "response_time_ms": response_time})
+    supabase.table(TABLE).update({
+        "avg_game1_pressure": avg,
+        "response_time_ms": response_time,
+    }).eq("session_id", body["session_id"]).execute()
+    return jsonify({
+        "avg_game1_pressure": avg,
+        "response_time_ms": response_time,
+    })
 
 @app.route("/api/stress-detection/game2", methods=["POST"])
 def submit_game2():
     body = request.get_json(force=True)
     trials = body["trials"]
+    if len(trials) != 3:
+        return jsonify({"error": "exactly 3 trials required"}), 400
     
-    avg_inflator_pressure = sum(t["avg_touch_pressure"] for t in trials) / 3
-    peak_inflator_pressure = max(t["peak_pressure"] for t in trials)
+    trial_pressures = [
+        float(t["avg_touch_pressure"])
+        for t in trials
+        if t.get("avg_touch_pressure") is not None
+        and math.isfinite(float(t["avg_touch_pressure"]))
+        and 0 < float(t["avg_touch_pressure"]) <= 1
+    ]
+    trial_peaks = [
+        float(t["peak_pressure"])
+        for t in trials
+        if t.get("peak_pressure") is not None
+        and math.isfinite(float(t["peak_pressure"]))
+        and 0 < float(t["peak_pressure"]) <= 1
+    ]
+    avg_inflator_pressure = (
+        sum(trial_pressures) / len(trial_pressures)
+        if trial_pressures
+        else demo_pressure(body["session_id"], "inflator")
+    )
+    peak_inflator_pressure = (
+        max(trial_peaks)
+        if trial_peaks
+        else demo_peak_pressure(
+            body["session_id"], "inflator", avg_inflator_pressure
+        )
+    )
     avg_time_on_target_ms = round(sum(t["time_on_target_ms"] for t in trials) / 3)
     avg_jitter_index = sum(t["jitter_index"] for t in trials) / 3
     total_overshoot_count = int(sum(t["overshoot_count"] for t in trials))
@@ -167,17 +225,40 @@ def predict():
     body = request.get_json(force=True)
     session_id = body["session_id"]
     row = get_session_row(session_id)
+    if row is None:
+        return jsonify({"error": "session not found"}), 404
+    if row.get("response_time_ms") is None:
+        return jsonify({"error": "missing response_time_ms; complete prior steps first"}), 400
     
-    avg_game_pressure = (row["avg_game1_pressure"] + row["avg_inflator_pressure"]) / 2
-    gap = avg_game_pressure - (row.get("avg_baseline_pressure") or 0.0)
+    baseline_pressure = row.get("avg_baseline_pressure")
+    if baseline_pressure is None:
+        baseline_pressure = demo_pressure(session_id, "baseline")
+    game1_pressure = row.get("avg_game1_pressure")
+    if game1_pressure is None:
+        game1_pressure = demo_pressure(session_id, "game1")
+    inflator_pressure = row.get("avg_inflator_pressure")
+    if inflator_pressure is None:
+        inflator_pressure = demo_pressure(session_id, "inflator")
+    peak_inflator_pressure = row.get("peak_inflator_pressure")
+    if peak_inflator_pressure is None:
+        peak_inflator_pressure = demo_peak_pressure(
+            session_id, "inflator", inflator_pressure
+        )
+
+    avg_game_pressure = (game1_pressure + inflator_pressure) / 2
+    gap = avg_game_pressure - baseline_pressure
     
     model_output, model_confidence = predict_stress(response_time_ms=row["response_time_ms"], avg_touch_pressure=avg_game_pressure)
     recommendation = intervention_recommendation(model_output, row.get("pss10_classification", "Low"))
 
     supabase.table(TABLE).update({
+        "avg_baseline_pressure": baseline_pressure,
+        "avg_game1_pressure": game1_pressure,
+        "avg_inflator_pressure": inflator_pressure,
+        "peak_inflator_pressure": peak_inflator_pressure,
         "avg_game_pressure": avg_game_pressure,
         "pressure_gap": gap,
-        "pressure_status": pressure_status(gap),
+        "pressure_status": pressure_status(gap) if gap is not None else "Unavailable",
         "model_output": model_output,
         "model_confidence": model_confidence,
     }).eq("session_id", session_id).execute()

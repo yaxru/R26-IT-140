@@ -5,7 +5,6 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { generateAssessmentToken } from "@/lib/stress/api";
 import {
-  AlertTriangle,
   Activity,
   Copy,
   Check,
@@ -39,11 +38,11 @@ interface StressAssessment {
   worker_id: string;
   pss10_score: number;
   pss10_classification: string;
-  avg_game_pressure: number;
-  pressure_gap: number;
+  avg_game_pressure: number | null;
+  pressure_gap: number | null;
   response_time_ms: number;
-  model_output: number;
-  model_confidence: number;
+  model_output: number | null;
+  model_confidence: number | null;
   created_at: string;
 }
 
@@ -455,7 +454,7 @@ export default function SupervisorStressDashboard() {
                 Awaiting Selection
               </h3>
               <p className="text-[11px] text-[#9A9A9A] mt-2 max-w-sm leading-relaxed">
-                Select an operator with a "Report Ready" badge from the queue to view their cognitive load and motor-function diagnostic results.
+                Select an operator with a &quot;Report Ready&quot; badge from the queue to view their cognitive load and motor-function diagnostic results.
               </p>
             </div>
           ) : (
@@ -463,10 +462,12 @@ export default function SupervisorStressDashboard() {
               const report = assessments[selectedWorker.operators.worker_id];
               if (!report) return null;
 
-              const isStressed = Number(report.model_output) === 1;
+              const hasPrediction = report.model_output != null;
+              const isStressed = hasPrediction && Number(report.model_output) === 1;
 
               // DSS Logic mapped directly from the backend intervention_recommendation function
               const dssRecommendation = (() => {
+                if (!hasPrediction) return "Assessment Needed";
                 const out = Number(report.model_output);
                 const pss = report.pss10_classification;
                 if (out === 1 && pss === "High") return "Escalate to Counsellor";
@@ -476,6 +477,9 @@ export default function SupervisorStressDashboard() {
 
               // Contextual explanation for the DSS Output
               const dssContext = (() => {
+                if (!hasPrediction) {
+                  return "This assessment has no model result. Generate a new assessment before making a decision about the flag.";
+                }
                 if (dssRecommendation === "Escalate to Counsellor") {
                   return "Critical cognitive overload and high psychological stress detected. Immediate removal from the line and referral to occupational health or counselling is required.";
                 }
@@ -500,9 +504,13 @@ export default function SupervisorStressDashboard() {
                         </span>
                       </div>
                       <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest border ${
-                        isStressed ? "text-[#CE8E33] border-[#CE8E33] bg-white dark:bg-[#111113]" : "text-[#1A7C4B] border-[#1A7C4B] bg-white dark:bg-[#111113]"
+                        !hasPrediction
+                          ? "text-[#5F5F5F] border-[#D4D4D4] bg-white dark:bg-[#111113]"
+                          : isStressed
+                            ? "text-[#CE8E33] border-[#CE8E33] bg-white dark:bg-[#111113]"
+                            : "text-[#1A7C4B] border-[#1A7C4B] bg-white dark:bg-[#111113]"
                       }`}>
-                        {isStressed ? "Fatigue Detected" : "Optimal State"}
+                        {!hasPrediction ? "Assessment Needed" : isStressed ? "Fatigue Detected" : "Optimal State"}
                       </span>
                     </div>
 
@@ -512,7 +520,7 @@ export default function SupervisorStressDashboard() {
                         <Activity size={12} className={dssRecommendation === "Monitor" ? "text-[#1A7C4B]" : "text-[#CE8E33]"} />
                         <p className="text-[9px] font-bold tracking-widest text-[#9A9A9A] uppercase">DSS Output Instruction</p>
                       </div>
-                      <p className={`text-sm font-bold uppercase tracking-wide ${dssRecommendation === "Monitor" ? "text-[#1A7C4B] dark:text-[#47966F]" : "text-[#CE8E33] dark:text-[#D7A45A]"}`}>
+                      <p className={`text-sm font-bold uppercase tracking-wide ${dssRecommendation === "Monitor" ? "text-[#1A7C4B] dark:text-[#47966F]" : dssRecommendation === "Assessment Needed" ? "text-[#5F5F5F] dark:text-zinc-400" : "text-[#CE8E33] dark:text-[#D7A45A]"}`}>
                         {dssRecommendation}
                       </p>
                       <p className="text-[11px] text-[#5F5F5F] dark:text-zinc-400 mt-1.5 leading-relaxed">
@@ -531,8 +539,8 @@ export default function SupervisorStressDashboard() {
                     />
                     <KpiTile 
                       label="AI Confidence" 
-                      value={`${fmt(report.model_confidence, 2)}%`} 
-                      sub="Prediction Accuracy" 
+                      value={`${fmt(report.model_confidence, 2)}%`}
+                      sub="Prediction Accuracy"
                     />
                     <KpiTile 
                       label="Motor Response" 
@@ -542,8 +550,8 @@ export default function SupervisorStressDashboard() {
                     />
                     <KpiTile 
                       label="Pressure Variance" 
-                      value={report.pressure_gap != null ? Number(report.pressure_gap).toFixed(2) : "—"} 
-                      sub="Deviation from baseline" 
+                      value={report.pressure_gap != null ? Number(report.pressure_gap).toFixed(2) : "—"}
+                      sub="Deviation from baseline"
                     />
                   </div>
 
@@ -582,6 +590,10 @@ export default function SupervisorStressDashboard() {
                               <Fingerprint size={14} /> Reallocate Line
                             </Link>
                           </>
+                        ) : !hasPrediction ? (
+                          <p className="flex-1 text-xs text-[#9A9A9A]">
+                            Generate a new assessment before changing this flag.
+                          </p>
                         ) : (
                           <button
                             onClick={() => handleClearFlag(selectedWorker.operator_id)}

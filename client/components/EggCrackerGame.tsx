@@ -4,6 +4,15 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { usePressureCapture } from "@/lib/stress/usePressureCapture";
 import { Language } from "@/lib/stress/types";
 import { getStressCopy } from "@/lib/stress/translations";
+import {
+  bestContact,
+  bestPressure,
+  contactEstimateValues,
+  measuredPressureValues,
+  PressureSample,
+  readPointerSamples,
+  readTouchSamples,
+} from "@/lib/stress/pressureMeasurement";
 
 const EGG_COUNT = 9;
 const BURST_PRESSURE = 0.72;
@@ -20,7 +29,8 @@ interface Ripple {
 interface ActivePress {
   index: number;
   pointerId: number;
-  peakPressure: number;
+  pointerSamples: PressureSample[];
+  touchSamples: PressureSample[];
 }
 
 function eventTimeInEpoch(timestamp: number) {
@@ -51,7 +61,7 @@ export default function EggCrackerGame({
   const activePress = useRef<ActivePress | null>(null);
   const pendingEggs = useRef(new Set<number>());
   const onCompleteRef = useRef(onComplete);
-  const { record, getSamples } = usePressureCapture();
+  const { record, recordTouch, getSamples } = usePressureCapture();
   const copy = getStressCopy(language);
 
   const remaining = eggs.filter((e) => e === "idle").length;
@@ -99,10 +109,6 @@ export default function EggCrackerGame({
     }, 560);
   }, []);
 
-  function pointerPressure(e: React.PointerEvent<HTMLButtonElement>) {
-    return e.pointerType === "mouse" || e.pressure <= 0 ? 0.5 : e.pressure;
-  }
-
   function startTap(idx: number, e: React.PointerEvent<HTMLButtonElement>) {
     if (
       eggs[idx] !== "idle" ||
@@ -115,7 +121,8 @@ export default function EggCrackerGame({
     activePress.current = {
       index: idx,
       pointerId: e.pointerId,
-      peakPressure: pointerPressure(e),
+      pointerSamples: readPointerSamples(e),
+      touchSamples: [],
     };
     if (firstTap.current === null) {
       firstTap.current = eventTimeInEpoch(e.nativeEvent.timeStamp);
@@ -134,15 +141,31 @@ export default function EggCrackerGame({
     const press = activePress.current;
     if (!press || press.pointerId !== e.pointerId) return;
     record(e);
-    press.peakPressure = Math.max(press.peakPressure, pointerPressure(e));
+    press.pointerSamples.push(...readPointerSamples(e));
+  }
+
+  function updateTouch(e: React.TouchEvent<HTMLButtonElement>) {
+    recordTouch(e);
+    const press = activePress.current;
+    if (press) press.touchSamples.push(...readTouchSamples(e));
   }
 
   function finishTap(idx: number, e: React.PointerEvent<HTMLButtonElement>) {
     const press = activePress.current;
     if (!press || press.index !== idx || press.pointerId !== e.pointerId) return;
+    record(e);
+    press.pointerSamples.push(...readPointerSamples(e));
     activePress.current = null;
     pendingEggs.current.add(idx);
-    const isBurst = press.peakPressure > BURST_PRESSURE;
+    const pressure = bestPressure(press.pointerSamples, press.touchSamples);
+    const contact = bestContact(press.pointerSamples, press.touchSamples);
+    const measurements =
+      pressure.support === "variable"
+        ? measuredPressureValues(press.pointerSamples, press.touchSamples)
+        : contact.support === "variable"
+          ? contactEstimateValues(press.pointerSamples, press.touchSamples)
+          : [];
+    const isBurst = measurements.length > 0 && Math.max(...measurements) > BURST_PRESSURE;
 
     setShakingIdx(idx);
     setTimeout(() => setShakingIdx(null), 380);
@@ -187,6 +210,9 @@ export default function EggCrackerGame({
                 onPointerMove={updateTap}
                 onPointerUp={(e) => finishTap(idx, e)}
                 onPointerCancel={(e) => finishTap(idx, e)}
+                onTouchStart={updateTouch}
+                onTouchMove={updateTouch}
+                onTouchEnd={updateTouch}
                 aria-label={`${copy.game1}, ${idx + 1}`}
                 className={`
                   relative select-none aspect-square rounded-[2rem] flex items-center justify-center

@@ -20,8 +20,8 @@ export interface InflatorTrial {
 
 export interface PredictResult {
   avg_game_pressure: number;
-  pressure_gap: number;
-  pressure_status: "Increased" | "Stable" | "Decreased";
+  pressure_gap: number | null;
+  pressure_status: "Increased" | "Stable" | "Decreased" | "Unavailable";
   model_output: 0 | 1;
   model_confidence: number;
   intervention_recommendation: string;

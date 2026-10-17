@@ -28,6 +28,11 @@ Logistic Regression classifier (scikit-learn), trained on
 `avg_game_pressure`. See `TESTING.ipynb` for the reference inference logic
 this service reimplements as a live API.
 
+For prototype demonstrations, the service fills missing pressure fields with
+session-specific fallback scores so report rows remain populated on devices
+that do not provide usable pressure samples. These values are for demonstration
+only.
+
 ## API
 
 Worker flow (token-authenticated):

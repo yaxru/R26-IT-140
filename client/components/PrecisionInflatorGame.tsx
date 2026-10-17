@@ -3,12 +3,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { InflatorTrial, Language } from "@/lib/stress/types";
 import { getStressCopy } from "@/lib/stress/translations";
+import {
+  bestContact,
+  bestPressure,
+  contactToPressureEstimate,
+  measuredPressureValues,
+  PressureSample,
+  readPointerSamples,
+  readTouchSamples,
+} from "@/lib/stress/pressureMeasurement";
 
 const TRIAL_DURATION_MS = 10000;
 const TOTAL_TRIALS = 3;
 const RING_MIN = 0.45;
 const RING_MAX = 0.70;
-const BURST_PRESSURE = 0.95;
+const FALLBACK_PRESSURE = 0.58;
 
 const BG = "#3B82F6"; // solid blue
 
@@ -26,23 +35,31 @@ export default function PrecisionInflatorGame({
   const [trials, setTrials] = useState<InflatorTrial[]>([]);
   const [isHolding, setIsHolding] = useState(false);
   const [ready, setReady] = useState(false);
+  const [positionControl, setPositionControl] = useState(false);
 
-  const samples      = useRef<number[]>([]);
-  const onTargetMs   = useRef(0);
-  const overshoot    = useRef(0);
-  const lastTick     = useRef(0);
-  const rafId        = useRef(0);
-  const trialStart   = useRef(0);
-  const pointerId    = useRef<number | null>(null);
-  const pressureRef  = useRef(0);
-  const burstRef     = useRef(false);
+  const pointerSamples = useRef<PressureSample[]>([]);
+  const touchSamples = useRef<PressureSample[]>([]);
+  const interactionSamples = useRef<number[]>([]);
+  const onTargetMs = useRef(0);
+  const overshoot = useRef(0);
+  const lastTick = useRef(0);
+  const rafId = useRef(0);
+  const trialStart = useRef(0);
+  const pointerId = useRef<number | null>(null);
+  const pressureRef = useRef(0);
+  const burstRef = useRef(false);
+  const arenaRef = useRef<HTMLDivElement>(null);
   const copy = getStressCopy(language);
 
   const inTarget = pressure >= RING_MIN && pressure <= RING_MAX && !burst;
 
   const finishTrial = useCallback(() => {
-    const arr  = samples.current;
-    const avg  = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+    const measured = measuredPressureValues(
+      pointerSamples.current,
+      touchSamples.current,
+    );
+    const arr = measured.length ? measured : interactionSamples.current;
+    const avg = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
     const peak = arr.length ? Math.max(...arr) : 0;
     const jitter = arr.length > 1
       ? arr.reduce((a, b) => a + (b - avg) ** 2, 0) / arr.length
@@ -64,6 +81,8 @@ export default function PrecisionInflatorGame({
     } else {
       setPressure(0);
       setIsHolding(false);
+      setBurst(false);
+      setPositionControl(false);
       setTimeLeftMs(TRIAL_DURATION_MS);
       setTrialIndex((i) => i + 1);
     }
@@ -77,12 +96,13 @@ export default function PrecisionInflatorGame({
   useEffect(() => {
     trialStart.current = performance.now();
     lastTick.current   = trialStart.current;
-    samples.current    = [];
+    pointerSamples.current = [];
+    touchSamples.current = [];
+    interactionSamples.current = [];
     onTargetMs.current = 0;
     overshoot.current  = 0;
     burstRef.current = false;
     pressureRef.current = 0;
-    pointerId.current = null;
 
     function tick() {
       const now = performance.now();
@@ -109,14 +129,61 @@ export default function PrecisionInflatorGame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trialIndex]);
 
-  function samplePressure(raw: number) {
+  function resolvePressure(): { value: number; usePointerPosition: boolean } {
+    const measurement = bestPressure(
+      pointerSamples.current,
+      touchSamples.current,
+    );
+    if (measurement.support === "variable") {
+      const samples =
+        measurement.source === "pointer"
+          ? pointerSamples.current
+          : touchSamples.current;
+      const latest = [...samples]
+        .reverse()
+        .find(
+          (sample) =>
+            Number.isFinite(sample.pressure) &&
+            sample.pressure > 0 &&
+            sample.pressure <= 1,
+        );
+      if (latest) return { value: latest.pressure, usePointerPosition: false };
+    }
+
+    const contact = bestContact(pointerSamples.current, touchSamples.current);
+    if (contact.support === "variable") {
+      const samples =
+        contact.source === "pointer"
+          ? pointerSamples.current
+          : touchSamples.current;
+      const latest = [...samples]
+        .reverse()
+        .find(
+          (sample) =>
+            sample.pointerType === "touch" &&
+            Number.isFinite(sample.width) &&
+            Number.isFinite(sample.height),
+        );
+      if (latest) {
+        return {
+          value: contactToPressureEstimate((latest.width + latest.height) / 2),
+          usePointerPosition: false,
+        };
+      }
+    }
+
+    return { value: FALLBACK_PRESSURE, usePointerPosition: true };
+  }
+
+  function samplePressure(raw: number, usesPosition: boolean) {
     if (burstRef.current) return;
-    samples.current.push(raw);
+    interactionSamples.current.push(raw);
     pressureRef.current = raw;
+    setPositionControl(usesPosition);
     setPressure(raw);
     setIsHolding(true);
 
-    if (raw > BURST_PRESSURE) {
+    if (raw > RING_MAX) {
       overshoot.current += 1;
       burstRef.current = true;
       pointerId.current = null;
@@ -131,20 +198,43 @@ export default function PrecisionInflatorGame({
     }
   }
 
+  function updateFromPointer(e: React.PointerEvent<HTMLButtonElement>) {
+    pointerSamples.current.push(...readPointerSamples(e));
+    const reading = resolvePressure();
+    const rect = arenaRef.current?.getBoundingClientRect();
+    const fallbackValue =
+      reading.usePointerPosition && rect
+        ? Math.min(
+            1,
+            Math.max(0, (rect.bottom - e.clientY) / rect.height),
+          )
+        : reading.value;
+    samplePressure(fallbackValue, reading.usePointerPosition);
+  }
+
   function handlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
     if (burstRef.current) return;
     pointerId.current = e.pointerId;
     e.currentTarget.setPointerCapture(e.pointerId);
-    samplePressure(
-      e.pointerType === "mouse" || e.pressure <= 0 ? 0.58 : e.pressure,
-    );
+    updateFromPointer(e);
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLButtonElement>) {
     if (pointerId.current !== e.pointerId) return;
-    samplePressure(
-      e.pointerType === "mouse" || e.pressure <= 0 ? 0.58 : e.pressure,
-    );
+    updateFromPointer(e);
+  }
+
+  function updateFromTouch(e: React.TouchEvent<HTMLButtonElement>) {
+    if (pointerId.current === null) return;
+    touchSamples.current.push(...readTouchSamples(e));
+    const reading = resolvePressure();
+    const rect = arenaRef.current?.getBoundingClientRect();
+    const touch = e.nativeEvent.changedTouches[0];
+    const fallbackValue =
+      reading.usePointerPosition && rect && touch
+        ? Math.min(1, Math.max(0, (rect.bottom - touch.clientY) / rect.height))
+        : reading.value;
+    samplePressure(fallbackValue, reading.usePointerPosition);
   }
 
   function release() {
@@ -154,11 +244,28 @@ export default function PrecisionInflatorGame({
     setIsHolding(false);
   }
 
+  function handlePointerUp(e: React.PointerEvent<HTMLButtonElement>) {
+    pointerSamples.current.push(...readPointerSamples(e));
+    release();
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLButtonElement>) {
     if ((e.key === " " || e.key === "Enter") && !e.repeat) {
       e.preventDefault();
       pointerId.current = -1;
-      samplePressure(0.58);
+      samplePressure(FALLBACK_PRESSURE, true);
+    } else if (
+      (e.key === "ArrowUp" || e.key === "ArrowRight") &&
+      pointerId.current === -1
+    ) {
+      e.preventDefault();
+      samplePressure(Math.min(1, pressureRef.current + 0.04), true);
+    } else if (
+      (e.key === "ArrowDown" || e.key === "ArrowLeft") &&
+      pointerId.current === -1
+    ) {
+      e.preventDefault();
+      samplePressure(Math.max(0, pressureRef.current - 0.04), true);
     }
   }
 
@@ -166,7 +273,6 @@ export default function PrecisionInflatorGame({
     if (e.key === " " || e.key === "Enter") release();
   }
 
-  const ballScale   = 0.45 + pressure * 1.15;
   const secondsLeft = Math.ceil(timeLeftMs / 1000);
   const timePct     = (timeLeftMs / TRIAL_DURATION_MS) * 100;
 
@@ -200,14 +306,18 @@ export default function PrecisionInflatorGame({
 
       {/* Ring arena */}
       <div className={`flex-1 flex items-center justify-center relative z-10 transition-all duration-500 ${ready ? "opacity-100" : "opacity-0"}`}>
-        <div className="relative flex items-center justify-center" style={{ width: 260, height: 260 }}>
+        <div
+          ref={arenaRef}
+          className="relative flex items-center justify-center"
+          style={{ width: "min(260px, 80vw, 45vh)", aspectRatio: "1" }}
+        >
           <div
             className="absolute rounded-full border-4 transition-colors duration-200"
-            style={{ width: RING_MAX * 260, height: RING_MAX * 260, borderColor: inTarget ? "#FFCA28" : "rgba(255,255,255,0.3)", boxShadow: inTarget ? "0 0 0 0 rgba(255,202,40,0.4)" : "none", animation: inTarget ? "pulseRing 1.4s ease-in-out infinite" : "none" }}
+            style={{ width: `${RING_MAX * 100}%`, height: `${RING_MAX * 100}%`, borderColor: inTarget ? "#FFCA28" : "rgba(255,255,255,0.3)", boxShadow: inTarget ? "0 0 0 0 rgba(255,202,40,0.4)" : "none", animation: inTarget ? "pulseRing 1.4s ease-in-out infinite" : "none" }}
           />
           <div
             className="absolute rounded-full border-2 border-dashed transition-colors duration-200"
-            style={{ width: RING_MIN * 260, height: RING_MIN * 260, borderColor: inTarget ? "rgba(255,202,40,0.6)" : "rgba(255,255,255,0.2)" }}
+            style={{ width: `${RING_MIN * 100}%`, height: `${RING_MIN * 100}%`, borderColor: inTarget ? "rgba(255,202,40,0.6)" : "rgba(255,255,255,0.2)" }}
           />
 
           {!burst ? (
@@ -216,14 +326,29 @@ export default function PrecisionInflatorGame({
               aria-label={copy.game2Status.holdInRing}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
-              onPointerUp={release}
+              onPointerUp={handlePointerUp}
               onPointerCancel={release}
+              onTouchStart={updateFromTouch}
+              onTouchMove={updateFromTouch}
+              onTouchEnd={updateFromTouch}
               onKeyDown={handleKeyDown}
               onKeyUp={handleKeyUp}
               onBlur={release}
-              className="select-none rounded-full touch-none z-10 cursor-pointer transition-all duration-[40ms] ease-out focus-visible:outline focus-visible:outline-4 focus-visible:outline-white"
-              style={{ width: 80, height: 80, backgroundColor: ballBg, transform: `scale(${ballScale})`, boxShadow: inTarget ? "0 0 24px rgba(255,202,40,0.6)" : "0 4px 16px rgba(0,0,0,0.2)" }}
-            />
+              className="absolute inset-0 z-10 flex select-none touch-none items-center justify-center rounded-full cursor-pointer focus-visible:outline focus-visible:outline-4 focus-visible:outline-white"
+              style={{ backgroundColor: "transparent" }}
+            >
+              <span
+                className="rounded-full transition-[width,height,background-color] duration-[40ms] ease-out"
+                style={{
+                  width: `${pressure * 100}%`,
+                  height: `${pressure * 100}%`,
+                  backgroundColor: ballBg,
+                  boxShadow: inTarget
+                    ? "0 0 24px rgba(255,202,40,0.6)"
+                    : "0 4px 16px rgba(0,0,0,0.2)",
+                }}
+              />
+            </button>
           ) : (
             <div className="relative flex items-center justify-center">
               <div className="absolute w-24 h-24 rounded-full bg-red-400/30 halo-grow" />
@@ -237,7 +362,19 @@ export default function PrecisionInflatorGame({
       {/* Bottom Status */}
       <div className="h-[35%] shrink-0 bg-[#1a1a1a] px-6 pt-8 pb-8 flex flex-col items-center justify-center relative z-20">
          <h1 className="text-3xl font-black text-white uppercase leading-tight mb-2 text-center">
-           {burst ? copy.game2Status.tooHard : inTarget ? copy.game2Status.onTarget : isHolding ? pressure < RING_MIN ? copy.game2Status.pressHarder : copy.game2Status.easeOff : copy.game2Status.holdInRing}
+           {burst
+             ? copy.game2Status.tooHard
+             : inTarget
+               ? copy.game2Status.onTarget
+               : isHolding
+               ? positionControl
+                 ? pressure < RING_MIN
+                   ? copy.game2Status.moveUp
+                   : copy.game2Status.moveDown
+                 : pressure < RING_MIN
+                   ? copy.game2Status.pressHarder
+                   : copy.game2Status.easeOff
+                 : copy.game2Status.holdInRing}
          </h1>
          <div className="flex items-baseline gap-2 mt-4 text-white/50">
            <span className="text-5xl font-black text-white tabular-nums">{secondsLeft}</span>

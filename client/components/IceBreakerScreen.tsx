@@ -55,7 +55,7 @@ export default function IceBreakerScreen({
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<"in" | "out">("in");
   const [justPicked, setJustPicked] = useState<string | null>(null);
-  const { record, getSamples } = usePressureCapture();
+  const { record, recordTouch, getSamples } = usePressureCapture();
 
   const q = QUESTION_THEMES[index];
   const translatedQuestion = getStressCopy(language).icebreaker[index];
@@ -124,6 +124,9 @@ export default function IceBreakerScreen({
                   key={opt}
                   onPointerDown={record}
                   onPointerMove={record}
+                  onTouchStart={recordTouch}
+                  onTouchMove={recordTouch}
+                  onTouchEnd={recordTouch}
                   onClick={() => choose(opt)}
                   className="select-none w-full py-3.5 rounded-2xl text-sm font-bold uppercase tracking-wide transition-all duration-150 active:scale-95 text-center"
                   style={

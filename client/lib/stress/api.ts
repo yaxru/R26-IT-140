@@ -87,12 +87,16 @@ export function submitGame1(
 ) {
   return post<{ avg_game1_pressure: number; response_time_ms: number }>(
     "/api/stress-detection/game1",
-    { session_id: sessionId, pressures, response_time_ms: responseTimeMs }
+    {
+      session_id: sessionId,
+      pressures,
+      response_time_ms: responseTimeMs,
+    }
   );
 }
 
 export function submitGame2(sessionId: string, trials: InflatorTrial[]) {
-  return post<Record<string, number>>("/api/stress-detection/game2", {
+  return post<Record<string, number | null | string>>("/api/stress-detection/game2", {
     session_id: sessionId,
     trials,
   });
