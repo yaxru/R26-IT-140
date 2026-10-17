@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { usePressureCapture } from "@/lib/stress/usePressureCapture";
+import { Language } from "@/lib/stress/types";
+import { getStressCopy } from "@/lib/stress/translations";
 
 const EGG_COUNT = 9;
 const BURST_PRESSURE = 0.72;
@@ -15,9 +17,23 @@ interface Ripple {
   y: number;
 }
 
+interface ActivePress {
+  index: number;
+  pointerId: number;
+  peakPressure: number;
+}
+
+function eventTimeInEpoch(timestamp: number) {
+  return timestamp > 1_000_000_000_000
+    ? timestamp
+    : performance.timeOrigin + timestamp;
+}
+
 export default function EggCrackerGame({
+  language,
   onComplete,
 }: {
+  language: Language;
   onComplete: (pressures: number[], responseTimeMs: number) => void;
 }) {
   const [eggs, setEggs] = useState<EggState[]>(
@@ -29,13 +45,25 @@ export default function EggCrackerGame({
   );
   const [ready, setReady] = useState(false);
 
-  const startTime = useRef(performance.now());
+  const startTime = useRef(0);
   const firstTap = useRef<number | null>(null);
   const rippleId = useRef(0);
+  const activePress = useRef<ActivePress | null>(null);
+  const pendingEggs = useRef(new Set<number>());
+  const onCompleteRef = useRef(onComplete);
   const { record, getSamples } = usePressureCapture();
+  const copy = getStressCopy(language);
 
   const remaining = eggs.filter((e) => e === "idle").length;
   const done = remaining === 0;
+
+  useEffect(() => {
+    startTime.current = performance.timeOrigin + performance.now();
+  }, []);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   useEffect(() => {
     const t = setTimeout(() => setReady(true), 80);
@@ -44,13 +72,16 @@ export default function EggCrackerGame({
 
   useEffect(() => {
     if (done) {
-      const rt = firstTap.current
+      const rt = firstTap.current !== null
         ? Math.round(firstTap.current - startTime.current)
         : 0;
-      const t = setTimeout(() => onComplete(getSamples(), rt), 650);
+      const t = setTimeout(
+        () => onCompleteRef.current(getSamples(), rt),
+        650,
+      );
       return () => clearTimeout(t);
     }
-  }, [done, getSamples, onComplete]);
+  }, [done, getSamples]);
 
   const addRipple = useCallback((idx: number, x: number, y: number) => {
     const id = rippleId.current++;
@@ -68,9 +99,27 @@ export default function EggCrackerGame({
     }, 560);
   }, []);
 
-  function tapEgg(idx: number, e: React.PointerEvent<HTMLButtonElement>) {
-    if (eggs[idx] !== "idle") return;
-    if (firstTap.current === null) firstTap.current = performance.now();
+  function pointerPressure(e: React.PointerEvent<HTMLButtonElement>) {
+    return e.pointerType === "mouse" || e.pressure <= 0 ? 0.5 : e.pressure;
+  }
+
+  function startTap(idx: number, e: React.PointerEvent<HTMLButtonElement>) {
+    if (
+      eggs[idx] !== "idle" ||
+      pendingEggs.current.has(idx) ||
+      activePress.current
+    ) {
+      return;
+    }
+    e.currentTarget.setPointerCapture(e.pointerId);
+    activePress.current = {
+      index: idx,
+      pointerId: e.pointerId,
+      peakPressure: pointerPressure(e),
+    };
+    if (firstTap.current === null) {
+      firstTap.current = eventTimeInEpoch(e.nativeEvent.timeStamp);
+    }
     record(e);
 
     const rect = e.currentTarget.getBoundingClientRect();
@@ -79,9 +128,21 @@ export default function EggCrackerGame({
       ((e.clientX - rect.left) / rect.width) * 100,
       ((e.clientY - rect.top) / rect.height) * 100,
     );
+  }
 
-    const pressure = e.pressure && e.pressure > 0 ? e.pressure : 0.5;
-    const isBurst = pressure > BURST_PRESSURE;
+  function updateTap(e: React.PointerEvent<HTMLButtonElement>) {
+    const press = activePress.current;
+    if (!press || press.pointerId !== e.pointerId) return;
+    record(e);
+    press.peakPressure = Math.max(press.peakPressure, pointerPressure(e));
+  }
+
+  function finishTap(idx: number, e: React.PointerEvent<HTMLButtonElement>) {
+    const press = activePress.current;
+    if (!press || press.index !== idx || press.pointerId !== e.pointerId) return;
+    activePress.current = null;
+    pendingEggs.current.add(idx);
+    const isBurst = press.peakPressure > BURST_PRESSURE;
 
     setShakingIdx(idx);
     setTimeout(() => setShakingIdx(null), 380);
@@ -92,6 +153,7 @@ export default function EggCrackerGame({
         next[idx] = isBurst ? "burst" : "cracked";
         return next;
       });
+      pendingEggs.current.delete(idx);
     }, 180);
   }
 
@@ -107,10 +169,10 @@ export default function EggCrackerGame({
         <div className="w-full max-w-[280px] mx-auto">
           <div className="flex justify-between items-center mb-6">
             <p className="text-xs font-bold uppercase tracking-widest text-black/50">
-              Game 1
+              {copy.game1}
             </p>
             <p className="text-xs font-black uppercase tracking-widest bg-black/10 px-3 py-1 rounded-full text-black/70">
-              {remaining} left
+              {remaining} {copy.eggsLeft}
             </p>
           </div>
 
@@ -121,7 +183,11 @@ export default function EggCrackerGame({
               <button
                 key={idx}
                 disabled={egg !== "idle"}
-                onPointerDown={(e) => tapEgg(idx, e)}
+                onPointerDown={(e) => startTap(idx, e)}
+                onPointerMove={updateTap}
+                onPointerUp={(e) => finishTap(idx, e)}
+                onPointerCancel={(e) => finishTap(idx, e)}
+                aria-label={`${copy.game1}, ${idx + 1}`}
                 className={`
                   relative select-none aspect-square rounded-[2rem] flex items-center justify-center
                   text-4xl touch-none overflow-hidden transition-all duration-200
@@ -165,12 +231,10 @@ export default function EggCrackerGame({
       <div className="h-[35%] shrink-0 w-full bg-[#1a1a1a] relative z-20">
         <div className="w-full max-w-md mx-auto h-full px-6 flex flex-col items-center justify-center text-center">
           <h1 className="text-3xl font-black text-white uppercase leading-tight mb-3">
-            Tap gently
-            <br />
-            to crack
+            {copy.tapGently}
           </h1>
           <p className="text-sm font-bold text-white/40 uppercase tracking-widest text-center">
-            Light = crack · Hard = burst
+            {copy.lightCrack}
           </p>
         </div>
       </div>

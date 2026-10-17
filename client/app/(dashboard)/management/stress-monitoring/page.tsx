@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { generateAssessmentToken } from "@/lib/stress/api";
 import {
   AlertTriangle,
   Activity,
@@ -106,6 +107,7 @@ export default function SupervisorStressDashboard() {
   const [generatedLinks, setGeneratedLinks] = useState<Record<string, string>>(
     {},
   );
+  const [linkErrors, setLinkErrors] = useState<Record<string, string>>({});
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
   useEffect(() => {
@@ -161,16 +163,25 @@ export default function SupervisorStressDashboard() {
     opId: string,
   ) => {
     setGeneratingFor(opId);
+    setLinkErrors((prev) => {
+      const next = { ...prev };
+      delete next[opId];
+      return next;
+    });
     try {
-      const res = await fetch(
-        `http://localhost:8003/api/stress-detection/dev/token?worker_id=${workerId}&worker_name=${encodeURIComponent(workerName)}`,
-      );
-      if (!res.ok) throw new Error("Failed to generate link");
-
-      const data = await res.json();
-      setGeneratedLinks((prev) => ({ ...prev, [opId]: data.test_url }));
+      const token = await generateAssessmentToken(workerId, workerName);
+      const assessmentUrl = new URL("/assessment", window.location.origin);
+      assessmentUrl.searchParams.set("token", token);
+      setGeneratedLinks((prev) => ({ ...prev, [opId]: assessmentUrl.href }));
     } catch (error) {
       console.error("Error generating link:", error);
+      setLinkErrors((prev) => ({
+        ...prev,
+        [opId]:
+          error instanceof Error
+            ? error.message
+            : "Unable to generate assessment link.",
+      }));
     } finally {
       setGeneratingFor(null);
     }
@@ -319,6 +330,14 @@ export default function SupervisorStressDashboard() {
                           </button>
                         ) : !generatedLinks[flag.operator_id] ? (
                           <div className="flex flex-col items-end gap-1.5">
+                            {linkErrors[flag.operator_id] && (
+                              <p
+                                role="alert"
+                                className="max-w-xs text-right text-[10px] text-red-600 dark:text-red-400"
+                              >
+                                {linkErrors[flag.operator_id]}
+                              </p>
+                            )}
                             {report && !isTestUpToDate && (
                               <span className="text-[9px] text-[#A77329] font-medium uppercase tracking-widest">
                                 Old test detected. Retest required.

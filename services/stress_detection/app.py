@@ -15,7 +15,17 @@ app = Flask(__name__)
 
 CORS(
     app,
-    resources={r"/api/*": {"origins": ["http://localhost:3000"]}},
+    resources={
+        r"/api/*": {
+            "origins": [
+                origin.strip()
+                for origin in os.environ.get(
+                    "STRESS_CORS_ORIGINS", "http://localhost:3000"
+                ).split(",")
+                if origin.strip()
+            ]
+        }
+    },
     supports_credentials=False,
 )
 
@@ -67,6 +77,28 @@ def intervention_recommendation(model_output: int, pss10_classification: str) ->
 def get_session_row(session_id: str) -> dict | None:
     result = supabase.table(TABLE).select("*").eq("session_id", session_id).execute()
     return result.data[0] if result.data else None
+
+@app.route("/api/stress-detection/dev/token", methods=["GET"])
+def dev_generate_token():
+    worker_id = request.args.get("worker_id", "EMP-UNKNOWN")
+    worker_name = request.args.get("worker_name", "Unknown Worker")
+    expires_in = 7200
+    payload = {
+        "worker_id": worker_id,
+        "worker_name": worker_name,
+        "exp": int(datetime.now(timezone.utc).timestamp()) + expires_in,
+    }
+    token = jwt.encode(payload, SECURE_LINK_SECRET, algorithm="HS256")
+    frontend_url = os.environ.get("FRONTEND_BASE_URL") or request.headers.get(
+        "Origin", "http://localhost:3000"
+    )
+    frontend_url = frontend_url.rstrip("/")
+    if not frontend_url.endswith("/assessment"):
+        frontend_url = f"{frontend_url}/assessment"
+    return jsonify({
+        "token": token,
+        "test_url": f"{frontend_url}?token={token}",
+    })
 
 @app.route("/api/stress-detection/session/resolve", methods=["POST"])
 def resolve_session():

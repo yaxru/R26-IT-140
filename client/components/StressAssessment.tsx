@@ -15,16 +15,19 @@ import CompletionScreen from "./CompletionScreen";
 import * as api from "@/lib/stress/api";
 import {
   STEP_ORDER,
+  Language,
   StepId,
   SessionInfo,
   Pss10Answers,
   InflatorTrial,
 } from "@/lib/stress/types";
+import { getStressCopy } from "@/lib/stress/translations";
 
 export default function StressAssessment() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
 
+  const [language, setLanguage] = useState<Language>("en");
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [step, setStep] = useState<StepId>("welcome");
   const [loading, setLoading] = useState(true);
@@ -33,21 +36,18 @@ export default function StressAssessment() {
 
   // A simple toggle to trigger CSS re-renders for smooth transitions
   const [fadeKey, setFadeKey] = useState(0);
+  const copy = getStressCopy(language);
 
   useEffect(() => {
-    if (!token) {
-      setError(
-        "This link is missing a token. Please use the link sent to you.",
-      );
-      setLoading(false);
-      return;
-    }
+    document.documentElement.lang = language;
+  }, [language]);
+
+  useEffect(() => {
+    if (!token) return;
     api
       .resolveSession(token)
       .then((s) => setSession(s))
-      .catch((e) =>
-        setError(e.message ?? "This link is invalid or has expired."),
-      )
+      .catch(() => setError("invalid-assessment-link"))
       .finally(() => setLoading(false));
   }, [token]);
 
@@ -67,7 +67,7 @@ export default function StressAssessment() {
       setError(
         e instanceof Error
           ? e.message
-          : "Something went wrong. Please try again.",
+          : getStressCopy(language).genericError,
       );
       return null;
     } finally {
@@ -105,12 +105,23 @@ export default function StressAssessment() {
     transitionTo("complete");
   }
 
+  if (!token) {
+    return (
+      <SplashMessage
+        bg="#F87171"
+        label={copy.error}
+        text={copy.missingToken}
+        pattern="pattern-zigzag"
+      />
+    );
+  }
+
   if (loading) {
     return (
       <SplashMessage
         bg="#FFCA28"
-        label="Loading"
-        text="Getting things ready…"
+        label={copy.loading}
+        text={copy.loading}
         pattern="pattern-dots"
       />
     );
@@ -120,8 +131,8 @@ export default function StressAssessment() {
     return (
       <SplashMessage
         bg="#F87171"
-        label="Error"
-        text={error}
+        label={copy.error}
+        text={error === "invalid-assessment-link" ? copy.invalidLink : error}
         pattern="pattern-zigzag"
       />
     );
@@ -145,66 +156,56 @@ export default function StressAssessment() {
         {step === "welcome" && (
           <WelcomeScreen
             workerName={session?.worker_name ?? ""}
+            language={language}
+            onLanguageChange={setLanguage}
             onBegin={() => transitionTo("instructions-pss10")}
           />
         )}
 
         {step === "instructions-pss10" && (
           <InstructionScreen
-            step="Step 1 of 3"
             stepKey="instructions-pss10"
-            title={"10 quick\nquestions"}
-            bullets={[
-              "How you've felt this past month.",
-              "Options range from Never to Very Often.",
-              "Fully confidential — no impact on your work record.",
-            ]}
-            actionLabel="Got it, Next"
+            {...copy.instructions[0]}
+            step={language === "si" ? "පියවර 1 / 3" : "Step 1 of 3"}
             onNext={() => transitionTo("instructions-game1")}
           />
         )}
 
         {step === "instructions-game1" && (
           <InstructionScreen
-            step="Step 2 of 3"
             stepKey="instructions-game1"
-            title={"Egg cracker\ngame"}
-            bullets={[
-              "9 eggs appear on screen.",
-              "Tap gently to crack each one.",
-              "Too much pressure = burst. Control your force.",
-            ]}
-            actionLabel="Let's Crack Some Eggs"
+            {...copy.instructions[1]}
+            step={language === "si" ? "පියවර 2 / 3" : "Step 2 of 3"}
             onNext={() => transitionTo("instructions-game2")}
           />
         )}
 
         {step === "instructions-game2" && (
           <InstructionScreen
-            step="Step 3 of 3"
             stepKey="instructions-game2"
-            title={"Precision\nhold game"}
-            bullets={[
-              "Press & hold to inflate the balloon into the ring.",
-              "Too hard pops it, too soft won't reach.",
-              "3 short rounds, 10 seconds each.",
-            ]}
-            actionLabel="Ready, Let's Go"
+            {...copy.instructions[2]}
+            step={language === "si" ? "පියවර 3 / 3" : "Step 3 of 3"}
             onNext={() => transitionTo("icebreaker")}
           />
         )}
 
         {step === "icebreaker" && (
-          <IceBreakerScreen onComplete={handleBaseline} />
+          <IceBreakerScreen language={language} onComplete={handleBaseline} />
         )}
 
-        {step === "pss10" && <Pss10Questionnaire onComplete={handlePss10} />}
+        {step === "pss10" && (
+          <Pss10Questionnaire language={language} onComplete={handlePss10} />
+        )}
 
-        {step === "game1" && <EggCrackerGame onComplete={handleGame1} />}
+        {step === "game1" && (
+          <EggCrackerGame language={language} onComplete={handleGame1} />
+        )}
 
-        {step === "game2" && <PrecisionInflatorGame onComplete={handleGame2} />}
+        {step === "game2" && (
+          <PrecisionInflatorGame language={language} onComplete={handleGame2} />
+        )}
 
-        {step === "complete" && <CompletionScreen />}
+        {step === "complete" && <CompletionScreen language={language} />}
       </div>
     </div>
   );

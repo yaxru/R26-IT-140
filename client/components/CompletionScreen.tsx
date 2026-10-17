@@ -2,15 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { BlobCharacter } from "./BlobCharacter";
+import { Language } from "@/lib/stress/types";
+import { getStressCopy } from "@/lib/stress/translations";
 
 const BG = "#10B981"; // solid emerald/green
 const BLOB = "#059669";
 
 export default function CompletionScreen({
+  language,
   onRestart,
 }: {
+  language: Language;
   onRestart?: () => void;
 }) {
+  const copy = getStressCopy(language);
   const [show, setShow] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setShow(true), 100);
@@ -28,7 +33,7 @@ export default function CompletionScreen({
       <div className="flex-1 w-full flex flex-col relative z-10">
         <div className="w-full max-w-md mx-auto flex-1 flex flex-col items-center justify-end pb-4 relative">
           <p className="absolute top-6 left-6 text-xs font-bold uppercase tracking-widest text-black/40">
-            All done!
+            {copy.completeLabel}
           </p>
           <div
             className={`transition-all duration-600 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
@@ -44,19 +49,18 @@ export default function CompletionScreen({
       >
         <div className="w-full max-w-md mx-auto h-full px-6 py-6 flex flex-col items-center justify-center text-center">
           <h1 className="text-4xl font-black text-white uppercase leading-tight mb-2 shrink-0">
-            You crushed it.
+            {copy.completeTitle}
           </h1>
           <p className="text-sm text-white/50 mb-6 leading-relaxed shrink-0">
-            Your responses have been recorded securely. No further action
-            needed.
+            {copy.completeText}
           </p>
 
           {/* Stats row */}
           <div className="flex gap-3 mb-6 w-full shrink-0">
             {[
-              { label: "Questions", value: "10/10" },
-              { label: "Games", value: "2/2" },
-              { label: "Submitted", value: "✓" },
+              { label: copy.questionsStat, value: "10/10" },
+              { label: copy.gamesStat, value: "2/2" },
+              { label: copy.submittedStat, value: "✓" },
             ].map((s) => (
               <div
                 key={s.label}

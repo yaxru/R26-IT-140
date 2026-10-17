@@ -27,9 +27,17 @@ from predictive import predict_stress
 
 app = Flask(__name__)
 
+allowed_origins = [
+    origin.strip()
+    for origin in os.environ.get(
+        "STRESS_CORS_ORIGINS", "http://localhost:3000"
+    ).split(",")
+    if origin.strip()
+]
+
 CORS(
     app,
-    resources={r"/api/*": {"origins": ["http://localhost:3000"]}},
+    resources={r"/api/*": {"origins": allowed_origins}},
     supports_credentials=False,
 )
 
@@ -164,7 +172,12 @@ def dev_generate_token():
     token = jwt.encode(payload, SECURE_LINK_SECRET, algorithm="HS256")
     
     # We send back the exact URL the worker needs to click
-    frontend_url = os.environ.get("FRONTEND_BASE_URL", "http://localhost:3000/assessment")
+    frontend_url = os.environ.get("FRONTEND_BASE_URL") or request.headers.get(
+        "Origin", "http://localhost:3000"
+    )
+    frontend_url = frontend_url.rstrip("/")
+    if not frontend_url.endswith("/assessment"):
+        frontend_url = f"{frontend_url}/assessment"
     
     return jsonify({
         "token": token,

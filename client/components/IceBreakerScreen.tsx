@@ -1,59 +1,43 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { usePressureCapture } from "@/lib/stress/usePressureCapture";
 import { BlobCharacter } from "./BlobCharacter";
+import { Language } from "@/lib/stress/types";
+import { getStressCopy } from "@/lib/stress/translations";
 
-const QUESTIONS = [
+const QUESTION_THEMES = [
   {
-    key: "hobby",
-    label: "What's a hobby you enjoy?",
-    options: ["Sports", "Music", "Reading", "Gaming", "Other"],
     bg: "#F97316",
     blob: "#EA580C",
     pattern: "pattern-grid",
     mood: "curious" as const,
   },
   {
-    key: "genre",
-    label: "Favourite music genre?",
-    options: ["Pop", "Rock", "Hip-Hop", "Baila", "Other"],
     bg: "#8B5CF6",
     blob: "#7C3AED",
     pattern: "pattern-waves",
     mood: "happy" as const,
   },
   {
-    key: "artist",
-    label: "Favourite singer or band?",
-    options: ["Local artist", "International", "Both", "Not sure"],
     bg: "#EC4899",
     blob: "#DB2777",
     pattern: "pattern-stripes",
     mood: "surprised" as const,
   },
   {
-    key: "food",
-    label: "Favourite food?",
-    options: ["Rice & Curry", "Kottu", "Fast Food", "Other"],
     bg: "#10B981",
     blob: "#059669",
     pattern: "pattern-dots",
     mood: "cheeky" as const,
   },
   {
-    key: "show",
-    label: "Favourite movie or show?",
-    options: ["Action", "Comedy", "Drama", "Other"],
     bg: "#3B82F6",
     blob: "#2563EB",
     pattern: "pattern-zigzag",
     mood: "sleepy" as const,
   },
   {
-    key: "extra",
-    label: "One more thing you enjoy?",
-    options: ["Traveling", "Sleeping", "Chatting", "Other"],
     bg: "#F59E0B",
     blob: "#D97706",
     pattern: "pattern-waves",
@@ -62,32 +46,30 @@ const QUESTIONS = [
 ];
 
 export default function IceBreakerScreen({
+  language,
   onComplete,
 }: {
+  language: Language;
   onComplete: (pressures: number[]) => void;
 }) {
   const [index, setIndex] = useState(0);
-  const [selected, setSelected] = useState<Record<string, string>>({});
   const [phase, setPhase] = useState<"in" | "out">("in");
   const [justPicked, setJustPicked] = useState<string | null>(null);
   const { record, getSamples } = usePressureCapture();
 
-  const q = QUESTIONS[index];
-
-  useEffect(() => {
-    setPhase("in");
-    setJustPicked(null);
-  }, [index]);
+  const q = QUESTION_THEMES[index];
+  const translatedQuestion = getStressCopy(language).icebreaker[index];
 
   function choose(option: string) {
-    setSelected((s) => ({ ...s, [q.key]: option }));
     setJustPicked(option);
     setPhase("out");
 
     setTimeout(() => {
-      if (index === QUESTIONS.length - 1) {
+      if (index === QUESTION_THEMES.length - 1) {
         onComplete(getSamples());
       } else {
+        setPhase("in");
+        setJustPicked(null);
         setIndex((i) => i + 1);
       }
     }, 280);
@@ -106,7 +88,7 @@ export default function IceBreakerScreen({
       <div className="flex-1 w-full flex flex-col relative z-10">
         <div className="w-full max-w-md mx-auto flex-1 flex flex-col items-center justify-end pb-4 relative">
           <p className="absolute top-6 left-6 text-xs font-bold uppercase tracking-widest text-white/80 bg-black/20 px-3 py-1.5 rounded-full">
-            Warm up · {index + 1} / {QUESTIONS.length}
+            {getStressCopy(language).warmUp} · {index + 1} / {QUESTION_THEMES.length}
           </p>
 
           <div
@@ -131,11 +113,11 @@ export default function IceBreakerScreen({
           }}
         >
           <h2 className="text-2xl font-black text-white uppercase leading-tight mb-5 shrink-0">
-            {q.label}
+            {translatedQuestion.question}
           </h2>
 
           <div className="flex flex-col w-full gap-2 shrink-0">
-            {q.options.map((opt) => {
+            {translatedQuestion.options.map((opt) => {
               const isPicked = justPicked === opt;
               return (
                 <button

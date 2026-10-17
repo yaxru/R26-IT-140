@@ -5,12 +5,17 @@ import {
   PredictResult,
 } from "./types";
 
-// CHANGED TO 8003
-const BASE_URL =
-  process.env.NEXT_PUBLIC_STRESS_API_BASE_URL ?? "http://localhost:8003";
+function getBaseUrl() {
+  const configuredUrl = process.env.NEXT_PUBLIC_STRESS_API_BASE_URL;
+  if (configuredUrl) return configuredUrl.replace(/\/+$/, "");
+
+  if (typeof window !== "undefined") return window.location.origin;
+
+  return "http://localhost:5003";
+}
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${getBaseUrl()}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -22,6 +27,40 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return res.json();
 }
 
+export async function generateAssessmentToken(
+  workerId: string,
+  workerName: string,
+): Promise<string> {
+  const url = new URL(
+    `${getBaseUrl()}/api/stress-detection/dev/token`,
+  );
+  url.searchParams.set("worker_id", workerId);
+  url.searchParams.set("worker_name", workerName);
+
+  const res = await fetch(url);
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const message =
+      data &&
+      typeof data === "object" &&
+      "error" in data &&
+      typeof data.error === "string"
+        ? data.error
+        : `Failed to generate link (${res.status})`;
+    throw new Error(message);
+  }
+  if (
+    !data ||
+    typeof data !== "object" ||
+    !("token" in data) ||
+    typeof data.token !== "string" ||
+    data.token.length === 0
+  ) {
+    throw new Error("The stress service returned an invalid assessment token.");
+  }
+
+  return data.token;
+}
 
 export function resolveSession(token: string): Promise<SessionInfo> {
   return post<SessionInfo>("/api/stress-detection/session/resolve", { token });

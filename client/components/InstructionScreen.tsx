@@ -35,7 +35,7 @@ interface Props {
   step: string;
   stepKey: string;
   title: string;
-  bullets: string[];
+  bullets: readonly string[];
   actionLabel: string;
   onNext: () => void;
 }
