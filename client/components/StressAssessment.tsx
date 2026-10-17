@@ -139,11 +139,11 @@ export default function StressAssessment() {
   }
 
   return (
-    <div className="min-h-dvh w-full bg-[#1a1a1a] relative overflow-hidden">
+    <div className="min-h-dvh w-full bg-[#F6F7FB] relative">
       <ProgressBar progress={progress} />
 
       {error && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-[#F87171] text-white text-xs font-bold px-5 py-3 rounded-2xl z-50 uppercase tracking-widest text-center w-[90%] max-w-md shadow-xl">
+        <div role="alert" className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-1/2 -translate-x-1/2 bg-[#B93434] text-white text-xs font-bold px-5 py-3 rounded-2xl z-50 text-center w-[90%] max-w-md shadow-xl">
           {error}
         </div>
       )}
@@ -151,7 +151,7 @@ export default function StressAssessment() {
       {/* key forces remount on each step transition */}
       <div
         key={fadeKey}
-        className={`w-full h-dvh transition-opacity duration-300 ease-in-out ${busy ? "opacity-40 pointer-events-none" : "opacity-100"}`}
+        className={`w-full min-h-dvh transition-opacity duration-300 ease-in-out ${busy ? "opacity-60 pointer-events-none" : "opacity-100"}`}
       >
         {step === "welcome" && (
           <WelcomeScreen
@@ -224,25 +224,20 @@ function SplashMessage({
 }) {
   return (
     <div
-      className="min-h-dvh w-full flex flex-col relative"
+      className="min-h-dvh w-full flex flex-col justify-center relative px-5 py-[calc(env(safe-area-inset-top)+2rem)]"
       style={{ backgroundColor: bg }}
     >
       <div
         className={`absolute inset-0 opacity-10 mix-blend-overlay pointer-events-none ${pattern || ""}`}
       />
 
-      {/* Top half loader */}
-      <div className="flex-1 w-full flex items-center justify-center relative z-10">
-        <div className="w-16 h-16 border-4 border-white/20 border-t-white/80 rounded-full animate-spin" />
-      </div>
-
-      {/* Bottom half text */}
-      <div className="h-[45%] shrink-0 w-full bg-[#1a1a1a] relative z-20">
-        <div className="w-full max-w-md mx-auto h-full px-7 flex flex-col items-center justify-center text-center">
-          <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-2">
+      <div className="relative z-10 mx-auto w-full max-w-md rounded-[2rem] bg-white p-7 text-center shadow-xl">
+        <div className="mx-auto mb-5 h-12 w-12 animate-spin rounded-full border-4 border-[#E6E8EF] border-t-[#5969DC]" />
+        <div className="flex flex-col items-center justify-center text-center">
+          <p className="text-xs font-extrabold uppercase tracking-widest text-[#7B8092] mb-2">
             {label}
           </p>
-          <p className="text-2xl font-black text-white uppercase leading-snug">
+          <p className="text-2xl font-black text-[#20243A] leading-snug">
             {text}
           </p>
         </div>

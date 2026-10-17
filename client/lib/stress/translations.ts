@@ -14,6 +14,7 @@ const COPY = {
     greeting: "Hi",
     greetingFallback: "there",
     welcomeTitle: "How are you doing today?",
+    welcomePrompt: "A few short questions and games. Take your time—there are no right or wrong answers.",
     welcomeStats: ["10 questions", "2 mini-games", "~7 min"],
     begin: "Let's Begin",
     instructions: [
@@ -122,6 +123,7 @@ const COPY = {
     greeting: "ආයුබෝවන්",
     greetingFallback: "මිතුරා",
     welcomeTitle: "අද ඔබට කොහොමද?",
+    welcomePrompt: "කෙටි ප්‍රශ්න කිහිපයක් සහ ක්‍රීඩා දෙකක්. සැහැල්ලුවෙන් ඔබගේ පිළිතුරු ලබා දෙන්න.",
     welcomeStats: ["ප්‍රශ්න 10ක්", "කුඩා ක්‍රීඩා 2ක්", "මිනිත්තු 7ක් පමණ"],
     begin: "අරඹමු",
     instructions: [

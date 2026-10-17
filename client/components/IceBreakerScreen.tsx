@@ -1,48 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { ArrowRight, Play, Sparkles } from "lucide-react";
 import { usePressureCapture } from "@/lib/stress/usePressureCapture";
-import { BlobCharacter } from "./BlobCharacter";
 import { Language } from "@/lib/stress/types";
 import { getStressCopy } from "@/lib/stress/translations";
 
 const QUESTION_THEMES = [
-  {
-    bg: "#F97316",
-    blob: "#EA580C",
-    pattern: "pattern-grid",
-    mood: "curious" as const,
-  },
-  {
-    bg: "#8B5CF6",
-    blob: "#7C3AED",
-    pattern: "pattern-waves",
-    mood: "happy" as const,
-  },
-  {
-    bg: "#EC4899",
-    blob: "#DB2777",
-    pattern: "pattern-stripes",
-    mood: "surprised" as const,
-  },
-  {
-    bg: "#10B981",
-    blob: "#059669",
-    pattern: "pattern-dots",
-    mood: "cheeky" as const,
-  },
-  {
-    bg: "#3B82F6",
-    blob: "#2563EB",
-    pattern: "pattern-zigzag",
-    mood: "sleepy" as const,
-  },
-  {
-    bg: "#F59E0B",
-    blob: "#D97706",
-    pattern: "pattern-waves",
-    mood: "happy" as const,
-  },
+  { background: "#FFE8CF", accent: "#D56A1C" },
+  { background: "#E8E2FF", accent: "#6950C8" },
+  { background: "#FFE2EB", accent: "#C54375" },
+  { background: "#DDF5E8", accent: "#258354" },
+  { background: "#DFEDFF", accent: "#3976C7" },
+  { background: "#FFF1C4", accent: "#B57A09" },
 ];
 
 export default function IceBreakerScreen({
@@ -53,98 +23,110 @@ export default function IceBreakerScreen({
   onComplete: (pressures: number[]) => void;
 }) {
   const [index, setIndex] = useState(0);
-  const [phase, setPhase] = useState<"in" | "out">("in");
-  const [justPicked, setJustPicked] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const copy = getStressCopy(language);
   const { record, recordTouch, getSamples } = usePressureCapture();
-
-  const q = QUESTION_THEMES[index];
-  const translatedQuestion = getStressCopy(language).icebreaker[index];
+  const theme = QUESTION_THEMES[index];
+  const question = copy.icebreaker[index];
 
   function choose(option: string) {
-    setJustPicked(option);
-    setPhase("out");
-
+    if (selected) return;
+    setSelected(option);
     setTimeout(() => {
       if (index === QUESTION_THEMES.length - 1) {
         onComplete(getSamples());
       } else {
-        setPhase("in");
-        setJustPicked(null);
-        setIndex((i) => i + 1);
+        setIndex((current) => current + 1);
+        setSelected(null);
       }
-    }, 280);
+    }, 220);
   }
 
   return (
-    <div
-      className="flex flex-col h-dvh w-full overflow-hidden relative"
-      style={{ backgroundColor: q.bg }}
-    >
-      <div
-        className={`absolute inset-0 ${q.pattern} opacity-20 mix-blend-overlay transition-opacity duration-300 pointer-events-none`}
-      />
+    <main className="min-h-dvh bg-[#F7F7FB] px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-[calc(env(safe-area-inset-top)+1rem)] text-[#20243A] sm:px-6">
+      <div className="mx-auto flex min-h-[calc(100dvh-2.25rem)] w-full max-w-xl flex-col">
+        <header className="mb-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-[#797E91]">
+              {copy.warmUp}
+            </p>
+            <h1 className="mt-1 text-lg font-black">
+              {copy.question} {index + 1}
+              <span className="font-semibold text-[#8A8EA0]"> / {QUESTION_THEMES.length}</span>
+            </h1>
+          </div>
+          <Sparkles size={22} style={{ color: theme.accent }} aria-hidden="true" />
+        </header>
 
-      {/* Character zone */}
-      <div className="flex-1 w-full flex flex-col relative z-10">
-        <div className="w-full max-w-md mx-auto flex-1 flex flex-col items-center justify-end pb-4 relative">
-          <p className="absolute top-6 left-6 text-xs font-bold uppercase tracking-widest text-white/80 bg-black/20 px-3 py-1.5 rounded-full">
-            {getStressCopy(language).warmUp} · {index + 1} / {QUESTION_THEMES.length}
-          </p>
-
+        <div className="mb-5 h-2 overflow-hidden rounded-full bg-[#E5E7EF]" aria-label={`${index + 1} of ${QUESTION_THEMES.length}`}>
           <div
+            className="h-full rounded-full transition-[width] duration-300"
             style={{
-              opacity: phase === "in" ? 1 : 0,
-              transition: "opacity 0.25s ease",
+              width: `${((index + 1) / QUESTION_THEMES.length) * 100}%`,
+              backgroundColor: theme.accent,
             }}
-          >
-            <BlobCharacter mood={q.mood} color={q.blob} />
-          </div>
+          />
         </div>
-      </div>
 
-      {/* Content zone */}
-      <div className="h-[55%] shrink-0 w-full bg-[#1a1a1a] relative z-20">
         <div
-          className="w-full max-w-md mx-auto h-full px-6 py-6 flex flex-col items-center justify-center text-center"
-          style={{
-            opacity: phase === "in" ? 1 : 0,
-            transform: phase === "in" ? "translateY(0)" : "translateY(12px)",
-            transition: "opacity 0.25s ease, transform 0.25s ease",
-          }}
+          className="relative mb-5 aspect-video w-full overflow-hidden rounded-[1.75rem] shadow-md"
+          style={{ backgroundColor: theme.background }}
         >
-          <h2 className="text-2xl font-black text-white uppercase leading-tight mb-5 shrink-0">
-            {translatedQuestion.question}
-          </h2>
+          <video
+            key={index}
+            className="h-full w-full object-cover"
+            src={`/video/${index + 1}.mp4`}
+            autoPlay
+            muted
+            loop
+            playsInline
+            aria-label={`${copy.warmUp} ${index + 1}`}
+          />
+          <span className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-[#20243A]/75 px-3 py-1.5 text-xs font-bold text-white">
+            <Play size={12} fill="currentColor" aria-hidden="true" />
+            {copy.warmUp}
+          </span>
+        </div>
 
-          <div className="flex flex-col w-full gap-2 shrink-0">
-            {translatedQuestion.options.map((opt) => {
-              const isPicked = justPicked === opt;
-              return (
-                <button
-                  key={opt}
-                  onPointerDown={record}
-                  onPointerMove={record}
-                  onTouchStart={recordTouch}
-                  onTouchMove={recordTouch}
-                  onTouchEnd={recordTouch}
-                  onClick={() => choose(opt)}
-                  className="select-none w-full py-3.5 rounded-2xl text-sm font-bold uppercase tracking-wide transition-all duration-150 active:scale-95 text-center"
-                  style={
-                    isPicked
-                      ? { backgroundColor: q.bg, color: "#1a1a1a" }
-                      : {
-                          backgroundColor: "rgba(255,255,255,0.1)",
-                          color: "rgba(255,255,255,0.75)",
-                        }
-                  }
-                >
-                  {opt}
-                </button>
-              );
-            })}
-          </div>
+        <h2 className="mb-5 text-2xl font-black leading-tight tracking-tight sm:text-3xl">
+          {question.question}
+        </h2>
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          {question.options.map((option, optionIndex) => {
+            const isSelected = selected === option;
+            return (
+              <button
+                key={option}
+                onPointerDown={record}
+                onPointerMove={record}
+                onTouchStart={recordTouch}
+                onTouchMove={recordTouch}
+                onTouchEnd={recordTouch}
+                onClick={() => choose(option)}
+                disabled={selected !== null}
+                aria-pressed={isSelected}
+                className={`flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-bold transition active:scale-[0.99] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-1 disabled:cursor-default ${isSelected ? "border-transparent text-white shadow-md" : "border-[#E5E7EF] bg-white text-[#383D51] hover:border-[#C8CCDA]"}`}
+                style={
+                  isSelected
+                    ? { backgroundColor: theme.accent, outlineColor: theme.accent }
+                    : { outlineColor: theme.accent }
+                }
+              >
+                <span className="flex items-center gap-3">
+                  <span
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-black ${isSelected ? "bg-white/20 text-white" : "text-white"}`}
+                    style={!isSelected ? { backgroundColor: theme.accent } : undefined}
+                  >
+                    {String.fromCharCode(65 + optionIndex)}
+                  </span>
+                  <span>{option}</span>
+                </span>
+                <ArrowRight size={17} className="shrink-0 opacity-60" aria-hidden="true" />
+              </button>
+            );
+          })}
         </div>
       </div>
-    </div>
+    </main>
   );
 }

@@ -1,33 +1,22 @@
 "use client";
 
-import { BlobCharacter } from "./BlobCharacter";
+import { BookOpen, Egg, Target } from "lucide-react";
 
-const SCREEN_COLORS: Record<
-  string,
-  {
-    bg: string;
-    blob: string;
-    pattern: string;
-    mood: "curious" | "cheeky" | "sleepy";
-  }
-> = {
+const THEMES: Record<string, { background: string; accent: string; icon: typeof BookOpen }> = {
   "instructions-pss10": {
-    bg: "#F87171",
-    blob: "#EF4444",
-    pattern: "pattern-dots",
-    mood: "curious",
+    background: "#DDF6FF",
+    accent: "#1599C6",
+    icon: BookOpen,
   },
   "instructions-game1": {
-    bg: "#FB923C",
-    blob: "#F97316",
-    pattern: "pattern-zigzag",
-    mood: "cheeky",
+    background: "#FFE4C7",
+    accent: "#F18427",
+    icon: Egg,
   },
   "instructions-game2": {
-    bg: "#60A5FA",
-    blob: "#3B82F6",
-    pattern: "pattern-stripes",
-    mood: "sleepy",
+    background: "#DFE5FF",
+    accent: "#5969DC",
+    icon: Target,
   },
 };
 
@@ -48,65 +37,55 @@ export default function InstructionScreen({
   actionLabel,
   onNext,
 }: Props) {
-  const theme = SCREEN_COLORS[stepKey] ?? {
-    bg: "#F87171",
-    blob: "#EF4444",
-    pattern: "pattern-dots",
-    mood: "curious",
-  };
+  const theme = THEMES[stepKey] ?? THEMES["instructions-pss10"];
+  const Icon = theme.icon;
 
   return (
-    <div
-      className="flex flex-col h-dvh w-full overflow-hidden relative"
-      style={{ backgroundColor: theme.bg }}
-    >
-      <div
-        className={`absolute inset-0 ${theme.pattern} opacity-20 mix-blend-overlay pointer-events-none`}
-      />
-
-      <div className="flex-1 w-full flex flex-col relative z-10">
-        <div className="w-full max-w-md mx-auto flex-1 flex flex-col items-center justify-end pb-4 relative">
-          <p className="absolute top-6 left-6 text-xs font-bold uppercase tracking-widest text-white/60">
-            {step}
-          </p>
-          <BlobCharacter mood={theme.mood} color={theme.blob} />
-        </div>
-      </div>
-
-      <div className="h-[50%] shrink-0 w-full bg-[#1a1a1a] relative z-20">
-        <div className="w-full max-w-md mx-auto h-full px-6 py-6 flex flex-col items-center justify-center text-center">
-          <h1 className="text-4xl font-black text-white leading-[1.05] uppercase mb-5 whitespace-pre-line shrink-0">
-            {title}
-          </h1>
-
-          <ul className="flex flex-col gap-2.5 w-full mb-6 text-left shrink-0">
-            {bullets.map((b, i) => (
-              <li
-                key={i}
-                className="flex gap-4 items-start w-full bg-white/5 p-3 rounded-2xl"
-              >
-                <span
-                  className="w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-sm font-black text-[#1a1a1a]"
-                  style={{ backgroundColor: theme.bg }}
-                >
-                  {i + 1}
-                </span>
-                <span className="text-sm font-semibold text-white/80 leading-snug pt-1">
-                  {b}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <button
-            onClick={onNext}
-            className="select-none shrink-0 w-full font-black text-lg py-4 rounded-2xl uppercase tracking-wide transition-all duration-150 active:scale-95 text-[#1a1a1a]"
-            style={{ backgroundColor: theme.bg }}
+    <main className="min-h-dvh bg-[#F6F7FB] px-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+1.5rem)] text-[#20243A] sm:px-8">
+      <div className="mx-auto flex min-h-[calc(100dvh-3rem)] w-full max-w-xl flex-col">
+        <p className="mb-5 text-xs font-extrabold uppercase tracking-[0.14em] text-[#73788C]">
+          {step}
+        </p>
+        <div
+          className="mb-6 flex aspect-[16/8] max-h-64 items-center justify-center overflow-hidden rounded-[2rem]"
+          style={{ backgroundColor: theme.background }}
+        >
+          <div
+            className="flex h-28 w-28 items-center justify-center rounded-[2rem] bg-white shadow-lg sm:h-36 sm:w-36"
+            style={{ color: theme.accent }}
           >
-            {actionLabel}
-          </button>
+            <Icon size={64} strokeWidth={1.8} aria-hidden="true" />
+          </div>
         </div>
+        <h1 className="mb-6 whitespace-pre-line text-3xl font-black leading-tight tracking-tight sm:text-4xl">
+          {title}
+        </h1>
+        <ul className="mb-8 flex flex-col gap-3">
+          {bullets.map((bullet, index) => (
+            <li
+              key={bullet}
+              className="flex items-start gap-4 rounded-2xl border border-[#E7E9F0] bg-white p-4 shadow-sm"
+            >
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-black text-white"
+                style={{ backgroundColor: theme.accent }}
+              >
+                {index + 1}
+              </span>
+              <span className="pt-1 text-sm font-semibold leading-relaxed text-[#44495D]">
+                {bullet}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <button
+          onClick={onNext}
+          className="mt-auto flex min-h-14 w-full items-center justify-center rounded-2xl px-6 py-4 text-base font-extrabold text-white shadow-lg transition active:scale-[0.99] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#20243A]"
+          style={{ backgroundColor: theme.accent }}
+        >
+          {actionLabel}
+        </button>
       </div>
-    </div>
+    </main>
   );
 }

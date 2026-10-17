@@ -19,8 +19,6 @@ const RING_MIN = 0.45;
 const RING_MAX = 0.70;
 const FALLBACK_PRESSURE = 0.58;
 
-const BG = "#3B82F6"; // solid blue
-
 export default function PrecisionInflatorGame({
   language,
   onComplete,
@@ -276,111 +274,132 @@ export default function PrecisionInflatorGame({
   const secondsLeft = Math.ceil(timeLeftMs / 1000);
   const timePct     = (timeLeftMs / TRIAL_DURATION_MS) * 100;
 
-  const ballBg = burst ? "#EF4444" : inTarget ? "#FFCA28" : isHolding ? "#E5E7EB" : "#FFFFFF";
+  const ballBg = burst ? "#F46D58" : inTarget ? "#FFC83D" : isHolding ? "#AFC9FF" : "#FFFFFF";
 
   return (
-    <div className="flex flex-col h-full overflow-hidden relative" style={{ backgroundColor: BG }}>
-      <div className="absolute inset-0 pattern-stripes opacity-20 mix-blend-overlay pointer-events-none" />
+    <main className="min-h-dvh bg-[#DFF2FF] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-[calc(env(safe-area-inset-top)+1rem)] text-[#20243A] sm:px-6">
+      <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-xl flex-col">
+        <header className="mb-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-[#526CA0]">
+              {language === "si" ? "ක්‍රීඩාව 2" : "Game 2"}
+            </p>
+            <h1 className="mt-1 text-xl font-black tracking-tight sm:text-2xl">
+              {language === "si" ? "වළල්ල තුළ තබන්න" : "Keep it in the ring"}
+            </h1>
+          </div>
+          <div className={`flex h-14 min-w-16 flex-col items-center justify-center rounded-2xl px-3 text-white shadow-sm ${secondsLeft <= 3 ? "bg-[#E4564E]" : "bg-[#566CD6]"}`}>
+            <span className="text-xl font-black tabular-nums leading-none">{secondsLeft}</span>
+            <span className="mt-1 text-[9px] font-extrabold uppercase tracking-wider">{copy.seconds}</span>
+          </div>
+        </header>
 
-      <div className="absolute top-6 left-6 right-6 z-20 flex gap-2">
-        {Array.from({ length: TOTAL_TRIALS }).map((_, i) => (
-          <div
-            key={i}
-            className="h-2 flex-1 rounded-full transition-all duration-400"
-            style={{
-              backgroundColor:
-                i < trialIndex ? "rgba(255,255,255,0.9)"
-                : i === trialIndex ? "rgba(255,255,255,0.5)"
-                : "rgba(255,255,255,0.15)",
-            }}
-          />
-        ))}
-      </div>
-
-      <div className="absolute top-12 left-6 right-6 z-20 h-1.5 bg-black/20 rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-100"
-          style={{ width: `${timePct}%`, backgroundColor: timePct > 50 ? "#FFCA28" : timePct > 20 ? "#F97316" : "#EF4444" }}
-        />
-      </div>
-
-      {/* Ring arena */}
-      <div className={`flex-1 flex items-center justify-center relative z-10 transition-all duration-500 ${ready ? "opacity-100" : "opacity-0"}`}>
-        <div
-          ref={arenaRef}
-          className="relative flex items-center justify-center"
-          style={{ width: "min(260px, 80vw, 45vh)", aspectRatio: "1" }}
-        >
-          <div
-            className="absolute rounded-full border-4 transition-colors duration-200"
-            style={{ width: `${RING_MAX * 100}%`, height: `${RING_MAX * 100}%`, borderColor: inTarget ? "#FFCA28" : "rgba(255,255,255,0.3)", boxShadow: inTarget ? "0 0 0 0 rgba(255,202,40,0.4)" : "none", animation: inTarget ? "pulseRing 1.4s ease-in-out infinite" : "none" }}
-          />
-          <div
-            className="absolute rounded-full border-2 border-dashed transition-colors duration-200"
-            style={{ width: `${RING_MIN * 100}%`, height: `${RING_MIN * 100}%`, borderColor: inTarget ? "rgba(255,202,40,0.6)" : "rgba(255,255,255,0.2)" }}
-          />
-
-          {!burst ? (
-            <button
-              type="button"
-              aria-label={copy.game2Status.holdInRing}
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerCancel={release}
-              onTouchStart={updateFromTouch}
-              onTouchMove={updateFromTouch}
-              onTouchEnd={updateFromTouch}
-              onKeyDown={handleKeyDown}
-              onKeyUp={handleKeyUp}
-              onBlur={release}
-              className="absolute inset-0 z-10 flex select-none touch-none items-center justify-center rounded-full cursor-pointer focus-visible:outline focus-visible:outline-4 focus-visible:outline-white"
-              style={{ backgroundColor: "transparent" }}
+        <div className="mb-3 flex gap-2" aria-label={`${trialIndex + 1} of ${TOTAL_TRIALS}`}>
+          {Array.from({ length: TOTAL_TRIALS }).map((_, index) => (
+            <div
+              key={index}
+              className={`h-2.5 flex-1 overflow-hidden rounded-full ${index < trialIndex ? "bg-[#32A77A]" : "bg-[#C9D5ED]"}`}
             >
-              <span
-                className="rounded-full transition-[width,height,background-color] duration-[40ms] ease-out"
-                style={{
-                  width: `${pressure * 100}%`,
-                  height: `${pressure * 100}%`,
-                  backgroundColor: ballBg,
-                  boxShadow: inTarget
-                    ? "0 0 24px rgba(255,202,40,0.6)"
-                    : "0 4px 16px rgba(0,0,0,0.2)",
-                }}
-              />
-            </button>
-          ) : (
-            <div className="relative flex items-center justify-center">
-              <div className="absolute w-24 h-24 rounded-full bg-red-400/30 halo-grow" />
-              <div className="absolute w-14 h-14 rounded-full bg-red-400/50 halo-grow" style={{ animationDelay: "0.1s" }} />
-              <div className="w-10 h-10 rounded-full bg-red-400 anim-scaleIn" />
+              {index === trialIndex && (
+                <div
+                  className="h-full rounded-full bg-[#566CD6] transition-[width] duration-100"
+                  style={{ width: `${timePct}%` }}
+                />
+              )}
             </div>
-          )}
+          ))}
         </div>
-      </div>
+        <p className="mb-1 text-right text-xs font-bold text-[#667394]">
+          {language === "si" ? `වටය ${trialIndex + 1} / ${TOTAL_TRIALS}` : `Round ${trialIndex + 1} of ${TOTAL_TRIALS}`}
+        </p>
 
-      {/* Bottom Status */}
-      <div className="h-[35%] shrink-0 bg-[#1a1a1a] px-6 pt-8 pb-8 flex flex-col items-center justify-center relative z-20">
-         <h1 className="text-3xl font-black text-white uppercase leading-tight mb-2 text-center">
-           {burst
-             ? copy.game2Status.tooHard
-             : inTarget
-               ? copy.game2Status.onTarget
-               : isHolding
-               ? positionControl
-                 ? pressure < RING_MIN
-                   ? copy.game2Status.moveUp
-                   : copy.game2Status.moveDown
-                 : pressure < RING_MIN
-                   ? copy.game2Status.pressHarder
-                   : copy.game2Status.easeOff
-                 : copy.game2Status.holdInRing}
-         </h1>
-         <div className="flex items-baseline gap-2 mt-4 text-white/50">
-           <span className="text-5xl font-black text-white tabular-nums">{secondsLeft}</span>
-           <span className="text-sm font-bold uppercase tracking-widest">{copy.seconds}</span>
-         </div>
+        <div className={`flex flex-1 items-center justify-center py-3 transition-opacity duration-300 ${ready ? "opacity-100" : "opacity-0"}`}>
+          <div
+            ref={arenaRef}
+            className="relative flex items-center justify-center rounded-full bg-white/55 shadow-[inset_0_0_0_1px_rgba(86,108,214,0.08)]"
+            style={{ width: "min(290px, 78vw, 38dvh)", aspectRatio: "1" }}
+          >
+            <div
+              className="absolute rounded-full border-[5px] transition-colors duration-200"
+              style={{
+                width: `${RING_MAX * 100}%`,
+                height: `${RING_MAX * 100}%`,
+                borderColor: inTarget ? "#F0A91B" : "#566CD6",
+                boxShadow: inTarget ? "0 0 24px rgba(240,169,27,0.24)" : "none",
+              }}
+            />
+            <div
+              className="absolute rounded-full border-2 border-dashed transition-colors duration-200"
+              style={{
+                width: `${RING_MIN * 100}%`,
+                height: `${RING_MIN * 100}%`,
+                borderColor: inTarget ? "#F0A91B" : "#8A99C0",
+              }}
+            />
+
+            {!burst ? (
+              <button
+                type="button"
+                aria-label={copy.game2Status.holdInRing}
+                aria-pressed={isHolding}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={release}
+                onTouchStart={updateFromTouch}
+                onTouchMove={updateFromTouch}
+                onTouchEnd={updateFromTouch}
+                onKeyDown={handleKeyDown}
+                onKeyUp={handleKeyUp}
+                onBlur={release}
+                className="absolute inset-0 z-10 flex select-none touch-none items-center justify-center rounded-full cursor-pointer focus-visible:outline focus-visible:outline-4 focus-visible:outline-[#20243A]"
+                style={{ backgroundColor: "transparent" }}
+              >
+                <span
+                  className="rounded-full transition-[width,height,background-color] duration-[40ms] ease-out"
+                  style={{
+                    width: `${pressure * 100}%`,
+                    height: `${pressure * 100}%`,
+                    backgroundColor: ballBg,
+                    boxShadow: inTarget
+                      ? "0 6px 22px rgba(201,139,24,0.3)"
+                      : "0 6px 18px rgba(62,79,139,0.18)",
+                  }}
+                />
+              </button>
+            ) : (
+              <div className="relative flex items-center justify-center" aria-hidden="true">
+                <div className="absolute h-24 w-24 rounded-full bg-[#F46D58]/25 halo-grow" />
+                <div className="absolute h-14 w-14 rounded-full bg-[#F46D58]/45 halo-grow" style={{ animationDelay: "0.1s" }} />
+                <div className="h-10 w-10 rounded-full bg-[#F46D58] anim-scaleIn" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <section className="rounded-[1.5rem] border border-white bg-white p-4 text-center shadow-[0_10px_28px_rgba(61,82,147,0.1)] sm:p-5" aria-live="polite">
+          <h2 className={`text-xl font-black sm:text-2xl ${burst ? "text-[#D94E43]" : inTarget ? "text-[#238454]" : "text-[#303957]"}`}>
+            {burst
+              ? copy.game2Status.tooHard
+              : inTarget
+                ? copy.game2Status.onTarget
+                : isHolding
+                  ? positionControl
+                    ? pressure < RING_MIN
+                      ? copy.game2Status.moveUp
+                      : copy.game2Status.moveDown
+                    : pressure < RING_MIN
+                      ? copy.game2Status.pressHarder
+                      : copy.game2Status.easeOff
+                  : copy.game2Status.holdInRing}
+          </h2>
+          <p className="mt-1 text-xs font-semibold leading-relaxed text-[#737B92]">
+            {language === "si"
+              ? "බෝලය වළල්ල තුළ තබාගැනීමට ඔබන්න හෝ අදින්න."
+              : "Press or move gently to keep the ball inside the ring."}
+          </p>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

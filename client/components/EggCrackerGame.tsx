@@ -16,7 +16,6 @@ import {
 
 const EGG_COUNT = 9;
 const BURST_PRESSURE = 0.72;
-const BG = "#FB923C"; // solid orange
 
 type EggState = "idle" | "cracked" | "burst";
 
@@ -181,89 +180,80 @@ export default function EggCrackerGame({
   }
 
   return (
-    <div
-      className="flex flex-col h-dvh w-full overflow-hidden relative"
-      style={{ backgroundColor: BG }}
-    >
-      <div className="absolute inset-0 pattern-zigzag opacity-20 mix-blend-overlay pointer-events-none" />
-
-      {/* Top Header zone */}
-      <div className="flex-1 w-full flex flex-col items-center justify-center relative z-10 px-6">
-        <div className="w-full max-w-[280px] mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <p className="text-xs font-bold uppercase tracking-widest text-black/50">
+    <main className="min-h-dvh bg-[#FFF1E3] px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-[calc(env(safe-area-inset-top)+1rem)] text-[#35291F] sm:px-6">
+      <div className="mx-auto flex min-h-[calc(100dvh-2.25rem)] w-full max-w-xl flex-col">
+        <header className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-[#A76531]">
               {copy.game1}
             </p>
-            <p className="text-xs font-black uppercase tracking-widest bg-black/10 px-3 py-1 rounded-full text-black/70">
-              {remaining} {copy.eggsLeft}
+            <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">
+              {copy.tapGently.replace("\n", " ")}
+            </h1>
+          </div>
+          <div className="rounded-2xl bg-white px-4 py-2 text-center shadow-sm">
+            <p className="text-xl font-black text-[#E97924]">{remaining}</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#8F7560]">
+              {copy.eggsLeft}
             </p>
           </div>
+        </header>
 
-          <div
-            className={`grid grid-cols-3 gap-4 w-full transition-all duration-500 ${ready ? "opacity-100 scale-100" : "opacity-0 scale-95"}`}
-          >
-            {eggs.map((egg, idx) => (
-              <button
-                key={idx}
-                disabled={egg !== "idle"}
-                onPointerDown={(e) => startTap(idx, e)}
-                onPointerMove={updateTap}
-                onPointerUp={(e) => finishTap(idx, e)}
-                onPointerCancel={(e) => finishTap(idx, e)}
-                onTouchStart={updateTouch}
-                onTouchMove={updateTouch}
-                onTouchEnd={updateTouch}
-                aria-label={`${copy.game1}, ${idx + 1}`}
-                className={`
-                  relative select-none aspect-square rounded-[2rem] flex items-center justify-center
-                  text-4xl touch-none overflow-hidden transition-all duration-200
-                  disabled:cursor-default bg-white/20 backdrop-blur-sm border border-white/30
-                  ${egg === "idle" ? "active:scale-90 hover:scale-105" : ""}
-                  ${shakingIdx === idx ? "egg-shake" : ""}
-                `}
-              >
-                {/* Ripples */}
-                {ripples[idx].map((r) => (
-                  <span
-                    key={r.id}
-                    className="absolute rounded-full ripple-enter pointer-events-none"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      left: `${r.x}%`,
-                      top: `${r.y}%`,
-                      transform: "translate(-50%, -50%)",
-                      background:
-                        egg === "burst"
-                          ? "rgba(220,38,38,0.4)"
-                          : "rgba(255,255,255,0.4)",
-                    }}
-                  />
-                ))}
+        <p className="mb-4 rounded-2xl border border-[#F5D6BA] bg-white/70 px-4 py-3 text-sm font-semibold leading-relaxed text-[#705843]">
+          {copy.lightCrack}
+        </p>
 
-                {/* Emojis are back as requested */}
+        <div
+          className={`grid grid-cols-3 gap-3 rounded-[1.75rem] border border-white bg-[#FFE3C9] p-3 shadow-[0_12px_30px_rgba(163,87,32,0.1)] transition-all duration-300 sm:gap-4 sm:p-5 ${ready ? "scale-100 opacity-100" : "scale-[0.98] opacity-0"}`}
+        >
+          {eggs.map((egg, idx) => (
+            <button
+              key={idx}
+              disabled={egg !== "idle"}
+              onPointerDown={(event) => startTap(idx, event)}
+              onPointerMove={updateTap}
+              onPointerUp={(event) => finishTap(idx, event)}
+              onPointerCancel={(event) => finishTap(idx, event)}
+              onTouchStart={updateTouch}
+              onTouchMove={updateTouch}
+              onTouchEnd={updateTouch}
+              aria-label={`${copy.game1}, ${idx + 1}`}
+              aria-pressed={egg !== "idle"}
+              className={`relative flex aspect-square min-h-0 select-none items-center justify-center overflow-hidden rounded-[1.25rem] border-2 text-4xl touch-none transition-all duration-200 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#D56A1C] disabled:cursor-default ${egg === "idle" ? "border-white bg-white shadow-sm hover:-translate-y-0.5 hover:shadow-md active:scale-95" : egg === "cracked" ? "border-[#BFE8CE] bg-[#E4F7EA]" : "border-[#FFC5B8] bg-[#FFE2DC]"} ${shakingIdx === idx ? "egg-shake" : ""}`}
+            >
+              {ripples[idx].map((ripple) => (
                 <span
-                  className={`relative z-10 drop-shadow-sm transition-transform duration-300 ${egg !== "idle" ? "anim-popIn" : ""}`}
-                >
-                  {egg === "cracked" ? "🐣" : egg === "burst" ? "💥" : "🥚"}
-                </span>
-              </button>
-            ))}
+                  key={ripple.id}
+                  className="pointer-events-none absolute ripple-enter rounded-full bg-[#F9B24A]/40"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    left: `${ripple.x}%`,
+                    top: `${ripple.y}%`,
+                    transform: "translate(-50%, -50%)",
+                  }}
+                />
+              ))}
+              <span className={`relative z-10 drop-shadow-sm transition-transform duration-300 ${egg !== "idle" ? "anim-popIn" : ""}`}>
+                {egg === "cracked" ? "🐣" : egg === "burst" ? "💥" : "🥚"}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-auto pt-4">
+          <div className="mb-2 flex items-center justify-between text-xs font-extrabold text-[#896448]">
+            <span>{copy.game1}</span>
+            <span>{EGG_COUNT - remaining} / {EGG_COUNT}</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-[#F3D6BD]">
+            <div
+              className="h-full rounded-full bg-[#E97924] transition-[width] duration-300"
+              style={{ width: `${((EGG_COUNT - remaining) / EGG_COUNT) * 100}%` }}
+            />
           </div>
         </div>
       </div>
-
-      {/* Bottom Hint Zone */}
-      <div className="h-[35%] shrink-0 w-full bg-[#1a1a1a] relative z-20">
-        <div className="w-full max-w-md mx-auto h-full px-6 flex flex-col items-center justify-center text-center">
-          <h1 className="text-3xl font-black text-white uppercase leading-tight mb-3">
-            {copy.tapGently}
-          </h1>
-          <p className="text-sm font-bold text-white/40 uppercase tracking-widest text-center">
-            {copy.lightCrack}
-          </p>
-        </div>
-      </div>
-    </div>
+    </main>
   );
 }

@@ -1,12 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BlobCharacter } from "./BlobCharacter";
+import { Check, Heart, Sparkles } from "lucide-react";
 import { Language } from "@/lib/stress/types";
 import { getStressCopy } from "@/lib/stress/translations";
-
-const BG = "#10B981"; // solid emerald/green
-const BLOB = "#059669";
 
 export default function CompletionScreen({
   language,
@@ -17,75 +14,64 @@ export default function CompletionScreen({
 }) {
   const copy = getStressCopy(language);
   const [show, setShow] = useState(false);
+
   useEffect(() => {
-    const t = setTimeout(() => setShow(true), 100);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setShow(true), 60);
+    return () => clearTimeout(timer);
   }, []);
 
-  return (
-    <div
-      className="flex flex-col h-dvh w-full overflow-hidden relative"
-      style={{ backgroundColor: BG }}
-    >
-      <div className="absolute inset-0 pattern-waves opacity-20 mix-blend-overlay pointer-events-none" />
+  const stats = [
+    { label: copy.questionsStat, value: "10/10" },
+    { label: copy.gamesStat, value: "2/2" },
+    { label: copy.submittedStat, value: "✓" },
+  ];
 
-      {/* Character zone */}
-      <div className="flex-1 w-full flex flex-col relative z-10">
-        <div className="w-full max-w-md mx-auto flex-1 flex flex-col items-center justify-end pb-4 relative">
-          <p className="absolute top-6 left-6 text-xs font-bold uppercase tracking-widest text-black/40">
+  return (
+    <main className="min-h-dvh bg-[#E1F7E9] px-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+2rem)] text-[#18392A] sm:px-8">
+      <div className={`mx-auto flex min-h-[calc(100dvh-3.5rem)] w-full max-w-xl flex-col transition-all duration-500 ${show ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"}`}>
+        <div className="flex flex-1 flex-col items-center justify-center py-8 text-center">
+          <div className="relative mb-6 flex h-28 w-28 items-center justify-center rounded-[2rem] bg-[#38B876] text-white shadow-xl shadow-emerald-900/15">
+            <Check size={58} strokeWidth={3} aria-hidden="true" />
+            <Sparkles className="absolute -right-3 -top-3 text-[#F2B632]" size={28} fill="currentColor" aria-hidden="true" />
+          </div>
+          <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.15em] text-[#38855C]">
             {copy.completeLabel}
           </p>
-          <div
-            className={`transition-all duration-600 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
-          >
-            <BlobCharacter mood="done" color={BLOB} />
-          </div>
-        </div>
-      </div>
-
-      {/* Content zone */}
-      <div
-        className={`h-[50%] shrink-0 w-full bg-[#1a1a1a] relative z-20 transition-all duration-500 delay-150 ${show ? "opacity-100" : "opacity-0"}`}
-      >
-        <div className="w-full max-w-md mx-auto h-full px-6 py-6 flex flex-col items-center justify-center text-center">
-          <h1 className="text-4xl font-black text-white uppercase leading-tight mb-2 shrink-0">
+          <h1 className="text-4xl font-black leading-tight tracking-tight sm:text-5xl">
             {copy.completeTitle}
           </h1>
-          <p className="text-sm text-white/50 mb-6 leading-relaxed shrink-0">
+          <p className="mt-4 max-w-md text-base font-medium leading-relaxed text-[#4D6B5B]">
             {copy.completeText}
           </p>
-
-          {/* Stats row */}
-          <div className="flex gap-3 mb-6 w-full shrink-0">
-            {[
-              { label: copy.questionsStat, value: "10/10" },
-              { label: copy.gamesStat, value: "2/2" },
-              { label: copy.submittedStat, value: "✓" },
-            ].map((s) => (
-              <div
-                key={s.label}
-                className="flex-1 rounded-2xl py-4 text-center"
-                style={{ backgroundColor: BG + "33" }}
-              >
-                <p className="text-xl font-black text-white">{s.value}</p>
-                <p className="text-xs font-bold text-white/50 uppercase tracking-wider mt-0.5">
-                  {s.label}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          {onRestart && (
-            <button
-              onClick={onRestart}
-              className="select-none shrink-0 w-full py-4 rounded-2xl text-sm font-black uppercase tracking-widest text-[#1a1a1a] transition-all duration-150 active:scale-95"
-              style={{ backgroundColor: BG }}
-            >
-              Return to Dashboard
-            </button>
-          )}
         </div>
+
+        <section className="mb-6 grid grid-cols-3 gap-2.5">
+          {stats.map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-2xl border border-[#C8E9D4] bg-white px-2 py-4 text-center shadow-sm"
+            >
+              <p className="text-2xl font-black text-[#258455]">{stat.value}</p>
+              <p className="mt-1 text-[10px] font-extrabold uppercase tracking-wide text-[#6C8979] sm:text-xs">
+                {stat.label}
+              </p>
+            </div>
+          ))}
+        </section>
+
+        <div className="mb-5 flex items-center justify-center gap-2 text-xs font-semibold text-[#538067]">
+          <Heart size={15} fill="currentColor" aria-hidden="true" />
+          {language === "si" ? "ඔබගේ කාලයට ස්තුතියි" : "Thanks for taking the time"}
+        </div>
+        {onRestart && (
+          <button
+            onClick={onRestart}
+            className="min-h-14 w-full rounded-2xl bg-[#18392A] px-6 py-4 text-base font-extrabold text-white shadow-lg transition hover:bg-[#24563E] active:scale-[0.99] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#38B876]"
+          >
+            {language === "si" ? "ආපසු" : "Return to Dashboard"}
+          </button>
+        )}
       </div>
-    </div>
+    </main>
   );
 }
