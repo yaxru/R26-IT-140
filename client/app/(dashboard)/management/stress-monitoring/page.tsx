@@ -475,7 +475,7 @@ export default function SupervisorStressDashboard() {
                 return "Monitor";
               })();
 
-              // Contextual explanation for the DSS Output
+              // Contextual explanation for the Dual-source stress score Output
               const dssContext = (() => {
                 if (!hasPrediction) {
                   return "This assessment has no model result. Generate a new assessment before making a decision about the flag.";
