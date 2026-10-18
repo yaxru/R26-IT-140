@@ -63,7 +63,7 @@ export default function Pss10Questionnaire({
         </header>
 
         <div
-          className="mb-7 h-2 overflow-hidden rounded-full bg-[#E1DCEA]"
+          className="mb-7 h-2 overflow-hidden rounded-xl bg-[#E1DCEA]"
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={100}
