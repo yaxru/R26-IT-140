@@ -54,7 +54,7 @@ function hasPreviousFlag(flag: FlaggedWorker) {
 
 function fmt(n: number | string | null | undefined, digits = 0) {
   if (n == null) return "—";
-  // Removed the * 100 because the data is already a percentage
+  // Removed the * 100 because the data is already a percentin as a percentage
   return Number(n).toFixed(digits);
 }
 
