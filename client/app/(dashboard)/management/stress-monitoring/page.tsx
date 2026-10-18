@@ -540,7 +540,7 @@ export default function SupervisorStressDashboard() {
                     <KpiTile 
                       label="AI Confidence" 
                       value={`${fmt(report.model_confidence, 2)}%`}
-                      sub="Prediction Accuracy"
+                      sub="Confidence in predicted class"
                     />
                     <KpiTile 
                       label="Motor Response" 
