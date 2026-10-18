@@ -1,4 +1,3 @@
-import math
 import os
 import datetime
 from enum import Enum
@@ -10,6 +9,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 from supabase import create_client, Client
 from dotenv import load_dotenv
+
+from algorithm import evaluate_donor_risks, projected_donor_gap_pct, select_workers
 
 load_dotenv()
 
@@ -43,7 +44,7 @@ def require_auth(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-app = FastAPI(title="StitchFlow Profitability Engine", version="2.0.0")
+app = FastAPI(title="StitchFlow Profitability Engine", version="2.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -60,6 +61,7 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 SHIFT_REMAINING_MIN: float = float(os.environ.get("SHIFT_REMAINING_MIN", "240"))
 BOTTLENECK_THRESHOLD_PCT: float = float(os.environ.get("BOTTLENECK_THRESHOLD_PCT", "5"))
+COOLDOWN_MINUTES: int = 15 # Configurable time for a worker to relocate and warm up
 
 class ProficiencyGrade(str, Enum):
     A = "A"
@@ -82,6 +84,8 @@ class RecommendRequest(BaseModel):
 
 class SingleMove(BaseModel):
     operator_id: str
+    operator_name: Optional[str] = None 
+    worker_pin: Optional[str] = None    
     from_station: Optional[str]
     to_station: str
     proficiency_grade: str
@@ -104,6 +108,8 @@ class MoveInstruction(BaseModel):
     cascade_warnings: list[str]
     instruction: str
     operator_id: str
+    operator_name: Optional[str] = None 
+    worker_pin: Optional[str] = None    
     from_station: Optional[str]
     to_station: str
     proficiency_grade: str
@@ -118,9 +124,13 @@ class StationOut(BaseModel):
     is_bottleneck: bool
     targeted_productivity: Optional[float] = None
     actual_productivity: Optional[float] = None
+    line_id: Optional[str] = None
+    cooldown_until: Optional[str] = None # Added for frontend UI badge
 
 class SkillMatrixOut(BaseModel):
     operator_id: str
+    operator_name: Optional[str] = None 
+    worker_pin: Optional[str] = None    
     machine_type: str
     proficiency_grade: str
     efficiency_pct: float
@@ -142,7 +152,6 @@ class BatchAssignmentRequest(BaseModel):
     line_id: str
     assignments: list[WorkerAssignment]
 
-
 class AcceptMoveItem(BaseModel):
     operator_id: str
     from_station: Optional[str]
@@ -158,7 +167,6 @@ class AcceptMoveRequest(BaseModel):
 # Dynamic Config Fetcher
 # ---------------------------------------------------------------------------
 def get_algorithm_config():
-    """Fetches real-time algorithm weights from the database."""
     res = supabase.table("algorithm_config").select("key, value").execute()
     config = {row["key"]: row["value"] for row in res.data}
     
@@ -174,7 +182,7 @@ def get_algorithm_config():
 # ---------------------------------------------------------------------------
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "service": "StitchFlow Profitability Engine V2"}
+    return {"status": "ok", "service": "StitchFlow Profitability Engine V2.1"}
 
 @app.post("/line-layout", response_model=dict)
 async def setup_line_layout(request: LineLayoutRequest, _: dict = Depends(require_auth)):
@@ -189,7 +197,8 @@ async def setup_line_layout(request: LineLayoutRequest, _: dict = Depends(requir
             "required_skill": station.required_skill,
             "wip": 0,
             "actual_productivity": 0.0,
-            "targeted_productivity": 0.85 
+            "targeted_productivity": 0.85,
+            "cooldown_until": None # Reset cooldown on layout change
         })
 
     try:
@@ -212,9 +221,28 @@ async def setup_line_layout(request: LineLayoutRequest, _: dict = Depends(requir
 @app.get("/stations", response_model=list[StationOut])
 async def get_stations(_: dict = Depends(require_auth)):
     try:
+        # Fetch base station config, now including cooldown_until
         response = supabase.table("production_status").select(
-            "station_id, wip, required_skill, targeted_productivity, actual_productivity"
+            "station_id, line_id, wip, required_skill, targeted_productivity, actual_productivity, cooldown_until"
         ).order("station_id").execute()
+        
+        # Fetch TODAY'S actual performance from laborers_data
+        today_str = datetime.datetime.utcnow().date().isoformat()
+        ld_res = supabase.table("laborers_data").select("station_id, efficiency").eq("date", today_str).execute()
+        
+        station_today = {}
+        if ld_res.data:
+            for r in ld_res.data:
+                sid = r.get("station_id")
+                eff = r.get("efficiency")
+                if sid and eff is not None:
+                    if sid not in station_today:
+                        station_today[sid] = []
+                    station_today[sid].append(float(eff))
+                    
+        # Calculate today's average efficiency per station (scaled 0.0 to 1.0)
+        today_actuals = {sid: round((sum(effs)/len(effs))/100.0, 4) for sid, effs in station_today.items()}
+        
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Database query failed: {exc}")
         
@@ -223,57 +251,72 @@ async def get_stations(_: dict = Depends(require_auth)):
 
     threshold = BOTTLENECK_THRESHOLD_PCT / 100
     result = []
+    
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    
     for s in response.data:
+        sid = s["station_id"]
         t = s.get("targeted_productivity")
-        a = s.get("actual_productivity")
-        if t is None or a is None or t <= 0:
+        
+        # Override the static table value with TODAY'S live average
+        a = today_actuals.get(sid, 0.0)
+        s["actual_productivity"] = a
+        
+        # Evaluate cooldown status
+        cooldown_str = s.get("cooldown_until")
+        in_cooldown = False
+        if cooldown_str:
+            try:
+                # Handle ISO8601 formatting from Supabase
+                cooldown_time = datetime.datetime.fromisoformat(cooldown_str.replace("Z", "+00:00"))
+                if now_utc < cooldown_time:
+                    in_cooldown = True
+            except Exception as e:
+                print(f"[DATE PARSE ERROR] {e}")
+
+        # Avoid marking offline/unstarted stations OR stations in transit as bottlenecks
+        if t is None or t <= 0 or a == 0.0 or in_cooldown:
             is_bottleneck = False
         else:
             is_bottleneck = (t - a) / t >= threshold
+            
         result.append({**s, "is_bottleneck": is_bottleneck})
 
     return result
 
 @app.get("/skill-matrix", response_model=list[SkillMatrixOut])
-async def get_skill_matrix(_: dict = Depends(require_auth)):
-    config = get_algorithm_config()
-    grade_eff = config["grade_efficiency"]
+def get_skill_matrix(_: dict = Depends(require_auth)):
+    res = supabase.table("skill_matrix").select(
+        "operator_id, machine_type, proficiency_grade, operators(name, worker_id)"
+    ).execute()
     
-    try:
-        response = supabase.table("skill_matrix").select(
-            "operator_id, machine_type, proficiency_grade"
-        ).order("operator_id").execute()
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Database query failed: {exc}")
-
-    return [
-        {
-            **row,
-            "efficiency_pct": grade_eff.get(str(row.get("proficiency_grade", "")).upper(), 0.0) * 100
-        }
-        for row in response.data
-    ]
+    formatted_data = []
+    for row in res.data:
+        operator_info = row.get("operators") or {}
+        grade = row.get("proficiency_grade", "C")
+        
+        eff_pct = 95.0 if grade == "A" else 75.0 if grade == "B" else 55.0
+        
+        formatted_data.append({
+            "operator_id": row["operator_id"],
+            "machine_type": row["machine_type"],
+            "proficiency_grade": grade,
+            "operator_name": operator_info.get("name", "Unknown"),
+            "worker_pin": operator_info.get("worker_id", "N/A"),
+            "efficiency_pct": eff_pct
+        })
+        
+    return formatted_data
 
 @app.post("/recommend", response_model=MoveInstruction)
 async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
     config = get_algorithm_config()
-    learning_penalty = config["learning_penalty"]
-    baseline_eff = config["grade_efficiency"]
-    fallback_gain = config["fallback_gain"]
     per_worker_fraction = config["system"]["per_worker_gain_fraction"]
-    t_relocation = config["system"]["t_relocation_min"]
-
-    threshold = BOTTLENECK_THRESHOLD_PCT / 100
-    targeted = request.targeted_productivity
-    actual_prod = request.actual_productivity
-    use_dynamic = targeted is not None and actual_prod is not None and targeted > 0
-
-    remaining_gap = max(0.0, targeted - actual_prod) if use_dynamic else 0.0
 
     try:
         sm_response = (
             supabase.table("skill_matrix")
-            .select("operator_id, machine_type, proficiency_grade")
+            .select("operator_id, machine_type, proficiency_grade, operators(name, worker_id)")
             .eq("machine_type", request.required_skill)
             .in_("proficiency_grade", ["A", "B", "C"])
             .order("proficiency_grade")
@@ -288,28 +331,56 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
         raise HTTPException(status_code=404, detail=f"No qualified operators found for skill '{request.required_skill}'.")
 
     candidate_ids = [c["operator_id"] for c in candidates_raw]
+    today_str = datetime.datetime.utcnow().date().isoformat()
+
+    today_resp = (
+        supabase.table("laborers_data")
+        .select("operator_id, efficiency")
+        .in_("operator_id", candidate_ids)
+        .eq("date", today_str)
+        .execute()
+    )
+    
+    today_map = {}
+    if today_resp.data:
+        for row in today_resp.data:
+            op = row["operator_id"]
+            if op not in today_map:
+                today_map[op] = []
+            today_map[op].append(float(row["efficiency"]))
 
     hist_resp = (
         supabase.table("laborers_data")
         .select("operator_id, efficiency")
         .in_("operator_id", candidate_ids)
+        .neq("date", today_str)
         .order("created_at", desc=True)
-        .limit(100)
+        .limit(200)
         .execute()
     )
     
     hist_map = {}
-    for row in hist_resp.data:
-        op = row["operator_id"]
-        if op not in hist_map:
-            hist_map[op] = []
-        if len(hist_map[op]) < 5: 
-            hist_map[op].append(float(row["efficiency"]))
+    if hist_resp.data:
+        for row in hist_resp.data:
+            op = row["operator_id"]
+            if op not in hist_map:
+                hist_map[op] = []
+            if len(hist_map[op]) < 5: 
+                hist_map[op].append(float(row["efficiency"]))
 
-    personal_efficiency = {
-        op: (sum(effs) / len(effs)) / 100.0 if sum(effs)/len(effs) > 1.5 else (sum(effs) / len(effs))
-        for op, effs in hist_map.items() if effs
-    }
+    personal_efficiency = {}
+    for c_id in candidate_ids:
+        if c_id in today_map and today_map[c_id]:
+            eff_val = sum(today_map[c_id]) / len(today_map[c_id])
+            personal_efficiency[c_id] = eff_val / 100.0 if eff_val > 1.5 else eff_val
+        elif c_id in hist_map and hist_map[c_id]:
+            eff_val = sum(hist_map[c_id]) / len(hist_map[c_id])
+            personal_efficiency[c_id] = eff_val / 100.0 if eff_val > 1.5 else eff_val
+
+    candidates_raw = [c for c in candidates_raw if c["operator_id"] in personal_efficiency]
+    
+    if not candidates_raw:
+        raise HTTPException(status_code=404, detail=f"No operators with actual production history found for '{request.required_skill}'.")
 
     op_station_map = {}
     try:
@@ -320,86 +391,47 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
 
     candidates = [{**c, "current_station": op_station_map.get(c["operator_id"])} for c in candidates_raw]
 
-    best_grade = candidates[0]["proficiency_grade"].upper()
-    if use_dynamic and remaining_gap > 0:
-        best_boost = targeted * per_worker_fraction * baseline_eff.get(best_grade, 1.0)
-        workers_needed = math.ceil(remaining_gap / best_boost) if best_boost > 0 else 1
-    else:
-        workers_needed = 1
+    selection = select_workers(
+        candidates=candidates,
+        personal_efficiency=personal_efficiency,
+        bottleneck_station=request.bottleneck_station,
+        targeted_productivity=request.targeted_productivity,
+        actual_productivity=request.actual_productivity,
+        config=config,
+        shift_remaining_min=SHIFT_REMAINING_MIN,
+    )
+    selected = selection["selected"]
 
-    gap_left = remaining_gap
-    selected = []
-    used_ids = set()
-
-    for c in candidates:
-        if use_dynamic and gap_left <= 0:
-            break
-
-        op_id = c["operator_id"]
-        if op_id in used_ids:
-            continue
-
-        grade = c["proficiency_grade"].upper()
-        from_station = c.get("current_station")
-
-        if from_station == request.bottleneck_station:
-            continue
-
-        actual_eff = personal_efficiency.get(op_id, baseline_eff.get(grade, 0.85))
-
-        if use_dynamic:
-            per_worker_boost = targeted * per_worker_fraction * actual_eff
-            this_gap_closed = min(gap_left, per_worker_boost)
-            this_gain_min = this_gap_closed * SHIFT_REMAINING_MIN
-        else:
-            this_gain_min = fallback_gain.get(grade, 14.0)
-
-        cost = t_relocation + learning_penalty.get(grade, 5.0)
-        profit = this_gain_min - cost
-
-        if profit <= 0:
-            break
-
-        selected.append({
-            "operator_id": op_id,
-            "from_station": from_station,
-            "to_station": request.bottleneck_station,
-            "proficiency_grade": c["proficiency_grade"],
-            "cost_of_move": cost,
-            "expected_production_gain": this_gain_min,
-            "net_profit": profit,
-        })
-        used_ids.add(op_id)
-        if use_dynamic:
-            gap_left = max(0.0, gap_left - per_worker_boost)
-
-    if not selected:
-        fc = candidates[0]
-        fg = fc["proficiency_grade"].upper()
-        ff = fc.get("current_station")
-        
-        actual_eff = personal_efficiency.get(fc["operator_id"], baseline_eff.get(fg, 0.85))
-        if use_dynamic:
-            boost = targeted * per_worker_fraction * actual_eff
-            gain = min(remaining_gap, boost) * SHIFT_REMAINING_MIN
-        else:
-            gain = fallback_gain.get(fg, 14.0)
-            
-        cost = t_relocation + learning_penalty.get(fg, 5.0)
-        profit = gain - cost
-
+    if selection["no_move"]:
+        no_move_data = selection["no_move"]
         no_move = SingleMove(
-            operator_id=fc["operator_id"], from_station=ff, to_station=request.bottleneck_station,
-            proficiency_grade=fc["proficiency_grade"], cost_of_move=cost, expected_production_gain=gain,
-            net_profit=profit, donor_cascade_risk=False, donor_risk_detail=None,
+            **{
+                key: value
+                for key, value in no_move_data.items()
+                if key != "no_move_reason"
+            },
+            donor_cascade_risk=False,
+            donor_risk_detail=None,
         )
         return MoveInstruction(
             recommended=False,
-            no_move_reason=f"Best available worker would recover {gain:.1f} min but relocation costs {cost:.1f} min - net {profit:.1f} min. No move justified.",
-            moves=[no_move], workers_needed=workers_needed, workers_found=0, gap_coverage_pct=0.0,
-            total_net_profit=0.0, cascade_warnings=[], instruction="No move recommended.",
-            operator_id=fc["operator_id"], from_station=ff, to_station=request.bottleneck_station,
-            proficiency_grade=fc["proficiency_grade"], cost_of_move=cost, expected_production_gain=gain, net_profit=profit,
+            no_move_reason=no_move_data["no_move_reason"],
+            moves=[no_move],
+            workers_needed=selection["workers_needed"],
+            workers_found=0,
+            gap_coverage_pct=0.0,
+            total_net_profit=0.0,
+            cascade_warnings=[],
+            instruction="No move recommended.",
+            operator_id=no_move.operator_id,
+            operator_name=no_move.operator_name,
+            worker_pin=no_move.worker_pin,
+            from_station=no_move.from_station,
+            to_station=no_move.to_station,
+            proficiency_grade=no_move.proficiency_grade,
+            cost_of_move=no_move.cost_of_move,
+            expected_production_gain=no_move.expected_production_gain,
+            net_profit=no_move.net_profit,
         )
 
     donor_ids = list({m["from_station"] for m in selected if m["from_station"]})
@@ -414,14 +446,14 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
         except Exception:
             pass
 
-    donor_backfills = {} 
+    selected_ids = {move["operator_id"] for move in selected}
+    donor_backfills = {}
     for donor_id, d in donor_data.items():
-        dt = d.get("targeted_productivity")
-        da = d.get("actual_productivity")
-        if not (dt and da and dt > 0):
-            continue
-        new_actual = da - per_worker_fraction
-        if max(0.0, (dt - new_actual) / dt * 100) < BOTTLENECK_THRESHOLD_PCT:
+        projected_gap_pct = projected_donor_gap_pct(d, per_worker_fraction)
+        if (
+            projected_gap_pct is None
+            or projected_gap_pct < BOTTLENECK_THRESHOLD_PCT
+        ):
             continue
         donor_skill = d.get("required_skill")
         if not donor_skill:
@@ -430,57 +462,29 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
             rep_resp = supabase.table("skill_matrix").select("operator_id, proficiency_grade").eq(
                 "machine_type", donor_skill).in_("proficiency_grade", ["A", "B", "C"]).order("proficiency_grade").limit(5).execute()
             for rep in rep_resp.data:
-                if rep["operator_id"] not in used_ids:
+                if rep["operator_id"] not in selected_ids:
                     donor_backfills[donor_id] = (rep["operator_id"], rep["proficiency_grade"])
                     break
         except Exception:
             pass
 
-    cascade_warnings = []
-    final_moves = []
-
-    for move in selected:
-        donor_id = move["from_station"]
-        cascade_risk = False
-        risk_detail = None
-        replacement_id = None
-        replacement_grade = None
-
-        if donor_id and donor_id in donor_data:
-            d = donor_data[donor_id]
-            dt = d.get("targeted_productivity")
-            da = d.get("actual_productivity")
-            if dt and da and dt > 0:
-                new_actual = da - per_worker_fraction
-                projected_gap_pct = max(0.0, (dt - new_actual) / dt * 100)
-                if projected_gap_pct >= BOTTLENECK_THRESHOLD_PCT:
-                    cascade_risk = True
-                    risk_detail = f"{donor_id} projected gap: {projected_gap_pct:.1f}% (≥ {BOTTLENECK_THRESHOLD_PCT:.0f}% threshold)"
-                    cascade_warnings.append(f"Moving {move['operator_id']} from {donor_id} may create a new bottleneck there (projected gap {projected_gap_pct:.1f}%)")
-                    if donor_id in donor_backfills:
-                        replacement_id, replacement_grade = donor_backfills[donor_id]
-
-        final_moves.append(SingleMove(
-            operator_id=move["operator_id"], from_station=move["from_station"], to_station=move["to_station"],
-            proficiency_grade=move["proficiency_grade"], cost_of_move=move["cost_of_move"],
-            expected_production_gain=move["expected_production_gain"], net_profit=move["net_profit"],
-            donor_cascade_risk=cascade_risk, donor_risk_detail=risk_detail,
-            donor_replacement_id=replacement_id, donor_replacement_grade=replacement_grade,
-        ))
+    final_moves_data, cascade_warnings = evaluate_donor_risks(
+        selected=selected,
+        donor_data=donor_data,
+        donor_backfills=donor_backfills,
+        threshold_pct=BOTTLENECK_THRESHOLD_PCT,
+        per_worker_fraction=per_worker_fraction,
+    )
+    final_moves = [SingleMove(**move) for move in final_moves_data]
 
     total_gain = sum(m.expected_production_gain for m in final_moves)
     total_profit = sum(m.net_profit for m in final_moves)
 
-    if use_dynamic and remaining_gap > 0:
-        gap_coverage_pct = min(100.0, (remaining_gap - max(0.0, gap_left)) / remaining_gap * 100)
-    else:
-        gap_coverage_pct = 100.0
-
     if len(final_moves) == 1:
-        instruction_text = f"Move {final_moves[0].operator_id} to {request.bottleneck_station}"
+        instruction_text = f"Move {final_moves[0].operator_name} to {request.bottleneck_station}"
     else:
-        ids = ", ".join(m.operator_id for m in final_moves)
-        instruction_text = f"Move {len(final_moves)} workers to {request.bottleneck_station}: {ids}"
+        names = ", ".join(m.operator_name for m in final_moves)
+        instruction_text = f"Move {len(final_moves)} workers to {request.bottleneck_station}: {names}"
 
     try:
         supabase.table("move_recommendations").insert({
@@ -495,12 +499,18 @@ async def recommend(request: RecommendRequest, _: dict = Depends(require_auth)):
     first = final_moves[0]
     return MoveInstruction(
         recommended=True, no_move_reason=None, moves=final_moves,
-        workers_needed=workers_needed, workers_found=len(final_moves),
-        gap_coverage_pct=gap_coverage_pct, total_net_profit=total_profit,
+        workers_needed=selection["workers_needed"], workers_found=len(final_moves),
+        gap_coverage_pct=selection["gap_coverage_pct"], total_net_profit=total_profit,
         cascade_warnings=cascade_warnings, instruction=instruction_text,
-        operator_id=first.operator_id, from_station=first.from_station,
-        to_station=first.to_station, proficiency_grade=first.proficiency_grade,
-        cost_of_move=first.cost_of_move, expected_production_gain=total_gain, net_profit=total_profit,
+        operator_id=first.operator_id, 
+        operator_name=first.operator_name,
+        worker_pin=first.worker_pin,
+        from_station=first.from_station,
+        to_station=first.to_station, 
+        proficiency_grade=first.proficiency_grade,
+        cost_of_move=first.cost_of_move, 
+        expected_production_gain=total_gain, 
+        net_profit=total_profit,
     )
 
 @app.post("/skill-matrix", response_model=dict)
@@ -520,6 +530,9 @@ async def accept_move(request: AcceptMoveRequest, _: dict = Depends(require_auth
     per_worker_fraction = config["system"]["per_worker_gain_fraction"]
 
     errors = []
+
+    # Calculate UTC time X minutes from now for the cooldown
+    cooldown_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=COOLDOWN_MINUTES)).isoformat()
 
     for move in request.moves:
         grade = move.proficiency_grade.upper()
@@ -545,7 +558,12 @@ async def accept_move(request: AcceptMoveRequest, _: dict = Depends(require_auth
                 targeted = dest_resp.data["targeted_productivity"] or 0.0
                 loc_boost = targeted * per_worker_fraction * baseline_eff.get(grade, 1.0) if targeted > 0 else 0.0
                 new_actual = min(targeted, current + loc_boost) if targeted > 0 else current + loc_boost
-                supabase.table("production_status").update({"actual_productivity": round(new_actual, 4)}).eq("station_id", move.to_station).execute()
+                
+                # Apply the cooldown time to the destination station
+                supabase.table("production_status").update({
+                    "actual_productivity": round(new_actual, 4),
+                    "cooldown_until": cooldown_time 
+                }).eq("station_id", move.to_station).execute()
         except Exception as exc:
             errors.append(f"Productivity update failed for {move.to_station}: {exc}")
 
@@ -589,22 +607,11 @@ async def assign_workers_to_stations(request: BatchAssignmentRequest, _: dict = 
         "message": f"Successfully updated {len(request.assignments)} operator assignments on {request.line_id}."
     }
 
-# ---------------------------------------------------------------------------
-# NEW: Automated Skill Grading Endpoint
-# ---------------------------------------------------------------------------
 @app.post("/trigger-regrade", response_model=dict)
 async def trigger_regrade(_: dict = Depends(require_auth)):
-    """
-    Analyzes the last 14 days of operator performance from laborers_data
-    and automatically adjusts their A/B/C skill grade in the matrix.
-    """
     try:
         fourteen_days_ago = (datetime.datetime.now() - datetime.timedelta(days=14)).date().isoformat()
-        
-        # 1. Fetch recent performance data
         ld_resp = supabase.table("laborers_data").select("operator_id, station_id, efficiency").gte("date", fourteen_days_ago).execute()
-        
-        # 2. Fetch station definitions to map physical stations to machine skills
         st_resp = supabase.table("production_status").select("station_id, required_skill").execute()
         
         if not ld_resp.data:
@@ -612,7 +619,6 @@ async def trigger_regrade(_: dict = Depends(require_auth)):
             
         station_skill_map = {row["station_id"]: row["required_skill"] for row in st_resp.data}
         
-        # 3. Aggregate efficiency scores per operator per machine type
         agg_data = {}
         for row in ld_resp.data:
             op_id = row["operator_id"]
@@ -629,12 +635,9 @@ async def trigger_regrade(_: dict = Depends(require_auth)):
                 agg_data[key] = []
             agg_data[key].append(eff)
             
-        # 4. Calculate averages and assign new grades
         success_count = 0
         for (op_id, machine_type), effs in agg_data.items():
             avg_eff = sum(effs) / len(effs)
-            
-            # Normalize percentage (handling both 0.85 and 85.0 formats)
             normalized_eff = avg_eff if avg_eff <= 1.5 else avg_eff / 100.0
             
             if normalized_eff >= 0.85:
@@ -644,7 +647,6 @@ async def trigger_regrade(_: dict = Depends(require_auth)):
             else:
                 new_grade = "C"
                 
-            # 5. Safely update or insert into the skill matrix
             try:
                 update_res = supabase.table("skill_matrix").update({
                     "proficiency_grade": new_grade
