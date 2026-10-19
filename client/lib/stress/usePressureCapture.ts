@@ -7,7 +7,7 @@ import {
   readPointerSamples,
   readTouchSamples,
 } from "./pressureMeasurement";
-
+/*To capture and store the touch events from react pointer */
 export function usePressureCapture() {
   const pointerSamples = useRef<PressureSample[]>([]);
   const touchSamples = useRef<PressureSample[]>([]);
