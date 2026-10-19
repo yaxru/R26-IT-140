@@ -197,7 +197,7 @@ export default function PrecisionInflatorGame({
   }
 
   function updateFromPointer(e: React.PointerEvent<HTMLButtonElement>) {
-    pointerSamples.current.push(...readPointerSamples(e));
+    pointerSamples.current.push(...readPointerSamples(e));/* pass the browser pointer event help to read pressure messrmnts in presrmesmnt.ts*/
     const reading = resolvePressure();
     const rect = arenaRef.current?.getBoundingClientRect();
     const fallbackValue =
