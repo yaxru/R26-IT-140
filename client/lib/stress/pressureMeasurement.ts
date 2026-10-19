@@ -164,7 +164,7 @@ export function readPointerSamples(
 ): PressureSample[] {
   let events: PointerEvent[] = [event.nativeEvent];
   try {
-    const coalesced = event.nativeEvent.getCoalescedEvents?.();
+    const coalesced = event.nativeEvent.getCoalescedEvents?.();/*to get imediate pointer events when browser support them */
     if (coalesced?.length) events = coalesced;
   } catch {
     events = [event.nativeEvent];
