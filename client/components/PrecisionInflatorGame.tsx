@@ -36,7 +36,7 @@ export default function PrecisionInflatorGame({
   const [positionControl, setPositionControl] = useState(false);
 
   const pointerSamples = useRef<PressureSample[]>([]);
-  const touchSamples = useRef<PressureSample[]>([]);
+  const touchSamples = useRef<PressureSample[]>([]);/*arrays to store input samples */
   const interactionSamples = useRef<number[]>([]);
   const onTargetMs = useRef(0);
   const overshoot = useRef(0);
@@ -57,7 +57,7 @@ export default function PrecisionInflatorGame({
       touchSamples.current,
     );
     const arr = measured.length ? measured : interactionSamples.current;
-    const avg = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+    const avg = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;/*avg pressure cal */
     const peak = arr.length ? Math.max(...arr) : 0;
     const jitter = arr.length > 1
       ? arr.reduce((a, b) => a + (b - avg) ** 2, 0) / arr.length
@@ -127,7 +127,7 @@ export default function PrecisionInflatorGame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trialIndex]);
 
-  function resolvePressure(): { value: number; usePointerPosition: boolean } {
+  function resolvePressure(): { value: number; usePointerPosition: boolean } {/*choosing usable pressure */
     const measurement = bestPressure(
       pointerSamples.current,
       touchSamples.current,

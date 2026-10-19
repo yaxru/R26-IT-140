@@ -172,7 +172,7 @@ def submit_game1():
         "avg_game1_pressure": avg,
         "response_time_ms": response_time,
     })
-
+#recieve trial summaries
 @app.route("/api/stress-detection/game2", methods=["POST"])
 def submit_game2():
     body = request.get_json(force=True)
@@ -209,7 +209,7 @@ def submit_game2():
     avg_time_on_target_ms = round(sum(t["time_on_target_ms"] for t in trials) / 3)
     avg_jitter_index = sum(t["jitter_index"] for t in trials) / 3
     total_overshoot_count = int(sum(t["overshoot_count"] for t in trials))
-
+#update supabase table values
     supabase.table(TABLE).update({
         "avg_inflator_pressure": avg_inflator_pressure,
         "peak_inflator_pressure": peak_inflator_pressure,

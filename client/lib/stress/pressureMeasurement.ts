@@ -1,4 +1,4 @@
-export interface PressureSample {
+export interface PressureSample {/*input type touch, mouse ,pen */
   pointerType: string;
   pressure: number;
   width: number;
@@ -177,7 +177,7 @@ export function readPointerSamples(
     height: sample.height,
   }));
 }
-
+/*browser provide the values to sample pressure */
 export function readTouchSamples(event: React.TouchEvent): PressureSample[] {
   return Array.from(event.nativeEvent.changedTouches, (touch) => ({
     pointerType: "touch",
