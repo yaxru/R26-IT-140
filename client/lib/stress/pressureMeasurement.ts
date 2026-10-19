@@ -158,7 +158,7 @@ export function bestContact(
     source: pointer.support === "uninformative" ? "pointer" : "touchradius",
   };
 }
-
+/*reading browser pointer event data */
 export function readPointerSamples(
   event: React.PointerEvent,
 ): PressureSample[] {
