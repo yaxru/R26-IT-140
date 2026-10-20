@@ -46,6 +46,7 @@ app.add_middleware(
         'https://admin.opsis.getmerge.co',
         'https://portal.opsis.getmerge.co',
     ],
+    allow_origin_regex=r"^http://192\.168\.1\.(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d):3000$",
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
 )
