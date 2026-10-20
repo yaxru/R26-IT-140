@@ -5,6 +5,7 @@ const stressServiceUrl = (
 ).replace(/\/+$/, "");
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["192.168.1.*"],
   async rewrites() {
     return [
       {

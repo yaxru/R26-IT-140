@@ -22,7 +22,8 @@ CORS(
             "origins": [
                 origin.strip()
                 for origin in os.environ.get(
-                    "STRESS_CORS_ORIGINS", "http://localhost:3000"
+                    "STRESS_CORS_ORIGINS",
+                    r"http://localhost:3000,^http://192\.168\.1\.(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d):3000$",
                 ).split(",")
                 if origin.strip()
             ]
