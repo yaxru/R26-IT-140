@@ -91,7 +91,7 @@ def average_pressure(values):
         return None
     return mean
 
-def intervention_recommendation(model_output: int, pss10_classification: str) -> str:
+def intervention_recommendation(model_output: int, pss10_classification: str) -> str:           #combining outputs to advise supervisor dashboard
     if model_output == 1 and pss10_classification == "High": return "Escalate to Counsellor"
     if model_output == 1 or pss10_classification in ("Moderate", "High"): return "Welfare Check"
     return "Monitor"
@@ -100,7 +100,7 @@ def get_session_row(session_id: str) -> dict | None:
     result = supabase.table(TABLE).select("*").eq("session_id", session_id).execute()
     return result.data[0] if result.data else None
 
-@app.route("/api/stress-detection/dev/token", methods=["GET"])
+@app.route("/api/stress-detection/dev/token", methods=["GET"])    #generate the token for assesment link
 def dev_generate_token():
     worker_id = request.args.get("worker_id", "EMP-UNKNOWN")
     worker_name = request.args.get("worker_name", "Unknown Worker")

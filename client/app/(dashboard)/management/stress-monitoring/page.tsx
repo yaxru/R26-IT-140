@@ -177,7 +177,7 @@ export default function SupervisorStressDashboard() {
     setLoading(false);
   };
 
-  const generateAssessmentLink = async (
+  const generateAssessmentLink = async ( /**generate the link  */
     workerId: string,
     workerName: string,
     opId: string,
@@ -386,7 +386,7 @@ export default function SupervisorStressDashboard() {
                             )}
                             <button
                               onClick={() =>
-                                generateAssessmentLink(
+                                generateAssessmentLink(          /*generate assesment link */
                                   flag.operators.worker_id,
                                   flag.operators.name,
                                   flag.operator_id,
@@ -510,7 +510,7 @@ export default function SupervisorStressDashboard() {
                             ? "text-[#CE8E33] border-[#CE8E33] bg-white dark:bg-[#111113]"
                             : "text-[#1A7C4B] border-[#1A7C4B] bg-white dark:bg-[#111113]"
                       }`}>
-                        {!hasPrediction ? "Assessment Needed" : isStressed ? "Fatigue Detected" : "Optimal State"}
+                        {!hasPrediction ? "Assessment Needed" : isStressed ? "Fatigue Detected" : "Optimal State"}  
                       </span>
                     </div>
 
@@ -533,7 +533,7 @@ export default function SupervisorStressDashboard() {
                   <div className="grid grid-cols-2">
                     <KpiTile 
                       label="Psychometric Score" 
-                      value={report.pss10_score != null ? `${report.pss10_score} / 40` : "—"} 
+                      value={report.pss10_score != null ? `${report.pss10_score} / 40` : "—"} /**pss10 score retrieve */
                       sub={`Class: ${report.pss10_classification || "Unknown"}`} 
                       accent={report.pss10_score != null && Number(report.pss10_score) > 20 ? "amber" : "none"} 
                     />
@@ -546,7 +546,7 @@ export default function SupervisorStressDashboard() {
                       label="Motor Response" 
                       value={report.response_time_ms != null ? `${report.response_time_ms} ms` : "—"} 
                       sub="Avg target acquisition time" 
-                      accent={report.response_time_ms != null && Number(report.response_time_ms) > 800 ? "amber" : "none"} 
+                      accent={report.response_time_ms != null && Number(report.response_time_ms) > 800 ? "amber" : "none"} /**retrieve response time */
                     />
                     <KpiTile 
                       label="Pressure Variance" 
