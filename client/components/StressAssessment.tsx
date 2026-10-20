@@ -89,7 +89,7 @@ export default function StressAssessment() {
     if (ok) transitionTo("game1");
   }
 
-  async function handleGame1(pressures: number[], responseTimeMs: number) {
+  async function handleGame1(pressures: number[], responseTimeMs: number) {      /*take the response time  */
     if (!session) return;
     const ok = await guard(() =>
       api.submitGame1(session.session_id, pressures, responseTimeMs),
@@ -101,7 +101,7 @@ export default function StressAssessment() {
     if (!session) return;
     const ok = await guard(() => api.submitGame2(session.session_id, trials));
     if (!ok) return;
-    await guard(() => api.predict(session.session_id));
+    await guard(() => api.predict(session.session_id));     /*trigger the prediction  */
     transitionTo("complete");
   }
 

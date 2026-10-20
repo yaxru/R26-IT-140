@@ -102,7 +102,7 @@ export function submitGame2(sessionId: string, trials: InflatorTrial[]) {
   });
 }
 
-export function predict(sessionId: string): Promise<PredictResult> {
+export function predict(sessionId: string): Promise<PredictResult> {    /*send prediction req */
   return post<PredictResult>("/api/stress-detection/predict", {
     session_id: sessionId,
   });

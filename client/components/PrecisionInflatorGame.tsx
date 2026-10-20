@@ -14,7 +14,7 @@ import {
 } from "@/lib/stress/pressureMeasurement";
 
 const TRIAL_DURATION_MS = 10000;
-const TOTAL_TRIALS = 3;
+const TOTAL_TRIALS = 3;      /*trial count */
 const RING_MIN = 0.45;
 const RING_MAX = 0.70;
 const FALLBACK_PRESSURE = 0.58;
@@ -74,7 +74,7 @@ export default function PrecisionInflatorGame({
     const next = [...trials, trial];
     setTrials(next);
 
-    if (trialIndex + 1 >= TOTAL_TRIALS) {
+    if (trialIndex + 1 >= TOTAL_TRIALS) {       /*check trial count */
       onComplete(next);
     } else {
       setPressure(0);
@@ -127,7 +127,7 @@ export default function PrecisionInflatorGame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trialIndex]);
 
-  function resolvePressure(): { value: number; usePointerPosition: boolean } {/*choosing usable pressure */
+  function resolvePressure(): { value: number; usePointerPosition: boolean } {/*choosing usable pressure deside values are usable */
     const measurement = bestPressure(
       pointerSamples.current,
       touchSamples.current,
@@ -170,7 +170,7 @@ export default function PrecisionInflatorGame({
       }
     }
 
-    return { value: FALLBACK_PRESSURE, usePointerPosition: true };
+    return { value: FALLBACK_PRESSURE, usePointerPosition: true };   /*use fall back if doesnt support */
   }
 
   function samplePressure(raw: number, usesPosition: boolean) {

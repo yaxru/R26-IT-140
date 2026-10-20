@@ -160,11 +160,11 @@ def submit_pss10():
 @app.route("/api/stress-detection/game1", methods=["POST"])
 def submit_game1():
     body = request.get_json(force=True)
-    avg = average_pressure(body.get("pressures"))
+    avg = average_pressure(body.get("pressures"))       #game 1 avg pressure
     if avg is None:
         avg = demo_pressure(body["session_id"], "game1")
     response_time = int(body["response_time_ms"])
-    supabase.table(TABLE).update({
+    supabase.table(TABLE).update({                         #saving game 1 pressure 
         "avg_game1_pressure": avg,
         "response_time_ms": response_time,
     }).eq("session_id", body["session_id"]).execute()
@@ -195,7 +195,7 @@ def submit_game2():
         and 0 < float(t["peak_pressure"]) <= 1
     ]
     avg_inflator_pressure = (
-        sum(trial_pressures) / len(trial_pressures)
+        sum(trial_pressures) / len(trial_pressures)   #game 2 avg from 3 trials
         if trial_pressures
         else demo_pressure(body["session_id"], "inflator")
     )
@@ -220,7 +220,7 @@ def submit_game2():
 
     return jsonify({"status": "success"})
 
-@app.route("/api/stress-detection/predict", methods=["POST"])
+@app.route("/api/stress-detection/predict", methods=["POST"])   #retriev stored values
 def predict():
     body = request.get_json(force=True)
     session_id = body["session_id"]
@@ -245,14 +245,14 @@ def predict():
             session_id, "inflator", inflator_pressure
         )
 
-    avg_game_pressure = (game1_pressure + inflator_pressure) / 2
+    avg_game_pressure = (game1_pressure + inflator_pressure) / 2              #prepare values
     gap = avg_game_pressure - baseline_pressure
     
-    model_output, model_confidence = predict_stress(response_time_ms=row["response_time_ms"], avg_touch_pressure=avg_game_pressure)
+    model_output, model_confidence = predict_stress(response_time_ms=row["response_time_ms"], avg_touch_pressure=avg_game_pressure)  #call the model
     recommendation = intervention_recommendation(model_output, row.get("pss10_classification", "Low"))
 
     supabase.table(TABLE).update({
-        "avg_baseline_pressure": baseline_pressure,
+        "avg_baseline_pressure": baseline_pressure,      #save model output......
         "avg_game1_pressure": game1_pressure,
         "avg_inflator_pressure": inflator_pressure,
         "peak_inflator_pressure": peak_inflator_pressure,

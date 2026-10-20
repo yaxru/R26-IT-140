@@ -82,7 +82,7 @@ export default function EggCrackerGame({
   useEffect(() => {
     if (done) {
       const rt = firstTap.current !== null
-        ? Math.round(firstTap.current - startTime.current)
+        ? Math.round(firstTap.current - startTime.current)   /*calculate the response time */
         : 0;
       const t = setTimeout(
         () => onCompleteRef.current(getSamples(), rt),
@@ -143,7 +143,7 @@ export default function EggCrackerGame({
     press.pointerSamples.push(...readPointerSamples(e));
   }
 
-  function updateTouch(e: React.TouchEvent<HTMLButtonElement>) {
+  function updateTouch(e: React.TouchEvent<HTMLButtonElement>) {     /*record the touch */
     recordTouch(e);
     const press = activePress.current;
     if (press) press.touchSamples.push(...readTouchSamples(e));
