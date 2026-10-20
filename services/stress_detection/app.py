@@ -146,7 +146,7 @@ def submit_baseline():
     if avg is None:
         avg = demo_pressure(body["session_id"], "baseline")
     supabase.table(TABLE).update({
-        "avg_baseline_pressure": avg,
+        "avg_baseline_pressure": avg,            #save values in the supabase table
     }).eq("session_id", body["session_id"]).execute()
     return jsonify({"avg_baseline_pressure": avg})
 

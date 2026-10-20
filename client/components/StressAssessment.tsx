@@ -75,7 +75,7 @@ export default function StressAssessment() {
     }
   }
 
-  async function handleBaseline(pressures: number[]) {
+  async function handleBaseline(pressures: number[]) {/*take values */
     if (!session) return;
     const ok = await guard(() =>
       api.submitBaseline(session.session_id, pressures),
@@ -190,7 +190,7 @@ export default function StressAssessment() {
         )}
 
         {step === "icebreaker" && (
-          <IceBreakerScreen language={language} onComplete={handleBaseline} />
+          <IceBreakerScreen language={language} onComplete={handleBaseline} />/*connect the icebreaker */
         )}
 
         {step === "pss10" && (

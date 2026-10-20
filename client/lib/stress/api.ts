@@ -66,7 +66,7 @@ export function resolveSession(token: string): Promise<SessionInfo> {
   return post<SessionInfo>("/api/stress-detection/session/resolve", { token });
 }
 
-export function submitBaseline(sessionId: string, pressures: number[]) {
+export function submitBaseline(sessionId: string, pressures: number[]) {   /*sesion id and values pass to backend */
   return post<{ avg_baseline_pressure: number }>(
     "/api/stress-detection/baseline",
     { session_id: sessionId, pressures }

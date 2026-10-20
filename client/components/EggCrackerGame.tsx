@@ -67,7 +67,7 @@ export default function EggCrackerGame({
   const done = remaining === 0;
 
   useEffect(() => {
-    startTime.current = performance.timeOrigin + performance.now();
+    startTime.current = performance.timeOrigin + performance.now();/* record the start time*/
   }, []);
 
   useEffect(() => {
@@ -124,7 +124,7 @@ export default function EggCrackerGame({
       touchSamples: [],
     };
     if (firstTap.current === null) {
-      firstTap.current = eventTimeInEpoch(e.nativeEvent.timeStamp);
+      firstTap.current = eventTimeInEpoch(e.nativeEvent.timeStamp);    /*take the first tap time */
     }
     record(e);
 

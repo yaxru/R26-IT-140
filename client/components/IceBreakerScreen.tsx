@@ -25,7 +25,7 @@ export default function IceBreakerScreen({
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const copy = getStressCopy(language);
-  const { record, recordTouch, getSamples } = usePressureCapture();
+  const { record, recordTouch, getSamples } = usePressureCapture();/* take pressure values call the hook */
   const theme = QUESTION_THEMES[index];
   const question = copy.icebreaker[index];
 
