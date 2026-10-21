@@ -13,12 +13,14 @@ def select_workers(
     config: dict[str, Any],
     shift_remaining_min: float,
 ) -> dict[str, Any]:
+    # These values are configured in algorithm_config; main.py provides defaults.
     learning_penalty = config["learning_penalty"]
     baseline_eff = config["grade_efficiency"]
     fallback_gain = config["fallback_gain"]
     per_worker_fraction = config["system"]["per_worker_gain_fraction"]
     t_relocation = config["system"]["t_relocation_min"]
 
+    # Use live productivity values when available; otherwise use grade-based fallback gains.
     use_dynamic = (
         targeted_productivity is not None
         and actual_productivity is not None
@@ -30,6 +32,7 @@ def select_workers(
         else 0.0
     )
 
+    # Estimate how many workers it may take to cover the productivity gap.
     best_grade = candidates[0]["proficiency_grade"].upper()
     if use_dynamic and remaining_gap > 0:
         best_boost = (
@@ -45,6 +48,8 @@ def select_workers(
     selected = []
     used_ids = set()
 
+    # Consider candidates in their supplied order and stop once the gap is covered
+    # or the next move would cost more than its estimated production benefit.
     for candidate in candidates:
         if use_dynamic and gap_left <= 0:
             break
@@ -71,6 +76,7 @@ def select_workers(
             per_worker_boost = 0.0
             gain = fallback_gain.get(grade, 14.0)
 
+        # Cost is relocation time plus a preset learning allowance for this grade.
         cost = t_relocation + learning_penalty.get(grade, 5.0)
         profit = gain - cost
         if profit <= 0:
@@ -93,6 +99,7 @@ def select_workers(
         if use_dynamic:
             gap_left = max(0.0, gap_left - per_worker_boost)
 
+    # Return the best available option as an explanation when no profitable move exists.
     no_move = None
     if not selected:
         candidate = candidates[0]
@@ -125,6 +132,7 @@ def select_workers(
             ),
         }
 
+    # Report what percentage of the original productivity gap the selected moves cover.
     if use_dynamic and remaining_gap > 0:
         gap_coverage_pct = min(
             100.0,
@@ -148,6 +156,7 @@ def evaluate_donor_risks(
     threshold_pct: float,
     per_worker_fraction: float,
 ) -> tuple[list[dict[str, Any]], list[str]]:
+    # Moving a worker may create a new bottleneck at their original ("donor") station.
     cascade_warnings = []
     final_moves = []
 
@@ -160,6 +169,7 @@ def evaluate_donor_risks(
 
         if donor_id and donor_id in donor_data:
             donor = donor_data[donor_id]
+            # Compare the donor station's projected gap with the configured risk threshold.
             projected_gap_pct = projected_donor_gap_pct(
                 donor, per_worker_fraction
             )
@@ -193,10 +203,12 @@ def evaluate_donor_risks(
 def projected_donor_gap_pct(
     donor: dict[str, Any], per_worker_fraction: float
 ) -> Optional[float]:
+    # Without target and actual productivity, the donor risk cannot be estimated.
     targeted = donor.get("targeted_productivity")
     actual = donor.get("actual_productivity")
     if not (targeted and actual and targeted > 0):
         return None
 
+    # Estimate the donor's productivity after losing one worker's configured contribution.
     new_actual = actual - per_worker_fraction
     return max(0.0, (targeted - new_actual) / targeted * 100)
