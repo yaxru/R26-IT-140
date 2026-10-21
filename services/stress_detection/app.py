@@ -141,7 +141,7 @@ def resolve_session():
     return jsonify({"session_id": session_id, "worker_id": claims["worker_id"], "worker_name": claims["worker_name"]})
 
 @app.route("/api/stress-detection/baseline", methods=["POST"])
-def submit_baseline():
+def submit_baseline():                                            #get values from stressassesment to save to supabse
     body = request.get_json(force=True)
     avg = average_pressure(body.get("pressures"))
     if avg is None:

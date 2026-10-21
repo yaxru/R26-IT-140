@@ -221,6 +221,6 @@ const COPY = {
   },
 } as const;
 
-export function getStressCopy(language: Language) {
+export function getStressCopy(language: Language) {   /**recieve the language and match the group */
   return COPY[language];
 }

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Language, Pss10Answers } from "@/lib/stress/types";
-import { getStressCopy } from "@/lib/stress/translations";
+import { getStressCopy } from "@/lib/stress/translations";  /**import questions  */
 
 const QUESTION_EMOJIS = ["😌", "🙂", "😐", "😟", "😰"];
 
@@ -18,7 +18,7 @@ export default function Pss10Questionnaire({
   const [answers, setAnswers] = useState<Pss10Answers>({});
   const [selected, setSelected] = useState<number | null>(null);
   const [leaving, setLeaving] = useState(false);
-  const copy = getStressCopy(language);
+  const copy = getStressCopy(language);                           /**retriving */
 
   function choose(value: number) {
     if (leaving) return;

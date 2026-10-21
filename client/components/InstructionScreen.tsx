@@ -79,7 +79,7 @@ export default function InstructionScreen({
           ))}
         </ul>
         <button
-          onClick={onNext}
+          onClick={onNext}   /**move to ice breaker  */
           className="mt-auto flex min-h-14 w-full items-center justify-center rounded-2xl px-6 py-4 text-base font-extrabold text-white shadow-lg transition active:scale-[0.99] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#20243A]"
           style={{ backgroundColor: theme.accent }}
         >

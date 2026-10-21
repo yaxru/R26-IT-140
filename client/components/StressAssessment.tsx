@@ -80,7 +80,7 @@ export default function StressAssessment() {
     const ok = await guard(() =>
       api.submitBaseline(session.session_id, pressures),
     );
-    if (ok) transitionTo("pss10");
+    if (ok) transitionTo("pss10");                              /**move to next step */
   }
 
   async function handlePss10(answers: Pss10Answers) {

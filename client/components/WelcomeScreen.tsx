@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, HeartHandshake, Languages, Sparkles } from "lucide-react";
 import { Language } from "@/lib/stress/types";
-import { getStressCopy } from "@/lib/stress/translations";
+import { getStressCopy } from "@/lib/stress/translations";    /**import from translation file */
 
 export default function WelcomeScreen({
   workerName,
@@ -16,7 +16,7 @@ export default function WelcomeScreen({
   onLanguageChange: (language: Language) => void;
   onBegin: () => void;
 }) {
-  const copy = getStressCopy(language);
+  const copy = getStressCopy(language);     /**get all translation values for the selected language */
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export default function WelcomeScreen({
               aria-label={copy.language}
               value={language}
               onChange={(event) =>
-                onLanguageChange(event.target.value === "si" ? "si" : "en")
+                onLanguageChange(event.target.value === "si" ? "si" : "en")  /**change language  */
               }
               className="max-w-28 bg-transparent text-white outline-none"
             >
@@ -79,7 +79,7 @@ export default function WelcomeScreen({
           <p>{copy.welcomePrompt}</p>
         </div>
         <button
-          onClick={onBegin}
+          onClick={onBegin}      /**to next page instructions */
           className="flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-[#20243A] px-6 py-4 text-base font-extrabold text-white shadow-lg shadow-indigo-950/15 transition hover:bg-[#303657] active:scale-[0.99] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[#FF9D2E]"
         >
           {copy.begin}

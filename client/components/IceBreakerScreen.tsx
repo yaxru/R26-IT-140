@@ -34,7 +34,7 @@ export default function IceBreakerScreen({
     setSelected(option);
     setTimeout(() => {
       if (index === QUESTION_THEMES.length - 1) {
-        onComplete(getSamples());
+        onComplete(getSamples());                   /**after end of ice breaker questions */
       } else {
         setIndex((current) => current + 1);
         setSelected(null);
