@@ -97,7 +97,7 @@ export default function IceBreakerScreen({
             return (
               <button
                 key={option}
-                onPointerDown={record}
+                onPointerDown={record}     /**react pointer taking values */
                 onPointerMove={record}
                 onTouchStart={recordTouch}
                 onTouchMove={recordTouch}

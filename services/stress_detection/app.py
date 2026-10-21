@@ -73,7 +73,7 @@ def pressure_status(gap: float) -> str:
     return "Decreased"
 
 
-def average_pressure(values):
+def average_pressure(values):#average pressure function
     if not isinstance(values, list):#if unvalid use demo
         return None
     valid = []
