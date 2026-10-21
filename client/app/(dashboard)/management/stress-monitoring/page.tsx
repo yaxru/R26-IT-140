@@ -510,7 +510,7 @@ export default function SupervisorStressDashboard() {
                             ? "text-[#CE8E33] border-[#CE8E33] bg-white dark:bg-[#111113]"
                             : "text-[#1A7C4B] border-[#1A7C4B] bg-white dark:bg-[#111113]"
                       }`}>
-                        {!hasPrediction ? "Assessment Needed" : isStressed ? "Fatigue Detected" : "Optimal State"}  
+                        {!hasPrediction ? "Assessment Needed" : isStressed ? "Fatigue Detected" : "Optimal State"  /**model output if 1 fatig if not optimal */}    
                       </span>
                     </div>
 

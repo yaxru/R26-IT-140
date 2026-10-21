@@ -53,7 +53,7 @@ def verify_link_token(token: str) -> dict:
     payload = jwt.decode(token, SECURE_LINK_SECRET, algorithms=["HS256"])
     return payload
 
-def score_pss10(answers: dict) -> tuple[int, str]:
+def score_pss10(answers: dict) -> tuple[int, str]:    #pss10 score calculation
     total = 0
     for item_num in range(1, 11):
         raw = int(answers[str(item_num)])
@@ -74,7 +74,7 @@ def pressure_status(gap: float) -> str:
 
 
 def average_pressure(values):
-    if not isinstance(values, list):
+    if not isinstance(values, list):#if unvalid use demo
         return None
     valid = []
     for value in values:

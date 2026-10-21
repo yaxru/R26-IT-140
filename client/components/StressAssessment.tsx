@@ -101,7 +101,7 @@ export default function StressAssessment() {
     if (!session) return;
     const ok = await guard(() => api.submitGame2(session.session_id, trials));
     if (!ok) return;
-    await guard(() => api.predict(session.session_id));     /*trigger the prediction  */
+    await guard(() => api.predict(session.session_id));     /*trigger the prediction  take the values from front end */
     transitionTo("complete");
   }
 

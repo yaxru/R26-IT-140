@@ -57,7 +57,7 @@ export default function PrecisionInflatorGame({
       touchSamples.current,
     );
     const arr = measured.length ? measured : interactionSamples.current;
-    const avg = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;/*avg pressure cal */
+    const avg = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;/*avg pressure cal for each trial*/
     const peak = arr.length ? Math.max(...arr) : 0;
     const jitter = arr.length > 1
       ? arr.reduce((a, b) => a + (b - avg) ** 2, 0) / arr.length
@@ -75,7 +75,7 @@ export default function PrecisionInflatorGame({
     setTrials(next);
 
     if (trialIndex + 1 >= TOTAL_TRIALS) {       /*check trial count */
-      onComplete(next);
+      onComplete(next);                           /*oncomplete sent to parent stresasesmnt*/ 
     } else {
       setPressure(0);
       setIsHolding(false);
